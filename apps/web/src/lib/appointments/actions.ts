@@ -123,6 +123,46 @@ export async function createBooking(fd: FormData): Promise<void> {
   redirect(`/appointments?date=${dateStr}`);
 }
 
+// --- Walk-in: register patient (if new) + same-day arrived booking ---
+export async function walkInRegister(fd: FormData): Promise<void> {
+  const user = await requireCan("appointments", "create");
+  const doctorId = str(fd, "doctorId");
+  const departmentId = str(fd, "departmentId");
+  if (!doctorId || !departmentId) throw new Error("Doctor and department are required");
+
+  let patientMrd = str(fd, "patientMrd");
+  if (!patientMrd) {
+    const name = str(fd, "name");
+    if (!name) throw new Error("Patient name (or existing MRD) is required");
+    patientMrd = `MRD-${Date.now().toString().slice(-8)}`;
+    await prisma.patient.create({ data: { mrd: patientMrd, name, phone: str(fd, "phone"), place: str(fd, "place") } });
+    await writeAudit({ actorId: user.id, action: "patient.create", entity: "patient", entityId: patientMrd, after: { name, walkIn: true } });
+  }
+
+  const today = new Date(new Date().toISOString().slice(0, 10));
+  const count = await prisma.opBooking.count();
+  const bookingRef = `OP-${today.getUTCFullYear()}-${String(count + 1).padStart(6, "0")}`;
+  const created = await prisma.opBooking.create({
+    data: {
+      bookingRef,
+      patientMrd,
+      doctorId,
+      departmentId,
+      branchId: str(fd, "branchId"),
+      appointmentDate: today,
+      startTime: str(fd, "startTime") ?? new Date().toTimeString().slice(0, 5),
+      source: "front_desk",
+      status: "arrived",
+      checkedInAt: new Date(),
+      bookedBy: user.id,
+    },
+  });
+  await writeAudit({ actorId: user.id, action: "booking.walkin", entity: "op_booking", entityId: created.id, after: { bookingRef } });
+  revalidatePath("/appointments");
+  revalidatePath("/queue");
+  redirect(`/queue`);
+}
+
 // --- Reschedule: new booking supersedes the old one ---
 export async function rescheduleBooking(oldId: string, fd: FormData): Promise<void> {
   const user = await requireCan("appointments", "edit");

@@ -36,26 +36,48 @@ async function handle(req: NextRequest) {
     take: 1000,
   });
 
+  async function dispatch(patientMrd: string, to: string, template: string, body: string) {
+    const res = await sendMessage({ channel: "whatsapp", to, template });
+    await prisma.communicationLog.create({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: { patientMrd, channel: "whatsapp", toAddress: to, body, status: res.status as any, sentAt: new Date() },
+    });
+  }
+
   let remindersSent = 0;
   for (const f of due) {
     const to = f.patient.consentWhatsapp ? (f.patient.whatsapp ?? f.patient.phone) : null;
     if (!to) continue;
-    const res = await sendMessage({ channel: "whatsapp", to, template: "follow_up_reminder" });
-    await prisma.communicationLog.create({
-      data: {
-        patientMrd: f.patientMrd,
-        channel: "whatsapp",
-        toAddress: to,
-        body: "Follow-up reminder",
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        status: res.status as any,
-        sentAt: new Date(),
-      },
-    });
+    await dispatch(f.patientMrd, to, "follow_up_reminder", "Follow-up reminder");
     remindersSent++;
   }
 
-  return NextResponse.json({ ok: true, retention, remindersSent, ranAt: new Date().toISOString() });
+  // Engagement messages (master doc §M11): birthday wishes + annual-checkup reminders.
+  const consented = await prisma.patient.findMany({
+    where: { consentWhatsapp: true, OR: [{ whatsapp: { not: null } }, { phone: { not: null } }] },
+    take: 5000,
+  });
+  const mmdd = (d: Date) => `${d.getUTCMonth()}-${d.getUTCDate()}`;
+  const todayMmdd = mmdd(today);
+  const annualLo = new Date(today.getTime() - 370 * 86400000);
+  const annualHi = new Date(today.getTime() - 360 * 86400000);
+
+  let birthdaysSent = 0;
+  let annualReminders = 0;
+  for (const p of consented) {
+    const to = p.whatsapp ?? p.phone;
+    if (!to) continue;
+    if (p.dateOfBirth && mmdd(p.dateOfBirth) === todayMmdd) {
+      await dispatch(p.mrd, to, "birthday_wishes", "Happy birthday from Sreedhareeyam!");
+      birthdaysSent++;
+    }
+    if (p.lastVisitDate && p.lastVisitDate >= annualLo && p.lastVisitDate <= annualHi) {
+      await dispatch(p.mrd, to, "annual_checkup", "It's been about a year — time for your annual checkup.");
+      annualReminders++;
+    }
+  }
+
+  return NextResponse.json({ ok: true, retention, remindersSent, birthdaysSent, annualReminders, ranAt: new Date().toISOString() });
 }
 
 // Vercel Cron invokes via GET; manual/CI triggers may use POST.

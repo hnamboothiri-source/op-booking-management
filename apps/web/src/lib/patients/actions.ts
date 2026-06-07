@@ -68,3 +68,20 @@ export async function createPatient(fd: FormData): Promise<void> {
   revalidatePath("/patients");
   redirect(`/patients/${encodeURIComponent(mrd)}`);
 }
+
+export async function addPatientDocument(patientMrd: string, fd: FormData): Promise<void> {
+  const user = await requireCan("patients", "edit");
+  const label = fd.get("label")?.toString().trim();
+  const url = fd.get("url")?.toString().trim();
+  if (!label || !url) throw new Error("Label and URL are required");
+  const created = await prisma.patientDocument.create({ data: { patientMrd, label, url } });
+  await writeAudit({ actorId: user.id, action: "patient.document.add", entity: "patient_document", entityId: created.id, after: { label } });
+  revalidatePath(`/patients/${encodeURIComponent(patientMrd)}`);
+}
+
+export async function deletePatientDocument(id: string, patientMrd: string): Promise<void> {
+  const user = await requireCan("patients", "edit");
+  await prisma.patientDocument.delete({ where: { id } });
+  await writeAudit({ actorId: user.id, action: "patient.document.delete", entity: "patient_document", entityId: id });
+  revalidatePath(`/patients/${encodeURIComponent(patientMrd)}`);
+}

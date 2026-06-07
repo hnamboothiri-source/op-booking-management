@@ -4,6 +4,7 @@ import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { can } from "@prm/core";
 import { setConsent } from "@/lib/communication/actions";
+import { addPatientDocument, deletePatientDocument } from "@/lib/patients/actions";
 import { PageHeader, Badge, Card, LinkButton, SubmitButton } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,7 @@ export default async function PatientDetail({ params }: { params: Promise<{ mrd:
       admissionRecs: { include: { package: true }, orderBy: { createdAt: "desc" }, take: 10 },
       referralsGiven: { orderBy: { createdAt: "desc" }, take: 10 },
       referralsGot: { orderBy: { createdAt: "desc" }, take: 10 },
+      documents: { orderBy: { uploadedAt: "desc" } },
     },
   });
   if (!patient) notFound();
@@ -107,6 +109,22 @@ export default async function PatientDetail({ params }: { params: Promise<{ mrd:
       <Section title={`Communication (${patient.communications.length})`}>
         {patient.communications.length === 0 ? <p className="text-sm text-slate-400">None.</p> : patient.communications.map((c) => (
           <div key={c.id} className="rounded border border-slate-100 bg-white px-3 py-2 text-sm">{c.channel} → {c.toAddress} · {c.status}</div>
+        ))}
+      </Section>
+
+      <Section title={`Documents & reports (${patient.documents.length})`}>
+        {can(user.role, "patients", "edit") && (
+          <form action={addPatientDocument.bind(null, patient.mrd)} className="mb-2 flex flex-wrap items-end gap-2">
+            <input name="label" placeholder="Label (e.g. Scan report)" className="rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
+            <input name="url" placeholder="https://…" className="w-72 rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
+            <SubmitButton>Add document</SubmitButton>
+          </form>
+        )}
+        {patient.documents.length === 0 ? <p className="text-sm text-slate-400">None.</p> : patient.documents.map((d) => (
+          <div key={d.id} className="flex items-center justify-between rounded border border-slate-100 bg-white px-3 py-2 text-sm">
+            <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-emerald-700 hover:underline">{d.label}</a>
+            {can(user.role, "patients", "edit") && <form action={deletePatientDocument.bind(null, d.id, patient.mrd)}><button className="text-xs text-red-500 hover:underline">remove</button></form>}
+          </div>
         ))}
       </Section>
     </div>

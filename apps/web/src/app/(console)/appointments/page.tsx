@@ -29,7 +29,7 @@ export default async function Appointments({ searchParams }: { searchParams: Pro
       <PageHeader
         title="Appointments"
         subtitle={`${bookings.length} on ${day}`}
-        action={<div className="flex gap-2"><LinkButton href="/appointments/schedules" tone="ghost">Schedules</LinkButton><LinkButton href="/appointments/book">+ Book</LinkButton></div>}
+        action={<div className="flex gap-2"><LinkButton href="/appointments/schedules" tone="ghost">Schedules</LinkButton><LinkButton href="/appointments/walk-in" tone="ghost">Walk-in</LinkButton><LinkButton href="/appointments/book">+ Book</LinkButton></div>}
       />
       <form className="mb-4 flex items-center gap-2 text-sm" action="/appointments">
         <label className="text-slate-500">Date</label>
