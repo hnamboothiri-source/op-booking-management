@@ -13,6 +13,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const leads = await prisma.lead.findMany({
     where: {
       ...branchScopeWhere(user.role, user.branchId),
+      mergedIntoId: null, // hide leads merged into another
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ...(stage ? { stage: stage as any } : {}),
     },

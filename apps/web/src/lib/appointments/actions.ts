@@ -123,6 +123,56 @@ export async function createBooking(fd: FormData): Promise<void> {
   redirect(`/appointments?date=${dateStr}`);
 }
 
+// --- Reschedule: new booking supersedes the old one ---
+export async function rescheduleBooking(oldId: string, fd: FormData): Promise<void> {
+  const user = await requireCan("appointments", "edit");
+  const old = await prisma.opBooking.findUnique({ where: { id: oldId } });
+  if (!old) throw new Error("Original booking not found");
+
+  const doctorId = str(fd, "doctorId");
+  const departmentId = str(fd, "departmentId");
+  const dateStr = str(fd, "appointmentDate");
+  const startTime = str(fd, "startTime");
+  if (!doctorId || !departmentId || !dateStr || !startTime) throw new Error("Doctor, department, date and time are required");
+  const timeSlotId = str(fd, "timeSlotId");
+
+  const count = await prisma.opBooking.count();
+  const bookingRef = `OP-${new Date(dateStr).getUTCFullYear()}-${String(count + 1).padStart(6, "0")}`;
+
+  await prisma.$transaction(async (tx) => {
+    const fresh = await tx.opBooking.create({
+      data: {
+        bookingRef,
+        patientMrd: old.patientMrd,
+        doctorId,
+        departmentId,
+        branchId: str(fd, "branchId") ?? old.branchId,
+        timeSlotId,
+        appointmentDate: new Date(dateStr),
+        startTime,
+        endTime: str(fd, "endTime"),
+        source: old.source,
+        bookedBy: user.id,
+        rescheduledFromId: oldId,
+      },
+    });
+    if (timeSlotId) {
+      const slot = await tx.timeSlot.update({ where: { id: timeSlotId }, data: { bookedCount: { increment: 1 } } });
+      if (slot.bookedCount >= slot.capacity) await tx.timeSlot.update({ where: { id: timeSlotId }, data: { status: "full" } });
+    }
+    // Supersede the old booking and free its slot.
+    await tx.opBooking.update({ where: { id: oldId }, data: { status: "rescheduled" } });
+    if (old.timeSlotId) {
+      const s = await tx.timeSlot.update({ where: { id: old.timeSlotId }, data: { bookedCount: { decrement: 1 } } });
+      if (s.bookedCount < s.capacity && s.status === "full") await tx.timeSlot.update({ where: { id: old.timeSlotId }, data: { status: "open" } });
+    }
+    return fresh;
+  });
+  await writeAudit({ actorId: user.id, action: "booking.reschedule", entity: "op_booking", entityId: oldId, after: { bookingRef } });
+  revalidatePath("/appointments");
+  redirect(`/appointments?date=${dateStr}`);
+}
+
 // --- Lifecycle transitions ---
 export async function transitionBooking(id: string, to: BookingStatus): Promise<void> {
   const user = await requireCan("appointments", "edit");

@@ -10,6 +10,7 @@ const NAV: { href: string; label: string; resource: Resource }[] = [
   { href: "/call-center", label: "Call Center", resource: "calls" },
   { href: "/prioritize", label: "Prioritize", resource: "calls" },
   { href: "/appointments", label: "Appointments", resource: "appointments" },
+  { href: "/waitlist", label: "Waitlist", resource: "appointments" },
   { href: "/queue", label: "Queue", resource: "consultations" },
   { href: "/admissions", label: "Admissions", resource: "admissions" },
   { href: "/patients", label: "Patients", resource: "patients" },

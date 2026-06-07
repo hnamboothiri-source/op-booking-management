@@ -63,6 +63,9 @@ export default async function Appointments({ searchParams }: { searchParams: Pro
                       {["arrived", "waiting", "in_consultation"].includes(b.status) && (
                         <Link href={`/consultations/${b.id}`} className="rounded bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-emerald-700">Consult</Link>
                       )}
+                      {["booked", "confirmed"].includes(b.status) && (
+                        <Link href={`/appointments/book?rescheduleFrom=${b.id}`} className="rounded border border-slate-300 px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-50">Reschedule</Link>
+                      )}
                       {nextBookingStatuses(b.status as BookingStatus).map((s) => (
                         <form key={s} action={transitionBooking.bind(null, b.id, s)}>
                           <button className="rounded border border-slate-300 px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-50">{s.replace(/_/g, " ")}</button>

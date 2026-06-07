@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { updateLeadStage, logCall } from "@/lib/leads/actions";
+import { updateLeadStage, logCall, transferLead, mergeLead } from "@/lib/leads/actions";
 import { LEAD_STAGES, isClosedStage, can } from "@prm/core";
 import { PageHeader, Badge, Card, SubmitButton, LinkButton } from "@/components/ui";
 
@@ -18,10 +18,13 @@ const input = "mt-1 w-full rounded-md border border-slate-300 px-3 py-1.5 text-s
 export default async function LeadDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireCan("leads", "view");
-  const lead = await prisma.lead.findUnique({
-    where: { id },
-    include: { source: true, campaign: true, disease: true, branch: true, owner: true, calls: { orderBy: { createdAt: "desc" } } },
-  });
+  const [lead, staff] = await Promise.all([
+    prisma.lead.findUnique({
+      where: { id },
+      include: { source: true, campaign: true, disease: true, branch: true, owner: true, calls: { orderBy: { createdAt: "desc" } } },
+    }),
+    prisma.staffUser.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+  ]);
   if (!lead) notFound();
 
   const canEdit = can(user.role, "leads", "edit");
@@ -72,6 +75,29 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
           </Card>
         )}
       </div>
+
+      {canEdit && (
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          <Card>
+            <h2 className="mb-3 font-semibold">Transfer owner</h2>
+            <form action={transferLead.bind(null, id)} className="flex items-center gap-2">
+              <select name="ownerId" defaultValue={lead.ownerId ?? ""} className={input}>
+                <option value="">Unassigned</option>
+                {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <SubmitButton>Transfer</SubmitButton>
+            </form>
+          </Card>
+          <Card>
+            <h2 className="mb-3 font-semibold">Merge duplicate</h2>
+            <form action={mergeLead.bind(null, id)} className="flex items-center gap-2">
+              <input name="targetId" placeholder="Surviving lead ID" className={input} />
+              <SubmitButton tone="ghost">Merge into</SubmitButton>
+            </form>
+            <p className="mt-2 text-xs text-slate-400">This lead&apos;s calls move to the target; this one is hidden as merged.</p>
+          </Card>
+        </div>
+      )}
 
       <div className="mt-6">
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Call history ({lead.calls.length})</h2>
