@@ -8,9 +8,11 @@ This repo began as an OP (outpatient) booking system and is being grown into a f
 
 ## Documentation
 
+- **[Project status & build doc](docs/STATUS.md)** — what's built, architecture, routes, commit history, how to run
 - **[Functional spec](docs/MODULES.md)** — all 16 modules, statuses, reports, masters, integrations, automation, scoring, roles
 - **[Data model notes](docs/DATA.md)** — OP scheduling core (prose) + HIS boundary
-- **[Prisma schema](packages/db/prisma/schema.prisma)** — canonical, machine-validated data model (~40 entities)
+- **[Prisma schema](packages/db/prisma/schema.prisma)** — canonical data model (49 models)
+- **[Deployment guide](docs/DEPLOY.md)** — Supabase + Vercel steps
 - **[Sample data](docs/sample-data.json)** — representative seed records
 
 ## Tech stack
