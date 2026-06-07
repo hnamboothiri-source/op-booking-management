@@ -1,0 +1,25 @@
+{
+  "name": "sreedhareeyam-prm",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Sreedhareeyam Patient Relationship Management platform (monorepo)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace apps/web",
+    "build": "npm run build --workspace apps/web",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "db:validate": "npm run prisma:validate --workspace packages/db",
+    "db:migrate": "npm run prisma:migrate --workspace packages/db",
+    "db:generate": "npm run prisma:generate --workspace packages/db",
+    "db:seed": "npm run seed --workspace packages/db",
+    "lint": "npm run lint --workspace apps/web",
+    "typecheck": "tsc -b --pretty"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

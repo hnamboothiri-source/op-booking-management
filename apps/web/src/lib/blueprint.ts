@@ -1,0 +1,48 @@
+/**
+ * Build blueprint shown on the home dashboard. Mirrors docs/MODULES.md so the
+ * running app always reflects the agreed scope. `phase` ties each module to the
+ * roadmap; `status` tracks delivery.
+ */
+export type BuildStatus = "done" | "in_progress" | "planned";
+
+export interface ModuleInfo {
+  id: string;
+  name: string;
+  phase: number;
+  status: BuildStatus;
+  summary: string;
+}
+
+export const MODULES: ModuleInfo[] = [
+  { id: "M1", name: "Lead Management", phase: 1, status: "planned", summary: "Capture & track all enquiries pre-registration." },
+  { id: "M2", name: "Call Center", phase: 1, status: "planned", summary: "Convert enquiries to appointments; queues & outcomes." },
+  { id: "M3", name: "Appointment Management", phase: 1, status: "in_progress", summary: "Doctor calendars, slots, waitlist, check-in (model exists)." },
+  { id: "M4", name: "Patient 360 Profile", phase: 1, status: "planned", summary: "One complete view per patient; lifetime metrics." },
+  { id: "M5", name: "Consultation Workflow", phase: 2, status: "planned", summary: "Coordination of diagnosis, advice, referrals (not EMR)." },
+  { id: "M6", name: "Referral Management", phase: 3, status: "planned", summary: "Patient & doctor referrals, conversion tracking." },
+  { id: "M7", name: "Camp Management", phase: 3, status: "planned", summary: "Outreach camps screened → converted → revenue." },
+  { id: "M8", name: "Mobile Clinic", phase: 3, status: "planned", summary: "Route-based screening & conversion." },
+  { id: "M9", name: "Follow-up Management", phase: 1, status: "planned", summary: "Auto tasks, reminders, escalation, no drop-off." },
+  { id: "M10", name: "Admission Conversion", phase: 2, status: "planned", summary: "Track advised admissions; improve conversion." },
+  { id: "M11", name: "Engagement & Communication", phase: 3, status: "planned", summary: "WhatsApp/SMS/email, templates, consent." },
+  { id: "M12", name: "Retention & Reactivation", phase: 4, status: "planned", summary: "Dormant/at-risk scoring; reactivation campaigns." },
+  { id: "M13", name: "Marketing Campaigns", phase: 4, status: "planned", summary: "Campaign ROI: cost per lead/consultation/admission." },
+  { id: "M14", name: "Corporate & Institutional", phase: 3, status: "planned", summary: "Organizations that generate patients." },
+  { id: "M15", name: "Task & Workflow", phase: 0, status: "planned", summary: "Cross-cutting accountability engine." },
+  { id: "M16", name: "Roles & Access Control", phase: 0, status: "planned", summary: "15 roles, branch-scoped RBAC." },
+];
+
+export interface PhaseInfo {
+  n: number;
+  name: string;
+  duration: string;
+}
+
+export const PHASES: PhaseInfo[] = [
+  { n: 0, name: "Foundation", duration: "~2–3 wk" },
+  { n: 1, name: "MVP", duration: "8–10 wk" },
+  { n: 2, name: "Consultation & Referral", duration: "8–10 wk" },
+  { n: 3, name: "PRM Expansion", duration: "8–12 wk" },
+  { n: 4, name: "Analytics & Dashboards", duration: "6–8 wk" },
+  { n: 5, name: "Advanced (AI, mobile, HMS)", duration: "8–12 wk" },
+];

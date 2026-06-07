@@ -2,19 +2,21 @@
   "name": "@prm/db",
   "version": "0.0.0",
   "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "scripts": {
-    "prisma:validate": "prisma validate",
+    "prisma:validate": "dotenv -e ../../.env -- prisma validate",
     "prisma:format": "prisma format",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "seed": "tsx prisma/seed.ts"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "prisma:generate": "dotenv -e ../../.env -- prisma generate",
+    "prisma:migrate": "dotenv -e ../../.env -- prisma migrate dev",
+    "prisma:studio": "dotenv -e ../../.env -- prisma studio",
+    "seed": "dotenv -e ../../.env -- tsx prisma/seed.ts"
   },
   "devDependencies": {
+    "dotenv-cli": "^7.4.4",
     "prisma": "^6.1.0",
-    "tsx": "^4.19.2"
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
   },
   "dependencies": {
     "@prisma/client": "^6.1.0"
