@@ -96,6 +96,9 @@ analytics), patient **documents**, **birthday / annual-checkup** automation, pre
 - `GET|POST /api/cron/daily` — retention recompute + reminder/birthday/annual dispatch
   (secured by `CRON_SECRET`; scheduled in `vercel.json` at 02:00).
 - `GET /api/analytics/kpis` — KPI rollups as JSON for Power BI / Metabase (secured by `BI_TOKEN`).
+- `POST /api/calls/ivr` — IVR/telephony webhook: logs a call (matched to lead/patient by phone),
+  stores recording, fires missed-call → callback-task automation (secured by `IVR_SECRET`).
+- `GET /api/reports/export?type=…` — CSV export of report tables (auth + reports-view gated).
 
 ---
 
