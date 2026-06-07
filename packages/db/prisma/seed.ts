@@ -114,6 +114,22 @@ async function main() {
     await prisma.admissionPackageMaster.upsert({ where: { name }, update: {}, create: { name, estimatedCost } });
   }
 
+  // --- Communication templates (Module 11) ---
+  const templates: [string, "whatsapp" | "sms" | "email", string][] = [
+    ["Appointment confirmation", "whatsapp", "Your appointment is confirmed. See you soon at Sreedhareeyam."],
+    ["Appointment reminder", "whatsapp", "Reminder: your appointment is tomorrow."],
+    ["Follow-up reminder", "sms", "It's time for your follow-up visit. Please call us to book."],
+    ["Health awareness", "whatsapp", "Protect your eyes this season — tips from Sreedhareeyam."],
+  ];
+  for (const [name, channel, body] of templates) {
+    const exists = await prisma.communicationTemplate.findFirst({ where: { name } });
+    if (!exists) await prisma.communicationTemplate.create({ data: { name, channel, body } });
+  }
+
+  // --- A sample organization (Module 14) ---
+  const orgExists = await prisma.organization.findFirst({ where: { name: "St. Mary's School" } });
+  if (!orgExists) await prisma.organization.create({ data: { name: "St. Mary's School", type: "school" } });
+
   // --- Staff users (one per representative role) ---
   const staff: [string, string, Role][] = [
     ["Admin User", "admin@sreedhareeyam.test", Role.administrator],

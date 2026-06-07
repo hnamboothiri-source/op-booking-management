@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { PageHeader, Badge, Card, LinkButton } from "@/components/ui";
+import { can } from "@prm/core";
+import { setConsent } from "@/lib/communication/actions";
+import { PageHeader, Badge, Card, LinkButton, SubmitButton } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +19,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default async function PatientDetail({ params }: { params: Promise<{ mrd: string }> }) {
   const { mrd } = await params;
-  await requireCan("patients", "view");
+  const user = await requireCan("patients", "view");
   const patient = await prisma.patient.findUnique({
     where: { mrd: decodeURIComponent(mrd) },
     include: {
@@ -25,6 +27,9 @@ export default async function PatientDetail({ params }: { params: Promise<{ mrd:
       leads: { orderBy: { createdAt: "desc" }, take: 10 },
       followUps: { orderBy: { dueDate: "desc" }, take: 10 },
       communications: { orderBy: { createdAt: "desc" }, take: 10 },
+      admissionRecs: { include: { package: true }, orderBy: { createdAt: "desc" }, take: 10 },
+      referralsGiven: { orderBy: { createdAt: "desc" }, take: 10 },
+      referralsGot: { orderBy: { createdAt: "desc" }, take: 10 },
     },
   });
   if (!patient) notFound();
@@ -44,6 +49,17 @@ export default async function PatientDetail({ params }: { params: Promise<{ mrd:
         <Card><div className="text-xs text-slate-500">Lifetime visits</div><div className="font-medium">{patient.lifetimeVisits}</div></Card>
         <Card><div className="text-xs text-slate-500">Lifetime revenue</div><div className="font-medium">₹{(patient.lifetimeRevenue / 100).toLocaleString("en-IN")}</div></Card>
       </div>
+
+      {can(user.role, "patients", "edit") && (
+        <Section title="Communication consent">
+          <form action={setConsent.bind(null, patient.mrd)} className="flex flex-wrap items-center gap-4 rounded border border-slate-100 bg-white px-3 py-2 text-sm">
+            <label className="flex items-center gap-2"><input type="checkbox" name="consentWhatsapp" defaultChecked={patient.consentWhatsapp} className="h-4 w-4" /> WhatsApp</label>
+            <label className="flex items-center gap-2"><input type="checkbox" name="consentSms" defaultChecked={patient.consentSms} className="h-4 w-4" /> SMS</label>
+            <label className="flex items-center gap-2"><input type="checkbox" name="consentEmail" defaultChecked={patient.consentEmail} className="h-4 w-4" /> Email</label>
+            <SubmitButton>Save consent</SubmitButton>
+          </form>
+        </Section>
+      )}
 
       <Section title={`Appointments (${patient.bookings.length})`}>
         <div className="space-y-1">
@@ -69,6 +85,23 @@ export default async function PatientDetail({ params }: { params: Promise<{ mrd:
             <span>{f.type.replace(/_/g, " ")} · due {f.dueDate.toISOString().slice(0, 10)}</span><Badge>{f.status}</Badge>
           </div>
         ))}
+      </Section>
+
+      <Section title={`Admission recommendations (${patient.admissionRecs.length})`}>
+        {patient.admissionRecs.length === 0 ? <p className="text-sm text-slate-400">None.</p> : patient.admissionRecs.map((a) => (
+          <div key={a.id} className="flex items-center justify-between rounded border border-slate-100 bg-white px-3 py-2 text-sm">
+            <span>{a.package?.name ?? "Admission"}{a.estimatedCost ? ` · ₹${(a.estimatedCost / 100).toLocaleString("en-IN")}` : ""}</span><Badge tone={a.status === "admitted" ? "green" : a.status === "rejected" || a.status === "lost" ? "red" : "blue"}>{a.status}</Badge>
+          </div>
+        ))}
+      </Section>
+
+      <Section title={`Referrals (given ${patient.referralsGiven.length} · received ${patient.referralsGot.length})`}>
+        {patient.referralsGiven.length === 0 && patient.referralsGot.length === 0 ? <p className="text-sm text-slate-400">None.</p> : (
+          <>
+            {patient.referralsGiven.map((r) => <div key={r.id} className="rounded border border-slate-100 bg-white px-3 py-2 text-sm">Gave a {r.type.replace(/_/g, " ")} referral · {r.status}</div>)}
+            {patient.referralsGot.map((r) => <div key={r.id} className="rounded border border-slate-100 bg-white px-3 py-2 text-sm">Was referred ({r.type.replace(/_/g, " ")}) · {r.status}</div>)}
+          </>
+        )}
       </Section>
 
       <Section title={`Communication (${patient.communications.length})`}>
