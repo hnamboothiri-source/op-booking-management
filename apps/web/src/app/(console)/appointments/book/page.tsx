@@ -12,10 +12,11 @@ export default async function BookPage({ searchParams }: { searchParams: Promise
   await requireCan("appointments", "create");
   const { slotId, mrd, leadId, rescheduleFrom } = await searchParams;
 
-  const [doctors, departments, branches, slot, lead, oldBooking] = await Promise.all([
+  const [doctors, departments, branches, rooms, slot, lead, oldBooking] = await Promise.all([
     prisma.doctor.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.department.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.branch.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    prisma.consultationRoom.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     slotId ? prisma.timeSlot.findUnique({ where: { id: slotId }, include: { doctor: true, department: true } }) : null,
     leadId ? prisma.lead.findUnique({ where: { id: leadId } }) : null,
     rescheduleFrom ? prisma.opBooking.findUnique({ where: { id: rescheduleFrom }, include: { patient: true } }) : null,
@@ -70,6 +71,10 @@ export default async function BookPage({ searchParams }: { searchParams: Promise
             <label className="text-sm font-medium text-slate-700">Start time *<input type="time" name="startTime" required className={input} /></label>
           </>
         )}
+
+        <label className="text-sm font-medium text-slate-700">Room
+          <select name="roomId" className={input}><option value="">— unassigned —</option>{rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select>
+        </label>
 
         <label className="text-sm font-medium text-slate-700">Source
           <select name="source" className={input} defaultValue="call_centre">

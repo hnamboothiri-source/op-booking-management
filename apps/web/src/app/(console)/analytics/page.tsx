@@ -28,13 +28,17 @@ export default async function Analytics() {
     return { name: b.name, leads, appointments, consultations, conv: conversionRate(consultations, leads) };
   }));
 
+  const today = new Date(new Date().toISOString().slice(0, 10));
   const doctorRows = await Promise.all(doctors.map(async (d) => {
-    const [consultations, admissionsRec, noShows] = await Promise.all([
+    const [consultations, admissionsRec, noShows, completedToday] = await Promise.all([
       prisma.consultation.count({ where: { doctorId: d.id } }),
       prisma.admissionRecommendation.count({ where: { doctorId: d.id } }),
       prisma.opBooking.count({ where: { doctorId: d.id, status: "no_show" } }),
+      prisma.opBooking.count({ where: { doctorId: d.id, appointmentDate: today, status: "completed" } }),
     ]);
-    return { name: d.name, consultations, admissionsRec, noShows };
+    const target = d.dailyTarget ?? null;
+    const targetCell = target === null ? "—" : `${completedToday}/${target}${completedToday >= target ? " ✓" : ""}`;
+    return { name: d.name, consultations, admissionsRec, noShows, targetCell };
   }));
 
   const campaignRows = (await Promise.all(campaigns.map(async (c) => ({ name: c.name, k: await computeCampaignKpis(c.id, c.budget) }))))
@@ -59,7 +63,7 @@ export default async function Analytics() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel title="Branch performance" head={["Branch", "Leads", "Appts", "Consults", "Conv"]} rows={branchRows.map((r) => [r.name, r.leads, r.appointments, r.consultations, `${r.conv}%`])} />
-        <Panel title="Doctor performance" head={["Doctor", "Consults", "Adm. rec", "No-shows"]} rows={doctorRows.map((r) => [r.name, r.consultations, r.admissionsRec, r.noShows])} />
+        <Panel title="Doctor performance (Today vs target)" head={["Doctor", "Today/target", "Consults", "Adm. rec", "No-shows"]} rows={doctorRows.map((r) => [r.name, r.targetCell, r.consultations, r.admissionsRec, r.noShows])} />
       </div>
 
       <h2 className="mb-2 mt-6 text-sm font-semibold uppercase tracking-wide text-slate-500">Campaign ROI</h2>

@@ -40,14 +40,20 @@ async function main() {
   }
   const ophth = await prisma.department.findUniqueOrThrow({ where: { name: "Ophthalmology" } });
 
-  // --- Doctors (consultant roster) ---
-  const docs: [string, string, string][] = [
-    ["Dr. Menon", "Senior Consultant", "KMC-1001"],
-    ["Dr. Pillai", "Consultant", "KMC-1002"],
-    ["Dr. Thomas", "Medical Officer", "KMC-1003"],
+  // --- Doctors (consultant roster) with daily patient targets ---
+  const docs: [string, string, string, number][] = [
+    ["Dr. Menon", "Senior Consultant", "KMC-1001", 20],
+    ["Dr. Pillai", "Consultant", "KMC-1002", 15],
+    ["Dr. Thomas", "Medical Officer", "KMC-1003", 25],
   ];
-  for (const [name, designation, registrationNo] of docs) {
-    await prisma.doctor.upsert({ where: { registrationNo }, update: {}, create: { name, designation, registrationNo } });
+  for (const [name, designation, registrationNo, dailyTarget] of docs) {
+    await prisma.doctor.upsert({ where: { registrationNo }, update: { dailyTarget }, create: { name, designation, registrationNo, dailyTarget } });
+  }
+
+  // --- Consultation rooms (Module 3 room allocation) ---
+  for (const name of ["Room 1", "Room 2", "Room 3"]) {
+    const exists = await prisma.consultationRoom.findFirst({ where: { name } });
+    if (!exists) await prisma.consultationRoom.create({ data: { name, departmentId: ophth.id, branchId: main.id } });
   }
 
   // --- Lead sources (acquisition channels) ---

@@ -71,8 +71,9 @@ KPI rollups, predictive prioritization (`/prioritize`).
 
 **Extra features beyond the base spec:** lead transfer & merge, appointment **waitlist**
 (priority→FIFO promote), appointment **reschedule** (supersede chain), **walk-in** quick
-register, patient **documents**, **birthday / annual-checkup** automation, predictive
-**lead-propensity** scoring, daily **cron**, and a **BI KPI** feed.
+register, **room allocation** on bookings, **doctor daily-targets** (today-vs-target on
+analytics), patient **documents**, **birthday / annual-checkup** automation, predictive
+**lead-propensity** scoring, daily **cron**, **CSV export** on reports, and a **BI KPI** feed.
 
 ---
 
@@ -209,5 +210,5 @@ npm test --workspace packages/core   # 47 domain-logic tests
   WhatsApp/SMS/email credentials; rotate/remove demo accounts.
 - **Phase 5 extras:** Flutter patient mobile app; HMS/EMR & payment-gateway integration;
   Power BI dashboards on the KPI feed; ML model behind the scoring interfaces.
-- **Possible next features:** room allocation on bookings, doctor patient-targets,
-  template-driven message composer, CSV/PDF export on reports (all small additions).
+- **Possible next features:** template-driven message composer, PDF export on reports,
+  IVR/call-recording integration, configurable automation-rule editor (all small additions).

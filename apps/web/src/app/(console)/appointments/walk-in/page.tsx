@@ -9,10 +9,11 @@ const input = "mt-1 w-full rounded-md border border-slate-300 px-3 py-1.5 text-s
 
 export default async function WalkInPage() {
   await requireCan("appointments", "create");
-  const [doctors, departments, branches] = await Promise.all([
+  const [doctors, departments, branches, rooms] = await Promise.all([
     prisma.doctor.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.department.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.branch.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    prisma.consultationRoom.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
 
   return (
@@ -31,6 +32,7 @@ export default async function WalkInPage() {
         <label className="text-sm font-medium text-slate-700">Doctor *<select name="doctorId" required className={input}>{doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
         <label className="text-sm font-medium text-slate-700">Department *<select name="departmentId" required className={input}>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
         <label className="text-sm font-medium text-slate-700">Branch<select name="branchId" className={input}><option value="">—</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+        <label className="text-sm font-medium text-slate-700">Room<select name="roomId" className={input}><option value="">—</option>{rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
         <label className="text-sm font-medium text-slate-700">Time<input type="time" name="startTime" className={input} /></label>
         <div className="col-span-2"><SubmitButton>Register & check in</SubmitButton></div>
       </form>

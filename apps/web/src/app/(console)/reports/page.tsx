@@ -42,9 +42,17 @@ export default async function Reports() {
   const disName = (id: string | null) => diseases.find((d) => d.id === id)?.name ?? "Unspecified";
   const sName = (id: string | null) => sources.find((s) => s.id === id)?.name?.replace(/_/g, " ") ?? "Unknown";
 
+  const csvLink = "rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50";
   return (
     <div>
       <PageHeader title="Reports" subtitle="Operational & clinical aggregations (§6)" />
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-slate-500">Export CSV:</span>
+        <a className={csvLink} href="/api/reports/export?type=leads-by-source">Leads by source</a>
+        <a className={csvLink} href="/api/reports/export?type=appointments-by-status">Appointments by status</a>
+        <a className={csvLink} href="/api/reports/export?type=consultations-by-doctor">Consultations by doctor</a>
+        <a className={csvLink} href="/api/reports/export?type=admission-funnel">Admission funnel</a>
+      </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <Table title="Consultations by doctor" rows={byDoctor.map((r) => ({ label: dName(r.doctorId), value: r._count._all }))} />
         <Table title="Consultation outcomes" rows={byOutcome.map((r) => ({ label: r.outcome.replace(/_/g, " "), value: r._count._all }))} />

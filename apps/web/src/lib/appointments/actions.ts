@@ -96,6 +96,7 @@ export async function createBooking(fd: FormData): Promise<void> {
       data: {
         bookingRef, patientMrd, doctorId, departmentId,
         branchId: str(fd, "branchId"),
+        roomId: str(fd, "roomId"),
         timeSlotId,
         appointmentDate: new Date(dateStr),
         startTime,
@@ -149,6 +150,7 @@ export async function walkInRegister(fd: FormData): Promise<void> {
       doctorId,
       departmentId,
       branchId: str(fd, "branchId"),
+      roomId: str(fd, "roomId"),
       appointmentDate: today,
       startTime: str(fd, "startTime") ?? new Date().toTimeString().slice(0, 5),
       source: "front_desk",

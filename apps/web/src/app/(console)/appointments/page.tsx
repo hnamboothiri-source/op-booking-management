@@ -20,7 +20,7 @@ export default async function Appointments({ searchParams }: { searchParams: Pro
 
   const bookings = await prisma.opBooking.findMany({
     where: { appointmentDate: new Date(day), ...branchScopeWhere(user.role, user.branchId) },
-    include: { patient: true, doctor: true, department: true },
+    include: { patient: true, doctor: true, department: true, room: true },
     orderBy: { startTime: "asc" },
   });
 
@@ -43,18 +43,19 @@ export default async function Appointments({ searchParams }: { searchParams: Pro
             <tr>
               <th className="px-4 py-2 font-medium">Time</th><th className="px-4 py-2 font-medium">Patient</th>
               <th className="px-4 py-2 font-medium">Doctor</th><th className="px-4 py-2 font-medium">Dept</th>
-              <th className="px-4 py-2 font-medium">Ref</th><th className="px-4 py-2 font-medium">Status</th>
+              <th className="px-4 py-2 font-medium">Room</th><th className="px-4 py-2 font-medium">Ref</th><th className="px-4 py-2 font-medium">Status</th>
               {canEdit && <th className="px-4 py-2"></th>}
             </tr>
           </thead>
           <tbody>
-            {bookings.length === 0 && <tr><td colSpan={canEdit ? 7 : 6} className="px-4 py-6 text-center text-slate-400">No appointments. Generate slots & book.</td></tr>}
+            {bookings.length === 0 && <tr><td colSpan={canEdit ? 8 : 7} className="px-4 py-6 text-center text-slate-400">No appointments. Generate slots & book.</td></tr>}
             {bookings.map((b) => (
               <tr key={b.id} className="border-t border-slate-100">
                 <td className="px-4 py-2 font-medium">{b.startTime}</td>
                 <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(b.patientMrd)}`} className="text-emerald-700 hover:underline">{b.patient.name}</Link></td>
                 <td className="px-4 py-2 text-slate-600">{b.doctor.name}</td>
                 <td className="px-4 py-2 text-slate-600">{b.department.name}</td>
+                <td className="px-4 py-2 text-slate-600">{b.room?.name ?? "—"}</td>
                 <td className="px-4 py-2 font-mono text-xs text-slate-400">{b.bookingRef}</td>
                 <td className="px-4 py-2"><Badge tone={TONE[b.status]}>{b.status.replace(/_/g, " ")}</Badge></td>
                 {canEdit && (

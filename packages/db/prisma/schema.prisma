@@ -350,6 +350,7 @@ model Doctor {
   name            String
   designation     String?
   registrationNo  String?  @unique @map("registration_no")
+  dailyTarget     Int?     @map("daily_target")
   active          Boolean  @default(true)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
@@ -372,6 +373,7 @@ model ConsultationRoom {
   active       Boolean  @default(true)
 
   department Department? @relation(fields: [departmentId], references: [id])
+  bookings   OpBooking[]
 
   @@map("consultation_rooms")
 }
@@ -707,6 +709,7 @@ model OpBooking {
   departmentId       String            @map("department_id")
   branchId           String?           @map("branch_id")
   timeSlotId         String?           @map("time_slot_id")
+  roomId             String?           @map("room_id")
   leadId             String?           @map("lead_id")
   appointmentDate    DateTime          @map("appointment_date") @db.Date
   startTime          String            @map("start_time")
@@ -724,12 +727,13 @@ model OpBooking {
   waitlistId         String?           @map("waitlist_id")
   rescheduledFromId  String?           @map("rescheduled_from_id")
 
-  patient      Patient        @relation(fields: [patientMrd], references: [mrd])
-  doctor       Doctor         @relation(fields: [doctorId], references: [id])
-  department   Department     @relation(fields: [departmentId], references: [id])
-  branch       Branch?        @relation(fields: [branchId], references: [id])
-  timeSlot     TimeSlot?      @relation(fields: [timeSlotId], references: [id])
-  lead         Lead?          @relation(fields: [leadId], references: [id])
+  patient      Patient           @relation(fields: [patientMrd], references: [mrd])
+  doctor       Doctor            @relation(fields: [doctorId], references: [id])
+  department   Department        @relation(fields: [departmentId], references: [id])
+  branch       Branch?           @relation(fields: [branchId], references: [id])
+  timeSlot     TimeSlot?         @relation(fields: [timeSlotId], references: [id])
+  room         ConsultationRoom? @relation(fields: [roomId], references: [id])
+  lead         Lead?             @relation(fields: [leadId], references: [id])
   rescheduledFrom OpBooking?  @relation("Reschedule", fields: [rescheduledFromId], references: [id])
   rescheduledTo   OpBooking[] @relation("Reschedule")
   consultation Consultation?
