@@ -126,10 +126,10 @@ async function main() {
 
   // --- Communication templates (Module 11) ---
   const templates: [string, "whatsapp" | "sms" | "email", string][] = [
-    ["Appointment confirmation", "whatsapp", "Your appointment is confirmed. See you soon at Sreedhareeyam."],
-    ["Appointment reminder", "whatsapp", "Reminder: your appointment is tomorrow."],
-    ["Follow-up reminder", "sms", "It's time for your follow-up visit. Please call us to book."],
-    ["Health awareness", "whatsapp", "Protect your eyes this season — tips from Sreedhareeyam."],
+    ["Appointment confirmation", "whatsapp", "Hi {{name}}, your appointment is confirmed. See you soon at Sreedhareeyam."],
+    ["Appointment reminder", "whatsapp", "Hi {{first_name}}, reminder: your appointment is tomorrow."],
+    ["Follow-up reminder", "sms", "Hi {{first_name}}, it's time for your follow-up visit. Please call us to book."],
+    ["Health awareness", "whatsapp", "Dear {{name}}, protect your eyes this season — tips from Sreedhareeyam."],
   ];
   for (const [name, channel, body] of templates) {
     const exists = await prisma.communicationTemplate.findFirst({ where: { name } });

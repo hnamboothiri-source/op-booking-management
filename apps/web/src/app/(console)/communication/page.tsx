@@ -1,6 +1,7 @@
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { sendOne, sendBulk } from "@/lib/communication/actions";
+import { sendBulk } from "@/lib/communication/actions";
+import MessageComposer from "@/components/MessageComposer";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -22,15 +23,7 @@ export default async function Communication() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <h2 className="mb-3 font-semibold">Send to a patient</h2>
-          <form action={sendOne} className="space-y-3">
-            <input name="patientMrd" placeholder="Patient MRD" className={input} />
-            <div className="grid grid-cols-2 gap-2">
-              <select name="channel" className={input}>{CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}</select>
-              <select name="templateId" className={input}><option value="">— template —</option>{templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
-            </div>
-            <textarea name="body" rows={2} placeholder="Custom message (optional; overrides template)" className={input} />
-            <SubmitButton>Send</SubmitButton>
-          </form>
+          <MessageComposer templates={templates.map((t) => ({ id: t.id, name: t.name, channel: t.channel, body: t.body }))} />
         </Card>
 
         <Card>

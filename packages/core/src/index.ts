@@ -8,3 +8,4 @@ export * from "./admission";
 export * from "./campaign";
 export * from "./prioritization";
 export * from "./waitlist";
+export * from "./template";

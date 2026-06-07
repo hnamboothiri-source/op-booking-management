@@ -2,9 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { sendMessage, type Channel } from "@prm/integrations";
+import { renderTemplate } from "@prm/core";
 import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
+
+/** Placeholder values available to templates, derived from a patient. */
+function patientVars(p: { name: string; place: string | null; phone: string | null }): Record<string, string> {
+  return { name: p.name, first_name: p.name.split(" ")[0], place: p.place ?? "", phone: p.phone ?? "" };
+}
 
 const str = (fd: FormData, k: string) => {
   const v = fd.get(k)?.toString().trim();
@@ -52,14 +58,18 @@ export async function sendOne(fd: FormData): Promise<void> {
 
   const template = templateId ? await prisma.communicationTemplate.findUnique({ where: { id: templateId } }) : null;
   let to = str(fd, "to");
+  let vars: Record<string, string> = {};
   if (patientMrd) {
     const p = await prisma.patient.findUnique({ where: { mrd: patientMrd } });
     if (!p) throw new Error("Patient not found");
     to = addressFor(channel, p);
+    vars = patientVars(p);
   }
   if (!to) throw new Error("No address for this channel");
 
-  await deliver(channel, to, template?.name ?? "adhoc", body ?? template?.body ?? null, patientMrd, templateId);
+  const raw = body ?? template?.body ?? null;
+  const resolved = raw ? renderTemplate(raw, vars) : null;
+  await deliver(channel, to, template?.name ?? "adhoc", resolved, patientMrd, templateId);
   await writeAudit({ actorId: user.id, action: "comm.send", entity: "communication_log", after: { channel, to } });
   revalidatePath("/communication");
 }
@@ -82,7 +92,8 @@ export async function sendBulk(fd: FormData): Promise<void> {
     if (!consentOk(channel, p)) continue;
     const to = addressFor(channel, p);
     if (!to) continue;
-    await deliver(channel, to, template?.name ?? "campaign", template?.body ?? null, p.mrd, templateId);
+    const resolved = template?.body ? renderTemplate(template.body, patientVars(p)) : null;
+    await deliver(channel, to, template?.name ?? "campaign", resolved, p.mrd, templateId);
     sent++;
   }
   await writeAudit({ actorId: user.id, action: "comm.bulk", entity: "communication_log", after: { channel, category, sent } });
