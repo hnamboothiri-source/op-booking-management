@@ -3,12 +3,17 @@ import { requireUser } from "@/lib/session";
 import { logout } from "@/lib/auth-actions";
 import { can, type Resource } from "@prm/core";
 
-// Nav items that have an implemented route in Phase 0.
+// Nav items with an implemented route, shown when the role can view the resource.
 const NAV: { href: string; label: string; resource: Resource }[] = [
   { href: "/", label: "Dashboard", resource: "dashboards" },
+  { href: "/leads", label: "Leads", resource: "leads" },
+  { href: "/call-center", label: "Call Center", resource: "calls" },
+  { href: "/appointments", label: "Appointments", resource: "appointments" },
+  { href: "/patients", label: "Patients", resource: "patients" },
+  { href: "/follow-ups", label: "Follow-ups", resource: "follow_ups" },
   { href: "/tasks", label: "Tasks", resource: "tasks" },
-  { href: "/masters", label: "Master Data", resource: "masters" },
-  { href: "/audit", label: "Audit Log", resource: "audit" },
+  { href: "/masters", label: "Masters", resource: "masters" },
+  { href: "/audit", label: "Audit", resource: "audit" },
 ];
 
 export default async function ConsoleLayout({ children }: { children: React.ReactNode }) {

@@ -14,10 +14,10 @@ export interface ModuleInfo {
 }
 
 export const MODULES: ModuleInfo[] = [
-  { id: "M1", name: "Lead Management", phase: 1, status: "planned", summary: "Capture & track all enquiries pre-registration." },
-  { id: "M2", name: "Call Center", phase: 1, status: "planned", summary: "Convert enquiries to appointments; queues & outcomes." },
-  { id: "M3", name: "Appointment Management", phase: 1, status: "in_progress", summary: "Doctor calendars, slots, waitlist, check-in (model exists)." },
-  { id: "M4", name: "Patient 360 Profile", phase: 1, status: "planned", summary: "One complete view per patient; lifetime metrics." },
+  { id: "M1", name: "Lead Management", phase: 1, status: "done", summary: "Capture, stages, sources, owners, duplicate detection, calls." },
+  { id: "M2", name: "Call Center", phase: 1, status: "done", summary: "Queues dashboard, call outcomes, conversion by executive." },
+  { id: "M3", name: "Appointment Management", phase: 1, status: "done", summary: "Schedules, slot generation, booking, worklist, lifecycle." },
+  { id: "M4", name: "Patient 360 Profile", phase: 1, status: "in_progress", summary: "Search/create + history; full 360 in Phase 3." },
   { id: "M5", name: "Consultation Workflow", phase: 2, status: "planned", summary: "Coordination of diagnosis, advice, referrals (not EMR)." },
   { id: "M6", name: "Referral Management", phase: 3, status: "planned", summary: "Patient & doctor referrals, conversion tracking." },
   { id: "M7", name: "Camp Management", phase: 3, status: "planned", summary: "Outreach camps screened → converted → revenue." },

@@ -36,6 +36,16 @@ async function main() {
   }
   const ophth = await prisma.department.findUniqueOrThrow({ where: { name: "Ophthalmology" } });
 
+  // --- Doctors (consultant roster) ---
+  const docs: [string, string, string][] = [
+    ["Dr. Menon", "Senior Consultant", "KMC-1001"],
+    ["Dr. Pillai", "Consultant", "KMC-1002"],
+    ["Dr. Thomas", "Medical Officer", "KMC-1003"],
+  ];
+  for (const [name, designation, registrationNo] of docs) {
+    await prisma.doctor.upsert({ where: { registrationNo }, update: {}, create: { name, designation, registrationNo } });
+  }
+
   // --- Lead sources (acquisition channels) ---
   const sources = [
     "social_media", "google_ads", "website", "phone", "whatsapp", "email",
