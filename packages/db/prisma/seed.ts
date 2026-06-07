@@ -4,8 +4,12 @@
  * Run: npm run db:seed   (after db:up and db:migrate)
  */
 import { PrismaClient, Role, ReasonCategory, FollowUpType, TaskType, CampaignType } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
+
+// Default password for all seeded staff (dev/demo only).
+const DEMO_PASSWORD = "Sreedhareeyam@1";
 
 async function main() {
   // --- Branches ---
@@ -144,11 +148,12 @@ async function main() {
     ["Front Desk", "front@sreedhareeyam.test", Role.front_office],
     ["Dr. Menon", "menon@sreedhareeyam.test", Role.doctor],
   ];
+  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
   for (const [name, email, role] of staff) {
     await prisma.staffUser.upsert({
       where: { email },
-      update: {},
-      create: { name, email, role, branchId: main.id },
+      update: { passwordHash },
+      create: { name, email, role, branchId: main.id, passwordHash },
     });
   }
   const callExec = await prisma.staffUser.findUniqueOrThrow({ where: { email: "callexec@sreedhareeyam.test" } });

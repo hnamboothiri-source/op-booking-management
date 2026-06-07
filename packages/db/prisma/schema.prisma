@@ -371,14 +371,15 @@ model ConsultationRoom {
 }
 
 model StaffUser {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  role      Role
-  branchId  String?  @map("branch_id")
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  role         Role
+  branchId     String?  @map("branch_id")
+  passwordHash String?  @map("password_hash")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   branch        Branch?        @relation(fields: [branchId], references: [id])
   ownedLeads    Lead[]         @relation("LeadOwner")
