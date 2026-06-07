@@ -59,7 +59,10 @@ export default async function Appointments({ searchParams }: { searchParams: Pro
                 <td className="px-4 py-2"><Badge tone={TONE[b.status]}>{b.status.replace(/_/g, " ")}</Badge></td>
                 {canEdit && (
                   <td className="px-4 py-2">
-                    <div className="flex flex-wrap justify-end gap-1">
+                    <div className="flex flex-wrap items-center justify-end gap-1">
+                      {["arrived", "waiting", "in_consultation"].includes(b.status) && (
+                        <Link href={`/consultations/${b.id}`} className="rounded bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-emerald-700">Consult</Link>
+                      )}
                       {nextBookingStatuses(b.status as BookingStatus).map((s) => (
                         <form key={s} action={transitionBooking.bind(null, b.id, s)}>
                           <button className="rounded border border-slate-300 px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-50">{s.replace(/_/g, " ")}</button>

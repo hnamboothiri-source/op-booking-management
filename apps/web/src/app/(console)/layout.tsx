@@ -9,9 +9,12 @@ const NAV: { href: string; label: string; resource: Resource }[] = [
   { href: "/leads", label: "Leads", resource: "leads" },
   { href: "/call-center", label: "Call Center", resource: "calls" },
   { href: "/appointments", label: "Appointments", resource: "appointments" },
+  { href: "/queue", label: "Queue", resource: "consultations" },
+  { href: "/admissions", label: "Admissions", resource: "admissions" },
   { href: "/patients", label: "Patients", resource: "patients" },
   { href: "/follow-ups", label: "Follow-ups", resource: "follow_ups" },
   { href: "/tasks", label: "Tasks", resource: "tasks" },
+  { href: "/reports", label: "Reports", resource: "reports" },
   { href: "/masters", label: "Masters", resource: "masters" },
   { href: "/audit", label: "Audit", resource: "audit" },
 ];

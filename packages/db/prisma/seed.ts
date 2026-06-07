@@ -104,6 +104,16 @@ async function main() {
     await prisma.taskTypeMaster.upsert({ where: { name }, update: {}, create: { name, type } });
   }
 
+  // --- Admission packages ---
+  const pkgs: [string, number][] = [
+    ["Panchakarma 7-day", 2500000],
+    ["Netra Tarpana course", 1500000],
+    ["Surgery + recovery", 5000000],
+  ];
+  for (const [name, estimatedCost] of pkgs) {
+    await prisma.admissionPackageMaster.upsert({ where: { name }, update: {}, create: { name, estimatedCost } });
+  }
+
   // --- Staff users (one per representative role) ---
   const staff: [string, string, Role][] = [
     ["Admin User", "admin@sreedhareeyam.test", Role.administrator],
