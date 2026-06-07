@@ -1,0 +1,250 @@
+{
+  "meta": {
+    "description": "Sample seed data for OP Booking Management prototype",
+    "hospital": "Sreedhareeyam Ayurveda Hospital",
+    "anchor_date": "2026-06-02",
+    "version": "1.0.0"
+  },
+  "departments": [
+    { "id": "dept-gen", "name": "General", "code": "GEN", "active": true },
+    { "id": "dept-oph", "name": "Ophthalmology", "code": "OPH", "active": true },
+    { "id": "dept-saa", "name": "Skin & Allergy", "code": "SAA", "active": true },
+    { "id": "dept-ort", "name": "Orthopedic", "code": "ORT", "active": true },
+    { "id": "dept-gyn", "name": "Gynecology", "code": "GYN", "active": true },
+    { "id": "dept-der", "name": "Dermatology", "code": "DER", "active": true },
+    { "id": "dept-neu", "name": "Neurology", "code": "NEU", "active": true },
+    { "id": "dept-lsd", "name": "Lifestyle diseases", "code": "LSD", "active": true }
+  ],
+  "doctors": [
+    { "id": "doc-001", "name": "Dr. Rajesh Kumar", "designation": "Senior Consultant", "active": true },
+    { "id": "doc-002", "name": "Dr. Priya Menon", "designation": "Consultant", "active": true },
+    { "id": "doc-003", "name": "Dr. Anil Namboothiri", "designation": "Senior Consultant", "active": true },
+    { "id": "doc-004", "name": "Dr. Sreeja Pillai", "designation": "Medical Officer", "active": true },
+    { "id": "doc-005", "name": "Dr. Vinod Krishnan", "designation": "Consultant", "active": true }
+  ],
+  "doctor_schedules": [
+    {
+      "id": "sch-001",
+      "doctor_id": "doc-003",
+      "department_id": "dept-oph",
+      "day_of_week": 1,
+      "start_time": "09:00",
+      "end_time": "12:00",
+      "slot_duration_minutes": 20,
+      "max_patients_per_slot": 1,
+      "active": true
+    },
+    {
+      "id": "sch-002",
+      "doctor_id": "doc-001",
+      "department_id": "dept-gen",
+      "day_of_week": 2,
+      "start_time": "10:00",
+      "end_time": "13:00",
+      "slot_duration_minutes": 15,
+      "max_patients_per_slot": 1,
+      "active": true
+    }
+  ],
+  "patients": [
+    {
+      "mrd": "MRD-10482",
+      "name": "Lakshmi Nair",
+      "phone": "9847012345",
+      "place": "Ernakulam",
+      "address": "12, MG Road, Ernakulam, Kerala",
+      "gender": "female",
+      "date_of_birth": "1978-03-15",
+      "is_new": false,
+      "last_visit_date": "2025-11-14",
+      "his_synced_at": "2026-06-02T10:14:55+05:30"
+    },
+    {
+      "mrd": "MRD-22091",
+      "name": "Suresh Babu",
+      "phone": "9895011223",
+      "place": "Thrissur",
+      "address": "45, Palace Road, Thrissur",
+      "gender": "male",
+      "date_of_birth": "1965-08-22",
+      "is_new": false,
+      "last_visit_date": "2026-01-08",
+      "his_synced_at": "2026-06-02T09:30:00+05:30"
+    },
+    {
+      "mrd": "MRD-33105",
+      "name": "Anjali Krishnan",
+      "phone": "9745522331",
+      "place": "Kottayam",
+      "address": "7, Baker Junction, Kottayam",
+      "gender": "female",
+      "date_of_birth": "1992-12-01",
+      "is_new": true,
+      "last_visit_date": null,
+      "his_synced_at": "2026-06-01T16:45:00+05:30"
+    }
+  ],
+  "time_slots": [
+    {
+      "id": "slot-2026-06-10-0930",
+      "doctor_id": "doc-003",
+      "department_id": "dept-oph",
+      "schedule_id": "sch-001",
+      "slot_date": "2026-06-10",
+      "start_time": "09:30",
+      "end_time": "09:50",
+      "capacity": 1,
+      "booked_count": 1,
+      "status": "full"
+    },
+    {
+      "id": "slot-2026-06-10-0950",
+      "doctor_id": "doc-003",
+      "department_id": "dept-oph",
+      "schedule_id": "sch-001",
+      "slot_date": "2026-06-10",
+      "start_time": "09:50",
+      "end_time": "10:10",
+      "capacity": 1,
+      "booked_count": 0,
+      "status": "open"
+    },
+    {
+      "id": "slot-2026-06-11-1000",
+      "doctor_id": "doc-001",
+      "department_id": "dept-gen",
+      "schedule_id": "sch-002",
+      "slot_date": "2026-06-11",
+      "start_time": "10:00",
+      "end_time": "10:15",
+      "capacity": 1,
+      "booked_count": 0,
+      "status": "open"
+    }
+  ],
+  "op_bookings": [
+    {
+      "id": "bkg-001",
+      "booking_ref": "OP-2026-000042",
+      "patient_mrd": "MRD-10482",
+      "doctor_id": "doc-003",
+      "department_id": "dept-oph",
+      "time_slot_id": "slot-2026-06-10-0930",
+      "appointment_date": "2026-06-10",
+      "start_time": "09:30",
+      "end_time": "09:50",
+      "status": "confirmed",
+      "source": "call_centre",
+      "booked_by": "user-clerk-01",
+      "booked_at": "2026-06-02T10:15:00+05:30",
+      "notes": "Follow-up for eye check"
+    },
+    {
+      "id": "bkg-002",
+      "booking_ref": "OP-2026-000043",
+      "patient_mrd": "MRD-22091",
+      "doctor_id": "doc-001",
+      "department_id": "dept-gen",
+      "time_slot_id": null,
+      "appointment_date": "2026-06-03",
+      "start_time": "11:00",
+      "end_time": "11:15",
+      "status": "checked_in",
+      "source": "front_desk",
+      "booked_by": "user-desk-02",
+      "booked_at": "2026-06-03T10:45:00+05:30",
+      "checked_in_at": "2026-06-03T10:58:00+05:30",
+      "notes": "Walk-in — no pre-booked slot"
+    },
+    {
+      "id": "bkg-003",
+      "booking_ref": "OP-2026-000044",
+      "patient_mrd": "MRD-33105",
+      "doctor_id": "doc-005",
+      "department_id": "dept-lsd",
+      "time_slot_id": null,
+      "appointment_date": "2026-06-05",
+      "start_time": "14:00",
+      "end_time": "14:20",
+      "status": "no_show",
+      "source": "enquiry",
+      "booked_by": "user-clerk-01",
+      "booked_at": "2026-06-01T11:20:00+05:30",
+      "enquiry_id": "enq-001"
+    }
+  ],
+  "enquiries": [
+    {
+      "id": "enq-001",
+      "contact_name": "Anjali Krishnan",
+      "phone": "9745522331",
+      "mrd": "MRD-33105",
+      "department_id": "dept-lsd",
+      "preferred_date": "2026-06-05",
+      "source": "phone",
+      "handler": "user-clerk-01",
+      "status": "converted",
+      "converted_booking_id": "bkg-003",
+      "notes": "Lifestyle consultation — first visit",
+      "created_at": "2026-06-01T11:00:00+05:30"
+    },
+    {
+      "id": "enq-002",
+      "contact_name": "Ramesh Iyer",
+      "phone": "9846098877",
+      "mrd": null,
+      "department_id": "dept-ort",
+      "preferred_date": "2026-06-12",
+      "source": "phone",
+      "handler": "user-clerk-01",
+      "status": "open",
+      "notes": "New patient — knee pain",
+      "created_at": "2026-06-02T09:10:00+05:30"
+    }
+  ],
+  "waitlist_entries": [
+    {
+      "id": "wl-001",
+      "patient_mrd": "MRD-22091",
+      "doctor_id": "doc-003",
+      "department_id": "dept-oph",
+      "requested_date": "2026-06-10",
+      "fallback_dates": ["2026-06-11", "2026-06-12"],
+      "fallback_department_ids": ["dept-oph"],
+      "priority": 0,
+      "status": "waiting",
+      "created_at": "2026-06-02T10:20:00+05:30"
+    }
+  ],
+  "follow_ups": [
+    {
+      "id": "fu-001",
+      "patient_mrd": "MRD-10482",
+      "department_id": "dept-oph",
+      "doctor_id": "doc-003",
+      "due_date": "2026-06-10",
+      "type": "op_review",
+      "status": "booked",
+      "linked_booking_id": "bkg-001",
+      "origin_booking_id": null,
+      "notes": "3-month review",
+      "created_at": "2026-03-10T16:00:00+05:30"
+    }
+  ],
+  "staff_users": [
+    { "id": "user-clerk-01", "name": "Meera Thomas", "email": "meera.t@sreedhareeyam.local", "role": "clerk", "active": true },
+    { "id": "user-desk-02", "name": "Jose Mathew", "email": "jose.m@sreedhareeyam.local", "role": "front_desk", "active": true },
+    { "id": "user-admin-01", "name": "Admin User", "email": "admin@sreedhareeyam.local", "role": "admin", "active": true }
+  ],
+  "enums": {
+    "OpBookingStatus": ["requested", "confirmed", "checked_in", "completed", "cancelled", "no_show", "rescheduled"],
+    "BookingSource": ["call_centre", "front_desk", "enquiry", "waitlist", "follow_up", "online"],
+    "TimeSlotStatus": ["open", "full", "blocked", "cancelled"],
+    "EnquiryStatus": ["open", "converted", "closed", "lost"],
+    "EnquirySource": ["phone", "walk_in", "referral", "website"],
+    "WaitlistStatus": ["waiting", "promoted", "expired", "cancelled"],
+    "FollowUpType": ["op_review", "ip_readmission"],
+    "FollowUpStatus": ["pending", "booked", "done", "overdue"],
+    "StaffRole": ["clerk", "front_desk", "admin"]
+  }
+}

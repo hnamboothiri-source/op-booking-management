@@ -1,0 +1,1229 @@
+// Sreedhareeyam PRM — canonical data model.
+// Traces to docs/MODULES.md (functional spec) and docs/DATA.md (design notes).
+// Conventions: UUID PKs, snake_case columns via @map, created_at/updated_at audit on
+// long-lived rows, soft-enable via `active` on master tables. Money in minor units (paise)
+// as Int to avoid float drift; dates as @db.Date, instants as DateTime (UTC).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================================================================
+// ENUMS  (status/stage values are authoritative — see docs/MODULES.md)
+// ===========================================================================
+
+enum Role {
+  administrator
+  management
+  call_center_executive
+  call_center_manager
+  front_office
+  doctor
+  optometry_staff
+  lab_staff
+  pharmacy_staff
+  admission_counsellor
+  patient_success_executive
+  marketing_team
+  branch_manager
+  camp_coordinator
+  mobile_clinic_coordinator
+}
+
+enum Gender {
+  male
+  female
+  other
+}
+
+// M1 Lead
+enum LeadStage {
+  new_lead
+  contacted
+  interested
+  appointment_suggested
+  appointment_booked
+  not_reachable
+  not_interested
+  converted_to_patient
+  lost
+}
+
+enum LeadPriority {
+  low
+  medium
+  high
+}
+
+// M2 Call Center
+enum CallOutcome {
+  appointment_booked
+  follow_up_required
+  not_reachable
+  call_later
+  asked_for_doctor_details
+  asked_for_treatment_cost
+  interested_in_branch_visit
+  interested_in_admission
+  not_interested
+}
+
+// M3 Appointment (extends existing OpBooking lifecycle)
+enum AppointmentStatus {
+  booked
+  confirmed
+  arrived
+  waiting
+  in_consultation
+  completed
+  cancelled
+  no_show
+  rescheduled
+}
+
+enum BookingSource {
+  call_centre
+  front_desk
+  enquiry
+  waitlist
+  follow_up
+  online
+  camp
+  mobile_clinic
+}
+
+enum SlotStatus {
+  open
+  full
+  blocked
+  cancelled
+}
+
+// M4 Patient relationship indicators
+enum PatientCategory {
+  new_patient
+  repeat_patient
+  high_value
+  referred
+  referring
+  dormant
+  at_risk
+  vip
+}
+
+// M5 Consultation
+enum ConsultationOutcome {
+  medicine_prescribed
+  test_recommended
+  follow_up_advised
+  admission_advised
+  surgery_or_procedure_advised
+  referred_to_department
+  no_treatment_required
+}
+
+// M6 Referral
+enum ReferralType {
+  patient_to_patient
+  doctor
+  hospital
+  branch
+  camp
+  corporate
+  institutional
+}
+
+enum ReferralStatus {
+  pending
+  consulted
+  admitted
+  lost
+}
+
+// M9 Follow-up
+enum FollowUpType {
+  consultation_review
+  medicine
+  test
+  admission
+  surgery_procedure
+  long_term_treatment
+  annual_checkup
+  dormant_reactivation
+  ip_readmission
+}
+
+enum FollowUpStatus {
+  pending
+  booked
+  done
+  overdue
+  missed
+  cancelled
+}
+
+// M10 Admission conversion
+enum AdmissionStatus {
+  recommended
+  counselled
+  interested
+  postponed
+  accepted
+  admitted
+  rejected
+  lost
+}
+
+enum AdmissionRejectionReason {
+  cost_concern
+  family_decision_pending
+  seeking_second_opinion
+  travel_difficulty
+  fear_of_admission
+  treatment_postponed
+  chose_another_hospital
+}
+
+// M11 Communication
+enum CommunicationChannel {
+  whatsapp
+  sms
+  email
+  phone_call
+  app_notification
+}
+
+enum CommunicationStatus {
+  queued
+  sent
+  delivered
+  read
+  failed
+}
+
+// M12 Retention
+enum RetentionCategory {
+  active
+  follow_up_pending
+  at_risk
+  dormant
+  lost
+  reactivated
+}
+
+// M13 Campaign
+enum CampaignType {
+  facebook_ads
+  google_ads
+  newspaper
+  tv
+  radio
+  whatsapp
+  camp
+  doctor_referral
+  corporate
+}
+
+// M14 Organization
+enum OrganizationType {
+  company
+  school
+  college
+  ngo
+  panchayat
+  religious_institution
+  association
+  senior_citizen_group
+}
+
+// M15 Task
+enum TaskType {
+  call_back_patient
+  confirm_appointment
+  follow_up_admission
+  follow_up_test
+  follow_up_medicine
+  contact_dormant_patient
+  camp_follow_up
+  doctor_referral_follow_up
+}
+
+enum TaskStatus {
+  open
+  in_progress
+  completed
+  overdue
+  cancelled
+  escalated
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+// Generic lifecycle for camps / mobile clinics / enquiries / waitlist
+enum CampStatus {
+  planned
+  in_progress
+  completed
+  cancelled
+}
+
+enum EnquiryStatus {
+  open
+  converted
+  closed
+  lost
+}
+
+enum WaitlistStatus {
+  waiting
+  promoted
+  expired
+  cancelled
+}
+
+// Reason master categories
+enum ReasonCategory {
+  lost_lead
+  no_show
+  admission_rejection
+  cancellation
+}
+
+// ===========================================================================
+// CORE / MASTER DATA
+// ===========================================================================
+
+model Branch {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String?  @unique
+  location  String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  doctorsSchedules DoctorSchedule[]
+  timeSlots        TimeSlot[]
+  bookings         OpBooking[]
+  leads            Lead[]
+  consultations    Consultation[]
+  staff            StaffUser[]
+
+  @@map("branches")
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String?  @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  schedules     DoctorSchedule[]
+  timeSlots     TimeSlot[]
+  bookings      OpBooking[]
+  consultations Consultation[]
+  rooms         ConsultationRoom[]
+
+  @@map("departments")
+}
+
+model Doctor {
+  id              String   @id @default(uuid())
+  name            String
+  designation     String?
+  registrationNo  String?  @unique @map("registration_no")
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  schedules      DoctorSchedule[]
+  timeSlots      TimeSlot[]
+  bookings       OpBooking[]
+  consultations  Consultation[]
+  followUps      FollowUp[]
+  waitlistPrefs  WaitlistEntry[]
+
+  @@map("doctors")
+}
+
+model ConsultationRoom {
+  id           String   @id @default(uuid())
+  name         String
+  departmentId String?  @map("department_id")
+  branchId     String?  @map("branch_id")
+  active       Boolean  @default(true)
+
+  department Department? @relation(fields: [departmentId], references: [id])
+
+  @@map("consultation_rooms")
+}
+
+model StaffUser {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  role      Role
+  branchId  String?  @map("branch_id")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  branch        Branch?        @relation(fields: [branchId], references: [id])
+  ownedLeads    Lead[]         @relation("LeadOwner")
+  assignedTasks Task[]         @relation("TaskAssignee")
+  auditEvents   AuditLog[]
+
+  @@index([role])
+  @@map("staff_users")
+}
+
+model LeadSourceMaster {
+  id     String  @id @default(uuid())
+  name   String  @unique // e.g. social_media, google_ads, website, walk_in, camp ...
+  active Boolean @default(true)
+
+  leads Lead[]
+
+  @@map("lead_sources")
+}
+
+model DiseaseMaster {
+  id     String  @id @default(uuid())
+  name   String  @unique
+  active Boolean @default(true)
+
+  leads         Lead[]
+  consultations Consultation[]
+
+  @@map("diseases")
+}
+
+model ServiceMaster {
+  id     String  @id @default(uuid())
+  name   String  @unique
+  price  Int?    // paise
+  active Boolean @default(true)
+
+  @@map("services")
+}
+
+model ReferralSourceMaster {
+  id     String  @id @default(uuid())
+  name   String  @unique
+  active Boolean @default(true)
+
+  @@map("referral_sources")
+}
+
+model CommunicationTemplate {
+  id        String               @id @default(uuid())
+  name      String
+  channel   CommunicationChannel
+  language  String               @default("en")
+  body      String
+  active    Boolean              @default(true)
+  createdAt DateTime             @default(now()) @map("created_at")
+
+  messages CommunicationLog[]
+
+  @@map("communication_templates")
+}
+
+model FollowUpTypeMaster {
+  id     String       @id @default(uuid())
+  name   String       @unique
+  type   FollowUpType
+  active Boolean      @default(true)
+
+  @@map("follow_up_types")
+}
+
+model AdmissionPackageMaster {
+  id            String  @id @default(uuid())
+  name          String  @unique
+  estimatedCost Int?    @map("estimated_cost") // paise
+  active        Boolean @default(true)
+
+  recommendations AdmissionRecommendation[]
+
+  @@map("admission_packages")
+}
+
+model TaskTypeMaster {
+  id     String   @id @default(uuid())
+  name   String   @unique
+  type   TaskType
+  active Boolean  @default(true)
+
+  @@map("task_types")
+}
+
+model ReasonMaster {
+  id       String         @id @default(uuid())
+  category ReasonCategory
+  label    String
+  active   Boolean        @default(true)
+
+  @@unique([category, label])
+  @@map("reasons")
+}
+
+// ===========================================================================
+// SCHEDULING  (existing OP model — kept)
+// ===========================================================================
+
+model DoctorSchedule {
+  id                  String    @id @default(uuid())
+  doctorId            String    @map("doctor_id")
+  departmentId        String    @map("department_id")
+  branchId            String?   @map("branch_id")
+  dayOfWeek           Int?      @map("day_of_week") // 0=Sun..6=Sat
+  specificDate        DateTime? @map("specific_date") @db.Date
+  startTime           String    @map("start_time")
+  endTime             String    @map("end_time")
+  slotDurationMinutes Int       @map("slot_duration_minutes")
+  maxPatientsPerSlot  Int       @default(1) @map("max_patients_per_slot")
+  active              Boolean   @default(true)
+  validFrom           DateTime? @map("valid_from") @db.Date
+  validUntil          DateTime? @map("valid_until") @db.Date
+
+  doctor     Doctor     @relation(fields: [doctorId], references: [id])
+  department Department @relation(fields: [departmentId], references: [id])
+  branch     Branch?    @relation(fields: [branchId], references: [id])
+  timeSlots  TimeSlot[]
+
+  @@map("doctor_schedules")
+}
+
+model TimeSlot {
+  id           String     @id @default(uuid())
+  doctorId     String     @map("doctor_id")
+  departmentId String     @map("department_id")
+  branchId     String?    @map("branch_id")
+  scheduleId   String?    @map("schedule_id")
+  slotDate     DateTime   @map("slot_date") @db.Date
+  startTime    String     @map("start_time")
+  endTime      String     @map("end_time")
+  capacity     Int
+  bookedCount  Int        @default(0) @map("booked_count")
+  status       SlotStatus @default(open)
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  doctor     Doctor          @relation(fields: [doctorId], references: [id])
+  department Department      @relation(fields: [departmentId], references: [id])
+  branch     Branch?         @relation(fields: [branchId], references: [id])
+  schedule   DoctorSchedule? @relation(fields: [scheduleId], references: [id])
+  bookings   OpBooking[]
+
+  @@index([slotDate, doctorId])
+  @@map("time_slots")
+}
+
+// ===========================================================================
+// PATIENT  (HIS cache, extended toward 360 profile — M4)
+// ===========================================================================
+
+model Patient {
+  mrd              String    @id
+  name             String
+  phone            String?
+  whatsapp         String?
+  alternatePhone   String?   @map("alternate_phone")
+  email            String?
+  place            String?
+  address          String?
+  gender           Gender?
+  dateOfBirth      DateTime? @map("date_of_birth") @db.Date
+  occupation       String?
+  languagePref     String?   @map("language_pref")
+  isNew            Boolean   @default(true) @map("is_new")
+  firstVisitSource String?   @map("first_visit_source")
+  category         PatientCategory @default(new_patient)
+  lifetimeVisits   Int       @default(0) @map("lifetime_visits")
+  lifetimeRevenue  Int       @default(0) @map("lifetime_revenue") // paise
+  lastVisitDate    DateTime? @map("last_visit_date") @db.Date
+  consentWhatsapp  Boolean   @default(false) @map("consent_whatsapp")
+  consentSms       Boolean   @default(false) @map("consent_sms")
+  consentEmail     Boolean   @default(false) @map("consent_email")
+  hisSyncedAt      DateTime? @map("his_synced_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  bookings        OpBooking[]
+  leads           Lead[]
+  consultations   Consultation[]
+  followUps       FollowUp[]
+  waitlistEntries WaitlistEntry[]
+  referralsGiven  Referral[]      @relation("ReferrerPatient")
+  referralsGot    Referral[]      @relation("ReferredPatient")
+  communications  CommunicationLog[]
+  admissionRecs   AdmissionRecommendation[]
+  scores          PatientScore[]
+  retention       RetentionStatus?
+  family          FamilyMember[]
+  documents       PatientDocument[]
+  campPatients    CampPatient[]
+  mobilePatients  MobileClinicPatient[]
+
+  @@index([phone])
+  @@index([category])
+  @@map("patients")
+}
+
+model FamilyMember {
+  id          String  @id @default(uuid())
+  patientMrd  String  @map("patient_mrd")
+  name        String
+  relation    String?
+  phone       String?
+
+  patient Patient @relation(fields: [patientMrd], references: [mrd])
+
+  @@map("family_members")
+}
+
+model PatientDocument {
+  id         String   @id @default(uuid())
+  patientMrd String   @map("patient_mrd")
+  label      String
+  url        String
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  patient Patient @relation(fields: [patientMrd], references: [mrd])
+
+  @@map("patient_documents")
+}
+
+// ===========================================================================
+// M1 LEAD  (generalizes the lightweight Enquiry path)
+// ===========================================================================
+
+model Lead {
+  id              String       @id @default(uuid())
+  contactName     String       @map("contact_name")
+  phone           String
+  whatsapp        String?
+  email           String?
+  patientMrd      String?      @map("patient_mrd") // set when converted/known
+  sourceId        String?      @map("source_id")
+  campaignId      String?      @map("campaign_id")
+  diseaseId       String?      @map("disease_id")
+  branchId        String?      @map("branch_id")
+  preferredDoctor String?      @map("preferred_doctor")
+  priority        LeadPriority @default(medium)
+  ownerId         String?      @map("owner_id")
+  stage           LeadStage    @default(new_lead)
+  followUpDate    DateTime?    @map("follow_up_date") @db.Date
+  lastCallOutcome CallOutcome? @map("last_call_outcome")
+  closureReason   String?      @map("closure_reason")
+  mergedIntoId    String?      @map("merged_into_id")
+  missedEnquiry   Boolean      @default(false) @map("missed_enquiry")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  source     LeadSourceMaster? @relation(fields: [sourceId], references: [id])
+  campaign   Campaign?         @relation(fields: [campaignId], references: [id])
+  disease    DiseaseMaster?    @relation(fields: [diseaseId], references: [id])
+  branch     Branch?           @relation(fields: [branchId], references: [id])
+  owner      StaffUser?        @relation("LeadOwner", fields: [ownerId], references: [id])
+  patient    Patient?          @relation(fields: [patientMrd], references: [mrd])
+  mergedInto Lead?             @relation("LeadMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom Lead[]            @relation("LeadMerge")
+  calls      CallLog[]
+  bookings   OpBooking[]
+  tasks      Task[]
+
+  @@index([stage])
+  @@index([phone])
+  @@index([sourceId])
+  @@index([ownerId])
+  @@map("leads")
+}
+
+model CallLog {
+  id        String      @id @default(uuid())
+  leadId    String?     @map("lead_id")
+  patientMrd String?    @map("patient_mrd")
+  executiveId String?   @map("executive_id")
+  outcome   CallOutcome
+  notes     String?
+  durationSec Int?      @map("duration_sec")
+  recordingUrl String?  @map("recording_url")
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  lead Lead? @relation(fields: [leadId], references: [id])
+
+  @@index([executiveId, createdAt])
+  @@map("call_logs")
+}
+
+// Lightweight enquiry kept for non-lead quick logging (front desk)
+model Enquiry {
+  id                 String        @id @default(uuid())
+  contactName        String        @map("contact_name")
+  phone              String
+  mrd                String?
+  departmentId       String?       @map("department_id")
+  preferredDate      DateTime?     @map("preferred_date") @db.Date
+  source             BookingSource @default(front_desk)
+  handler            String?
+  status             EnquiryStatus @default(open)
+  notes              String?
+  convertedBookingId String?       @map("converted_booking_id")
+  createdAt          DateTime      @default(now()) @map("created_at")
+
+  @@index([status, createdAt])
+  @@map("enquiries")
+}
+
+// ===========================================================================
+// M3 APPOINTMENT
+// ===========================================================================
+
+model OpBooking {
+  id                 String            @id @default(uuid())
+  bookingRef         String            @unique @map("booking_ref")
+  patientMrd         String            @map("patient_mrd")
+  doctorId           String            @map("doctor_id")
+  departmentId       String            @map("department_id")
+  branchId           String?           @map("branch_id")
+  timeSlotId         String?           @map("time_slot_id")
+  leadId             String?           @map("lead_id")
+  appointmentDate    DateTime          @map("appointment_date") @db.Date
+  startTime          String            @map("start_time")
+  endTime            String?           @map("end_time")
+  status             AppointmentStatus @default(booked)
+  source             BookingSource
+  bookedBy           String?           @map("booked_by")
+  bookedAt           DateTime          @default(now()) @map("booked_at")
+  checkedInAt        DateTime?         @map("checked_in_at")
+  completedAt        DateTime?         @map("completed_at")
+  cancelledAt        DateTime?         @map("cancelled_at")
+  cancellationReason String?           @map("cancellation_reason")
+  notes              String?
+  enquiryId          String?           @map("enquiry_id")
+  waitlistId         String?           @map("waitlist_id")
+  rescheduledFromId  String?           @map("rescheduled_from_id")
+
+  patient      Patient        @relation(fields: [patientMrd], references: [mrd])
+  doctor       Doctor         @relation(fields: [doctorId], references: [id])
+  department   Department     @relation(fields: [departmentId], references: [id])
+  branch       Branch?        @relation(fields: [branchId], references: [id])
+  timeSlot     TimeSlot?      @relation(fields: [timeSlotId], references: [id])
+  lead         Lead?          @relation(fields: [leadId], references: [id])
+  rescheduledFrom OpBooking?  @relation("Reschedule", fields: [rescheduledFromId], references: [id])
+  rescheduledTo   OpBooking[] @relation("Reschedule")
+  consultation Consultation?
+  followUps    FollowUp[]
+
+  @@index([appointmentDate, departmentId])
+  @@index([doctorId, appointmentDate])
+  @@index([patientMrd])
+  @@index([status])
+  @@map("op_bookings")
+}
+
+model WaitlistEntry {
+  id                  String         @id @default(uuid())
+  patientMrd          String         @map("patient_mrd")
+  doctorId            String?        @map("doctor_id")
+  departmentId        String         @map("department_id")
+  requestedDate       DateTime       @map("requested_date") @db.Date
+  fallbackDates       DateTime[]     @map("fallback_dates") @db.Date
+  fallbackDeptIds     String[]       @map("fallback_department_ids")
+  priority            Int            @default(0)
+  status              WaitlistStatus @default(waiting)
+  promotedBookingId   String?        @map("promoted_booking_id")
+  createdAt           DateTime       @default(now()) @map("created_at")
+
+  patient Patient @relation(fields: [patientMrd], references: [mrd])
+  doctor  Doctor? @relation(fields: [doctorId], references: [id])
+
+  @@index([requestedDate, departmentId, status])
+  @@map("waitlist_entries")
+}
+
+// ===========================================================================
+// M5 CONSULTATION  (coordination — not full EMR)
+// ===========================================================================
+
+model Consultation {
+  id            String              @id @default(uuid())
+  bookingId     String              @unique @map("booking_id")
+  patientMrd    String              @map("patient_mrd")
+  doctorId      String              @map("doctor_id")
+  departmentId  String              @map("department_id")
+  branchId      String?             @map("branch_id")
+  diseaseId     String?             @map("disease_id")
+  notes         String?
+  diagnosis     String?
+  advice        String?
+  outcome       ConsultationOutcome
+  staffRemarks  String?             @map("staff_remarks") // for call centre / front office
+  createdAt     DateTime            @default(now()) @map("created_at")
+
+  booking          OpBooking                 @relation(fields: [bookingId], references: [id])
+  patient          Patient                   @relation(fields: [patientMrd], references: [mrd])
+  doctor           Doctor                    @relation(fields: [doctorId], references: [id])
+  department       Department                @relation(fields: [departmentId], references: [id])
+  branch           Branch?                   @relation(fields: [branchId], references: [id])
+  disease          DiseaseMaster?            @relation(fields: [diseaseId], references: [id])
+  prescriptions    Prescription[]
+  labReferrals     LabReferral[]
+  optoReferrals    OptometryReferral[]
+  admissionRecs    AdmissionRecommendation[]
+  treatmentPlan    TreatmentPlan?
+  referralsOut     Referral[]                @relation("ConsultationReferral")
+  followUps        FollowUp[]
+
+  @@index([doctorId, createdAt])
+  @@map("consultations")
+}
+
+model Prescription {
+  id             String   @id @default(uuid())
+  consultationId String   @map("consultation_id")
+  summary        String   // summary only — full Rx lives in HIS
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  consultation Consultation @relation(fields: [consultationId], references: [id])
+
+  @@map("prescriptions")
+}
+
+model LabReferral {
+  id             String   @id @default(uuid())
+  consultationId String   @map("consultation_id")
+  testName       String   @map("test_name")
+  status         FollowUpStatus @default(pending)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  consultation Consultation @relation(fields: [consultationId], references: [id])
+
+  @@map("lab_referrals")
+}
+
+model OptometryReferral {
+  id             String   @id @default(uuid())
+  consultationId String   @map("consultation_id")
+  reason         String?
+  status         FollowUpStatus @default(pending)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  consultation Consultation @relation(fields: [consultationId], references: [id])
+
+  @@map("optometry_referrals")
+}
+
+model TreatmentPlan {
+  id             String   @id @default(uuid())
+  consultationId String   @unique @map("consultation_id")
+  summary        String
+  durationDays   Int?     @map("duration_days")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  consultation Consultation @relation(fields: [consultationId], references: [id])
+
+  @@map("treatment_plans")
+}
+
+// ===========================================================================
+// M10 ADMISSION CONVERSION
+// ===========================================================================
+
+model AdmissionRecommendation {
+  id               String                    @id @default(uuid())
+  patientMrd       String                    @map("patient_mrd")
+  consultationId   String?                   @map("consultation_id")
+  doctorId         String?                   @map("doctor_id")
+  packageId        String?                   @map("package_id")
+  estimatedCost    Int?                      @map("estimated_cost") // paise
+  status           AdmissionStatus           @default(recommended)
+  rejectionReason  AdmissionRejectionReason? @map("rejection_reason")
+  counsellorId     String?                   @map("counsellor_id")
+  decisionAt       DateTime?                 @map("decision_at")
+  createdAt        DateTime                  @default(now()) @map("created_at")
+  updatedAt        DateTime                  @updatedAt @map("updated_at")
+
+  patient      Patient                 @relation(fields: [patientMrd], references: [mrd])
+  consultation Consultation?           @relation(fields: [consultationId], references: [id])
+  package      AdmissionPackageMaster? @relation(fields: [packageId], references: [id])
+  tasks        Task[]
+
+  @@index([status])
+  @@map("admission_recommendations")
+}
+
+// ===========================================================================
+// M6 REFERRAL
+// ===========================================================================
+
+model Referral {
+  id                 String         @id @default(uuid())
+  type               ReferralType
+  referrerPatientMrd String?        @map("referrer_patient_mrd")
+  referrerName       String?        @map("referrer_name") // external doctor / org contact
+  organizationId     String?        @map("organization_id")
+  referredPatientMrd String?        @map("referred_patient_mrd")
+  consultationId     String?        @map("consultation_id")
+  branchId           String?        @map("branch_id")
+  status             ReferralStatus @default(pending)
+  rewardEligible     Boolean        @default(false) @map("reward_eligible")
+  revenue            Int            @default(0) // paise attributed
+  createdAt          DateTime       @default(now()) @map("created_at")
+
+  referrerPatient Patient?      @relation("ReferrerPatient", fields: [referrerPatientMrd], references: [mrd])
+  referredPatient Patient?      @relation("ReferredPatient", fields: [referredPatientMrd], references: [mrd])
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+  consultation    Consultation? @relation("ConsultationReferral", fields: [consultationId], references: [id])
+
+  @@index([type, status])
+  @@map("referrals")
+}
+
+// ===========================================================================
+// M9 FOLLOW-UP
+// ===========================================================================
+
+model FollowUp {
+  id              String         @id @default(uuid())
+  patientMrd      String         @map("patient_mrd")
+  departmentId    String?        @map("department_id")
+  doctorId        String?        @map("doctor_id")
+  consultationId  String?        @map("consultation_id")
+  originBookingId String?        @map("origin_booking_id")
+  linkedBookingId String?        @map("linked_booking_id")
+  type            FollowUpType
+  dueDate         DateTime       @map("due_date") @db.Date
+  priority        TaskPriority   @default(medium)
+  ownerId         String?        @map("owner_id")
+  status          FollowUpStatus @default(pending)
+  callOutcome     CallOutcome?   @map("call_outcome")
+  closureReason   String?        @map("closure_reason")
+  notes           String?
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  patient      Patient       @relation(fields: [patientMrd], references: [mrd])
+  doctor       Doctor?       @relation(fields: [doctorId], references: [id])
+  consultation Consultation? @relation(fields: [consultationId], references: [id])
+  origin       OpBooking?    @relation(fields: [originBookingId], references: [id])
+  tasks        Task[]
+
+  @@index([dueDate, status])
+  @@index([ownerId])
+  @@map("follow_ups")
+}
+
+// ===========================================================================
+// M15 TASK & WORKFLOW
+// ===========================================================================
+
+model Task {
+  id            String       @id @default(uuid())
+  type          TaskType
+  subject       String
+  assigneeId    String?      @map("assignee_id")
+  patientMrd    String?      @map("patient_mrd")
+  leadId        String?      @map("lead_id")
+  followUpId    String?      @map("follow_up_id")
+  admissionRecId String?     @map("admission_rec_id")
+  dueDate       DateTime?    @map("due_date") @db.Date
+  priority      TaskPriority @default(medium)
+  status        TaskStatus   @default(open)
+  remarks       String?
+  escalatedToId String?      @map("escalated_to_id")
+  completedAt   DateTime?    @map("completed_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  assignee     StaffUser?               @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  lead         Lead?                    @relation(fields: [leadId], references: [id])
+  followUp     FollowUp?                @relation(fields: [followUpId], references: [id])
+  admissionRec AdmissionRecommendation? @relation(fields: [admissionRecId], references: [id])
+
+  @@index([assigneeId, status])
+  @@index([dueDate, status])
+  @@map("tasks")
+}
+
+// ===========================================================================
+// M11 COMMUNICATION
+// ===========================================================================
+
+model CommunicationLog {
+  id          String               @id @default(uuid())
+  patientMrd  String?              @map("patient_mrd")
+  channel     CommunicationChannel
+  templateId  String?              @map("template_id")
+  campaignId  String?              @map("campaign_id")
+  toAddress   String               @map("to_address")
+  body        String?
+  status      CommunicationStatus  @default(queued)
+  sentAt      DateTime?            @map("sent_at")
+  deliveredAt DateTime?            @map("delivered_at")
+  createdAt   DateTime             @default(now()) @map("created_at")
+
+  patient  Patient?               @relation(fields: [patientMrd], references: [mrd])
+  template CommunicationTemplate? @relation(fields: [templateId], references: [id])
+  campaign Campaign?              @relation(fields: [campaignId], references: [id])
+
+  @@index([patientMrd])
+  @@index([status])
+  @@map("communication_logs")
+}
+
+// ===========================================================================
+// M13 MARKETING CAMPAIGN
+// ===========================================================================
+
+model Campaign {
+  id             String       @id @default(uuid())
+  name           String
+  type           CampaignType
+  budget         Int          @default(0) // paise
+  sourceId       String?      @map("source_id")
+  startDate      DateTime?    @map("start_date") @db.Date
+  endDate        DateTime?    @map("end_date") @db.Date
+  targetLocation String?      @map("target_location")
+  targetDisease  String?      @map("target_disease")
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  leads          Lead[]
+  communications CommunicationLog[]
+
+  @@map("campaigns")
+}
+
+// ===========================================================================
+// M7 CAMP / M8 MOBILE CLINIC / M14 ORGANIZATION (OUTREACH)
+// ===========================================================================
+
+model Organization {
+  id              String           @id @default(uuid())
+  name            String
+  type            OrganizationType
+  contactPersons  Json?            @map("contact_persons")
+  relationOwnerId String?          @map("relation_owner_id")
+  nextEngagement  DateTime?        @map("next_engagement") @db.Date
+  active          Boolean          @default(true)
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  camps     Camp[]
+  referrals Referral[]
+
+  @@map("organizations")
+}
+
+model Camp {
+  id             String       @id @default(uuid())
+  name           String
+  location       String?
+  organizerId    String?      @map("organizer_id")
+  coordinatorId  String?      @map("coordinator_id")
+  scheduledAt    DateTime?    @map("scheduled_at")
+  status         CampStatus   @default(planned)
+  staffAssigned  Json?        @map("staff_assigned")
+  patientsScreened Int        @default(0) @map("patients_screened")
+  revenue        Int          @default(0) // paise from camp patients
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  organizer    Organization? @relation(fields: [organizerId], references: [id])
+  campPatients CampPatient[]
+
+  @@map("camps")
+}
+
+model CampPatient {
+  id              String   @id @default(uuid())
+  campId          String   @map("camp_id")
+  patientMrd      String?  @map("patient_mrd")
+  contactName     String   @map("contact_name")
+  phone           String?
+  complaint       String?
+  recommendedVisit Boolean @default(false) @map("recommended_visit")
+  bookingId       String?  @map("booking_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  camp    Camp     @relation(fields: [campId], references: [id])
+  patient Patient? @relation(fields: [patientMrd], references: [mrd])
+
+  @@map("camp_patients")
+}
+
+model MobileClinic {
+  id            String     @id @default(uuid())
+  routeName     String     @map("route_name")
+  location      String?
+  coordinatorId String?    @map("coordinator_id")
+  scheduledAt   DateTime?  @map("scheduled_at")
+  status        CampStatus @default(planned)
+  patientsScreened Int     @default(0) @map("patients_screened")
+  revenue       Int        @default(0) // paise
+  createdAt     DateTime   @default(now()) @map("created_at")
+
+  patients MobileClinicPatient[]
+
+  @@map("mobile_clinics")
+}
+
+model MobileClinicPatient {
+  id              String   @id @default(uuid())
+  mobileClinicId  String   @map("mobile_clinic_id")
+  patientMrd      String?  @map("patient_mrd")
+  contactName     String   @map("contact_name")
+  phone           String?
+  complaint       String?
+  referredToBranch Boolean @default(false) @map("referred_to_branch")
+  bookingId       String?  @map("booking_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  mobileClinic MobileClinic @relation(fields: [mobileClinicId], references: [id])
+  patient      Patient?     @relation(fields: [patientMrd], references: [mrd])
+
+  @@map("mobile_clinic_patients")
+}
+
+// ===========================================================================
+// M12 RETENTION & SCORING
+// ===========================================================================
+
+model PatientScore {
+  id         String   @id @default(uuid())
+  patientMrd String   @map("patient_mrd")
+  kind       String   // "retention" | "conversion"
+  score      Int
+  factors    Json?    // breakdown for explainability
+  computedAt DateTime @default(now()) @map("computed_at")
+
+  patient Patient @relation(fields: [patientMrd], references: [mrd])
+
+  @@index([patientMrd, kind])
+  @@map("patient_scores")
+}
+
+model RetentionStatus {
+  patientMrd      String            @id @map("patient_mrd")
+  category        RetentionCategory @default(active)
+  riskScore       Int               @default(0) @map("risk_score")
+  successOwnerId  String?           @map("success_owner_id")
+  lastEvaluatedAt DateTime          @default(now()) @map("last_evaluated_at")
+
+  patient Patient @relation(fields: [patientMrd], references: [mrd])
+
+  @@index([category])
+  @@map("retention_status")
+}
+
+model PatientSegment {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  rule      Json     // segment definition
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("patient_segments")
+}
+
+// ===========================================================================
+// ANALYTICS ROLLUPS  (materialized by nightly jobs — Phase 4)
+// ===========================================================================
+
+model DailyKPI {
+  id              String   @id @default(uuid())
+  date            DateTime @db.Date
+  branchId        String?  @map("branch_id")
+  leads           Int      @default(0)
+  appointments    Int      @default(0)
+  consultations   Int      @default(0)
+  admissions      Int      @default(0)
+  revenue         Int      @default(0)
+
+  @@unique([date, branchId])
+  @@map("daily_kpi")
+}
+
+model BranchKPI {
+  id            String   @id @default(uuid())
+  branchId      String   @map("branch_id")
+  periodStart   DateTime @map("period_start") @db.Date
+  periodEnd     DateTime @map("period_end") @db.Date
+  leads         Int      @default(0)
+  appointments  Int      @default(0)
+  consultations Int      @default(0)
+  admissions    Int      @default(0)
+  revenue       Int      @default(0)
+
+  @@map("branch_kpi")
+}
+
+model DoctorKPI {
+  id             String   @id @default(uuid())
+  doctorId       String   @map("doctor_id")
+  periodStart    DateTime @map("period_start") @db.Date
+  periodEnd      DateTime @map("period_end") @db.Date
+  consultations  Int      @default(0)
+  admissionsRec  Int      @default(0) @map("admissions_recommended")
+  followUpsAdv   Int      @default(0) @map("follow_ups_advised")
+  noShows        Int      @default(0)
+
+  @@map("doctor_kpi")
+}
+
+model CampaignKPI {
+  id            String   @id @default(uuid())
+  campaignId    String   @map("campaign_id")
+  leads         Int      @default(0)
+  consultations Int      @default(0)
+  admissions    Int      @default(0)
+  revenue       Int      @default(0)
+  spend         Int      @default(0)
+
+  @@map("campaign_kpi")
+}
+
+model ExecutiveKPI {
+  id                 String   @id @default(uuid())
+  executiveId        String   @map("executive_id")
+  periodStart        DateTime @map("period_start") @db.Date
+  periodEnd          DateTime @map("period_end") @db.Date
+  callsHandled       Int      @default(0) @map("calls_handled")
+  leadsConverted     Int      @default(0) @map("leads_converted")
+  followUpsCompleted Int      @default(0) @map("follow_ups_completed")
+  avgResponseSec     Int      @default(0) @map("avg_response_sec")
+
+  @@map("executive_kpi")
+}
+
+// ===========================================================================
+// AUDIT  (security requirement)
+// ===========================================================================
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?  @map("actor_id")
+  action    String   // e.g. "lead.update", "booking.cancel"
+  entity    String
+  entityId  String?  @map("entity_id")
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  actor StaffUser? @relation(fields: [actorId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
+}
