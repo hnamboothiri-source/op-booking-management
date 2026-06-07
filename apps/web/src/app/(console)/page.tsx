@@ -1,26 +1,23 @@
 import { MODULES, PHASES, type BuildStatus } from "@/lib/blueprint";
+import { requireUser } from "@/lib/session";
 
 const STATUS_STYLE: Record<BuildStatus, string> = {
   done: "bg-green-100 text-green-800",
   in_progress: "bg-amber-100 text-amber-800",
   planned: "bg-slate-100 text-slate-600",
 };
+const STATUS_LABEL: Record<BuildStatus, string> = { done: "Done", in_progress: "In progress", planned: "Planned" };
 
-const STATUS_LABEL: Record<BuildStatus, string> = {
-  done: "Done",
-  in_progress: "In progress",
-  planned: "Planned",
-};
-
-export default function Home() {
+export default async function Dashboard() {
+  const user = await requireUser();
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10">
+    <main>
       <header className="mb-8">
-        <p className="text-sm font-medium text-emerald-700">Sreedhareeyam Ayurveda Hospital</p>
+        <p className="text-sm font-medium text-emerald-700">Welcome, {user.name}</p>
         <h1 className="text-3xl font-bold tracking-tight">Patient Relationship Management</h1>
         <p className="mt-2 max-w-3xl text-slate-600">
           Lead → Appointment → Consultation → Referral/Test → Treatment/Admission → Follow-up →
-          Retention → Referral → Lifetime relationship. Foundation phase scaffolded and running.
+          Retention → Referral → Lifetime relationship.
         </p>
       </header>
 
@@ -43,7 +40,7 @@ export default function Home() {
           {MODULES.map((m) => (
             <div key={m.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-mono text-slate-400">{m.id} · Phase {m.phase}</span>
+                <span className="font-mono text-xs text-slate-400">{m.id} · Phase {m.phase}</span>
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[m.status]}`}>
                   {STATUS_LABEL[m.status]}
                 </span>
@@ -54,10 +51,6 @@ export default function Home() {
           ))}
         </div>
       </section>
-
-      <footer className="mt-12 border-t border-slate-200 pt-6 text-sm text-slate-500">
-        Spec: <code>docs/MODULES.md</code> · Data model: <code>packages/db/prisma/schema.prisma</code>
-      </footer>
     </main>
   );
 }

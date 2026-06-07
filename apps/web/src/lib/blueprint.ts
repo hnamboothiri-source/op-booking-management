@@ -28,8 +28,8 @@ export const MODULES: ModuleInfo[] = [
   { id: "M12", name: "Retention & Reactivation", phase: 4, status: "planned", summary: "Dormant/at-risk scoring; reactivation campaigns." },
   { id: "M13", name: "Marketing Campaigns", phase: 4, status: "planned", summary: "Campaign ROI: cost per lead/consultation/admission." },
   { id: "M14", name: "Corporate & Institutional", phase: 3, status: "planned", summary: "Organizations that generate patients." },
-  { id: "M15", name: "Task & Workflow", phase: 0, status: "planned", summary: "Cross-cutting accountability engine." },
-  { id: "M16", name: "Roles & Access Control", phase: 0, status: "planned", summary: "15 roles, branch-scoped RBAC." },
+  { id: "M15", name: "Task & Workflow", phase: 0, status: "done", summary: "Cross-cutting accountability engine — create, assign, transition, overdue." },
+  { id: "M16", name: "Roles & Access Control", phase: 0, status: "done", summary: "15 roles, branch-scoped RBAC, audit log, master-data CRUD." },
 ];
 
 export interface PhaseInfo {

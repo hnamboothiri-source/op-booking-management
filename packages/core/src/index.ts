@@ -1,2 +1,4 @@
-export * from "./scoring.js";
-export * from "./automation.js";
+export * from "./scoring";
+export * from "./automation";
+export * from "./rbac";
+export * from "./tasks";

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { retentionScore, conversionScore, retentionCategory } from "./scoring.js";
-import { rulesFor } from "./automation.js";
+import { retentionScore, conversionScore, retentionCategory } from "./scoring";
+import { rulesFor } from "./automation";
 
 describe("retentionScore", () => {
   it("rewards loyal patients and clamps at 100", () => {
