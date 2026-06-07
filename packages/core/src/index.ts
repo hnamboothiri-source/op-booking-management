@@ -6,3 +6,4 @@ export * from "./booking";
 export * from "./leads";
 export * from "./admission";
 export * from "./campaign";
+export * from "./prioritization";
