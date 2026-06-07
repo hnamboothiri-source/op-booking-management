@@ -126,6 +126,13 @@ async function main() {
     if (!exists) await prisma.communicationTemplate.create({ data: { name, channel, body } });
   }
 
+  // --- A dormant sample patient (Module 12 demo) ---
+  await prisma.patient.upsert({
+    where: { mrd: "MRD-DORMANT1" },
+    update: {},
+    create: { mrd: "MRD-DORMANT1", name: "Ravi Kumar", phone: "9847099001", place: "Thrissur", lifetimeVisits: 3, isNew: false, lastVisitDate: new Date("2025-09-01") },
+  });
+
   // --- A sample organization (Module 14) ---
   const orgExists = await prisma.organization.findFirst({ where: { name: "St. Mary's School" } });
   if (!orgExists) await prisma.organization.create({ data: { name: "St. Mary's School", type: "school" } });
