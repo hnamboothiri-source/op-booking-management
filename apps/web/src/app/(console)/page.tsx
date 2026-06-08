@@ -1,18 +1,12 @@
 import Link from "next/link";
-import { MODULES, PHASES, type BuildStatus } from "@/lib/blueprint";
+import { MODULES, PHASES } from "@/lib/blueprint";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { can, conversionRate, branchScopeWhere, type DrillEntity, type DrillFilters } from "@prm/core";
 import { DrillStat } from "@/components/drill/DrillStat";
 import { DrillCount } from "@/components/drill/DrillCount";
 import { Card } from "@/components/ui";
-
-const STATUS_STYLE: Record<BuildStatus, string> = {
-  done: "bg-green-100 text-green-800",
-  in_progress: "bg-amber-100 text-amber-800",
-  planned: "bg-slate-100 text-slate-600",
-};
-const STATUS_LABEL: Record<BuildStatus, string> = { done: "Done", in_progress: "In progress", planned: "Planned" };
+import { ModuleCard } from "@/components/ModuleCard";
 
 async function ManagementKpis({ role, branchId }: { role: Parameters<typeof branchScopeWhere>[0]; branchId: string | null }) {
   const scope = branchScopeWhere(role, branchId);
@@ -106,16 +100,7 @@ export default async function Dashboard() {
       <section>
         <h2 className="mb-3 text-lg font-semibold">Modules ({MODULES.length})</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {MODULES.map((m) => (
-            <Card key={m.id}>
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-xs text-slate-400">{m.id} · Phase {m.phase}</span>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[m.status]}`}>{STATUS_LABEL[m.status]}</span>
-              </div>
-              <h3 className="mt-1 font-semibold">{m.name}</h3>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{m.summary}</p>
-            </Card>
-          ))}
+          {MODULES.map((m) => <ModuleCard key={m.id} module={m} />)}
         </div>
       </section>
     </main>
