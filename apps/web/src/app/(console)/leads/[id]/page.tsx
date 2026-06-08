@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { updateLeadStage, logCall, transferLead, mergeLead } from "@/lib/leads/actions";
-import { LEAD_STAGES, isClosedStage, can } from "@prm/core";
+import { LEAD_STAGES, isClosedStage, can, checklistCompletion, safeParseChecklist } from "@prm/core";
 import { PageHeader, Badge, Card, SubmitButton, LinkButton } from "@/components/ui";
 import { LeadTierBadge } from "@/components/leads/TierBadge";
 
@@ -40,7 +40,13 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
   type Ev = { at: Date; kind: string; text: string };
   const events: Ev[] = [
     ...activities.map((a) => ({ at: a.createdAt as Date, kind: a.kind, text: a.detail ? `${a.summary} — ${a.detail}` : a.summary })),
-    ...lead.calls.map((c) => ({ at: c.createdAt as Date, kind: "call", text: `Call — ${c.outcome.replace(/_/g, " ")}${c.notes ? ` — ${c.notes}` : ""}` })),
+    ...lead.calls.map((c) => {
+      const cl = checklistCompletion(safeParseChecklist((c as { checklistJson?: string | null }).checklistJson));
+      const parts = [c.outcome.replace(/_/g, " ")];
+      if (c.notes) parts.push(c.notes);
+      if (cl.total > 0) parts.push(`checklist ${cl.done}/${cl.total}`);
+      return { at: c.createdAt as Date, kind: "call", text: `Call — ${parts.join(" — ")}` };
+    }),
     ...communications.map((m) => ({ at: (m.sentAt ?? m.createdAt) as Date, kind: "message", text: `${m.channel.replace(/_/g, " ")} — ${m.status}${m.body ? `: ${m.body.slice(0, 60)}` : ""}` })),
     ...bookings.map((b) => ({ at: b.bookedAt as Date, kind: "follow_up", text: `Appointment ${b.status.replace(/_/g, " ")}` })),
   ].sort((a, b) => b.at.getTime() - a.at.getTime());
@@ -92,7 +98,10 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
 
         {canCall && (
           <Card>
-            <h2 className="mb-3 font-semibold">Log call</h2>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-semibold">Log call</h2>
+              <Link href={`/leads/${id}/call`} className="rounded border border-rose-300 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-slate-800">Open call with checklist ☑</Link>
+            </div>
             <form action={logCall.bind(null, id)} className="space-y-3">
               <select name="outcome" className={input}>
                 {CALL_OUTCOMES.map((o) => <option key={o} value={o}>{o.replace(/_/g, " ")}</option>)}
@@ -101,6 +110,7 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
               <label className="block text-xs text-slate-500">Next follow-up date<input type="date" name="followUpDate" className={input} /></label>
               <SubmitButton>Save call</SubmitButton>
             </form>
+            <p className="mt-2 text-xs text-slate-400">Quick-log here, or open the full call screen for the desk checklist.</p>
           </Card>
         )}
       </div>

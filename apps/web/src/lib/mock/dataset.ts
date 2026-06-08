@@ -332,6 +332,31 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     { id: "mch-google", name: "Google Ads", pricingModel: "cpc", baseRate: 1200, active: true, notes: "Search + display", createdAt: day(-60) },
     { id: "mch-wa", name: "WhatsApp", pricingModel: "flat", baseRate: 800000, active: true, notes: "Broadcast blast", createdAt: day(-60) },
   ];
+  // Per-desk call talking-points / checklist (Module 2).
+  const callChecklistItems: Row[] = [
+    // Reception — inbound enquiry
+    { id: "cl-r1", label: "Verify caller name & phone", desk: "reception", section: "identity", mandatory: true, responseType: "checkbox", sortOrder: 1, active: true, createdAt: day(-40) },
+    { id: "cl-r2", label: "Existing patient?", desk: "reception", section: "identity", promptHint: "Ask if they've visited before; capture MRD if yes.", mandatory: false, responseType: "yes_no_na", sortOrder: 2, active: true, createdAt: day(-40) },
+    { id: "cl-r3", label: "Capture chief complaint", desk: "reception", section: "clinical", mandatory: true, responseType: "short_text", sortOrder: 3, active: true, createdAt: day(-40) },
+    { id: "cl-r4", label: "Shared clinic timings & location", desk: "reception", section: "general", responseType: "checkbox", sortOrder: 4, active: true, createdAt: day(-40) },
+    { id: "cl-r5", label: "Offered an appointment slot", desk: "reception", section: "next_step", mandatory: true, responseType: "checkbox", sortOrder: 5, active: true, createdAt: day(-40) },
+    // Back office — lead nurture
+    { id: "cl-b1", label: "Confirmed interest & disease area", desk: "back_office", section: "clinical", mandatory: true, responseType: "checkbox", sortOrder: 1, active: true, createdAt: day(-40) },
+    { id: "cl-b2", label: "Explained relevant treatment", desk: "back_office", section: "clinical", promptHint: "Briefly explain the Ayurvedic treatment for their complaint.", responseType: "checkbox", sortOrder: 2, active: true, createdAt: day(-40) },
+    { id: "cl-b3", label: "Shared doctor credentials", desk: "back_office", section: "commercial", responseType: "checkbox", sortOrder: 3, active: true, createdAt: day(-40) },
+    { id: "cl-b4", label: "Discussed approx cost / package", desk: "back_office", section: "commercial", responseType: "short_text", sortOrder: 4, active: true, createdAt: day(-40) },
+    { id: "cl-b5", label: "Objection / concern raised", desk: "back_office", section: "commercial", promptHint: "Note any hesitation (cost, distance, time).", responseType: "short_text", sortOrder: 5, active: true, createdAt: day(-40) },
+    { id: "cl-b6", label: "Proposed branch visit / appointment", desk: "back_office", section: "next_step", mandatory: true, responseType: "checkbox", sortOrder: 6, active: true, createdAt: day(-40) },
+    { id: "cl-b7", label: "Agreed next contact date", desk: "back_office", section: "next_step", responseType: "checkbox", sortOrder: 7, active: true, createdAt: day(-40) },
+    // Front office — patient review
+    { id: "cl-f1", label: "Confirmed recovery / current symptoms", desk: "front_office", section: "clinical", mandatory: true, responseType: "short_text", sortOrder: 1, active: true, createdAt: day(-40) },
+    { id: "cl-f2", label: "Medication adherence checked", desk: "front_office", section: "clinical", responseType: "yes_no_na", sortOrder: 2, active: true, createdAt: day(-40) },
+    { id: "cl-f3", label: "Advised next review / test", desk: "front_office", section: "next_step", responseType: "checkbox", sortOrder: 3, active: true, createdAt: day(-40) },
+    { id: "cl-f4", label: "Reschedule needed?", desk: "front_office", section: "next_step", responseType: "yes_no_na", sortOrder: 4, active: true, createdAt: day(-40) },
+    { id: "cl-f5", label: "Satisfaction check", desk: "front_office", section: "general", responseType: "yes_no_na", sortOrder: 5, active: true, createdAt: day(-40) },
+    // Any desk
+    { id: "cl-a1", label: "Consent to contact confirmed", desk: "any", section: "general", responseType: "checkbox", sortOrder: 9, active: true, createdAt: day(-40) },
+  ];
   const channelSeasonalOffers: Row[] = [
     { id: "off-1", channelMasterId: "mch-insta", name: "Onam reach offer", fromDate: day(-10), toDate: day(20), discountPct: null, bonusReachPct: 15, active: true, createdAt: day(-12) },
     { id: "off-2", channelMasterId: "mch-google", name: "Festive discount", fromDate: day(-5), toDate: day(15), discountPct: 10, bonusReachPct: null, active: true, createdAt: day(-6) },
@@ -476,6 +501,7 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     appointmentStatusHistory, appointmentReminder: appointmentReminders, doctorLeave: doctorLeaves,
     doctorSchedule: doctorSchedules, timeSlot: timeSlots,
     marketingChannelMaster: marketingChannels, channelSeasonalOffer: channelSeasonalOffers,
+    callChecklistItem: callChecklistItems,
   };
   return { store, counters: {} };
 }

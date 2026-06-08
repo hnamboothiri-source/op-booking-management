@@ -121,3 +121,43 @@ export const SLA_LABEL: Record<SlaState, string> = {
   at_risk: "At risk",
   breached: "SLA breached",
 };
+
+// --- Call checklist (Module 2 — call-centre talking points) ---
+
+export const CHECKLIST_DESKS = ["reception", "back_office", "front_office", "any"] as const;
+export const CHECKLIST_RESPONSE_TYPES = ["checkbox", "yes_no_na", "short_text"] as const;
+
+/** One recorded checklist answer snapshotted onto a CallLog. */
+export interface ChecklistAnswer {
+  itemId: string;
+  label: string;
+  responseType?: string | null;
+  checked?: boolean | null;
+  value?: string | null;
+  note?: string | null;
+}
+
+/** An item counts as answered: checkbox ticked, or a non-empty value for other types. */
+export function checklistAnswered(a: ChecklistAnswer): boolean {
+  if ((a.responseType ?? "checkbox") === "checkbox") return a.checked === true;
+  return typeof a.value === "string" && a.value.trim().length > 0;
+}
+
+/** Completion summary across a set of checklist answers. */
+export function checklistCompletion(items: ChecklistAnswer[]): { done: number; total: number; pct: number } {
+  const total = items.length;
+  const done = items.filter(checklistAnswered).length;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  return { done, total, pct };
+}
+
+/** Tolerant parse of a CallLog.checklistJson snapshot → [] on any bad input. */
+export function safeParseChecklist(json: string | null | undefined): ChecklistAnswer[] {
+  if (!json) return [];
+  try {
+    const v = JSON.parse(json);
+    return Array.isArray(v) ? (v as ChecklistAnswer[]) : [];
+  } catch {
+    return [];
+  }
+}

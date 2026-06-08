@@ -208,6 +208,21 @@ export const MASTERS: MasterDef[] = [
     listColumns: ["name", "fromDate", "toDate", "active"],
   },
 
+  {
+    key: "call-checklists", label: "Call Checklist Item", model: "callChecklistItem",
+    fields: [
+      { name: "label", label: "Talking point / question", type: "text", required: true },
+      { name: "desk", label: "Desk", type: "select", required: true, options: opts("reception", "front_office", "back_office", "any") },
+      { name: "section", label: "Section", type: "select", options: opts("identity", "clinical", "commercial", "next_step", "general") },
+      { name: "promptHint", label: "Prompt / what to say", type: "textarea" },
+      { name: "mandatory", label: "Mandatory (must be answered)", type: "boolean" },
+      { name: "responseType", label: "Response type", type: "select", options: opts("checkbox", "yes_no_na", "short_text") },
+      { name: "sortOrder", label: "Sort order", type: "number" },
+      { name: "active", label: "Active", type: "boolean" },
+    ],
+    listColumns: ["label", "desk", "section", "active"],
+  },
+
   // --- Operational masters surfaced for completeness (managed in their module) ---
   { key: "user-roles", label: "User Role", model: "_enum", fields: [], listColumns: [], managedInModule: "Roles are a fixed enum (Module 16) — see Roles reference" },
   { key: "campaigns", label: "Campaign", model: "campaign", fields: [], listColumns: [], managedInModule: "Marketing module (Phase 4)" },

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { overdueAgeDays, overdueBucket, escalationLevel, funnelRate, deskForSource, deskForFollowUp, deskLabel, CALL_DESKS, effectiveTier, slaTargetMinutes, slaState } from "./callcenter";
+import { overdueAgeDays, overdueBucket, escalationLevel, funnelRate, deskForSource, deskForFollowUp, deskLabel, CALL_DESKS, effectiveTier, slaTargetMinutes, slaState, checklistAnswered, checklistCompletion, safeParseChecklist } from "./callcenter";
 
 const D = (iso: string) => new Date(iso);
 
@@ -87,5 +87,31 @@ describe("lead tiers + SLA", () => {
     expect(slaState("hot", ago(20), now)).toBe("breached");  // over 15
     expect(slaState("warm", ago(30), now)).toBe("on_track"); // 30 of 120
     expect(slaState("cold", ago(2000), now)).toBe("breached");
+  });
+});
+
+describe("call checklist", () => {
+  it("checklistAnswered handles each response type", () => {
+    expect(checklistAnswered({ itemId: "1", label: "a", responseType: "checkbox", checked: true })).toBe(true);
+    expect(checklistAnswered({ itemId: "1", label: "a", responseType: "checkbox", checked: false })).toBe(false);
+    expect(checklistAnswered({ itemId: "2", label: "b", responseType: "yes_no_na", value: "no" })).toBe(true);
+    expect(checklistAnswered({ itemId: "2", label: "b", responseType: "yes_no_na", value: "" })).toBe(false);
+    expect(checklistAnswered({ itemId: "3", label: "c", responseType: "short_text", value: " " })).toBe(false);
+    expect(checklistAnswered({ itemId: "4", label: "d", checked: true })).toBe(true); // default checkbox
+  });
+  it("checklistCompletion counts answered / total with pct", () => {
+    expect(checklistCompletion([])).toEqual({ done: 0, total: 0, pct: 0 });
+    const items = [
+      { itemId: "1", label: "a", checked: true },
+      { itemId: "2", label: "b", checked: false },
+      { itemId: "3", label: "c", responseType: "short_text", value: "ok" },
+    ];
+    expect(checklistCompletion(items)).toEqual({ done: 2, total: 3, pct: 67 });
+  });
+  it("safeParseChecklist tolerates bad input", () => {
+    expect(safeParseChecklist(null)).toEqual([]);
+    expect(safeParseChecklist("not json")).toEqual([]);
+    expect(safeParseChecklist('{"a":1}')).toEqual([]); // not an array
+    expect(safeParseChecklist('[{"itemId":"1","label":"a","checked":true}]')).toHaveLength(1);
   });
 });

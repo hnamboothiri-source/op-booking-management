@@ -729,9 +729,13 @@ model CallLog {
   id        String      @id @default(uuid())
   leadId    String?     @map("lead_id")
   patientMrd String?    @map("patient_mrd")
+  followUpId String?    @map("follow_up_id")
   executiveId String?   @map("executive_id")
+  desk      String?
   outcome   CallOutcome
   notes     String?
+  nextAction String?    @map("next_action")
+  checklistJson String? @map("checklist_json")
   durationSec Int?      @map("duration_sec")
   recordingUrl String?  @map("recording_url")
   createdAt DateTime    @default(now()) @map("created_at")
@@ -740,6 +744,22 @@ model CallLog {
 
   @@index([executiveId, createdAt])
   @@map("call_logs")
+}
+
+/// Configurable per-desk call talking-points / checklist (Module 2 — call centre).
+model CallChecklistItem {
+  id           String   @id @default(uuid())
+  label        String
+  desk         String?  // reception | front_office | back_office | any
+  section      String?  // identity | clinical | commercial | next_step | general
+  promptHint   String?  @map("prompt_hint")
+  mandatory    Boolean  @default(false)
+  responseType String?  @default("checkbox") @map("response_type") // checkbox | yes_no_na | short_text
+  sortOrder    Int      @default(0) @map("sort_order")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("call_checklist_items")
 }
 
 // Lightweight enquiry kept for non-lead quick logging (front desk)

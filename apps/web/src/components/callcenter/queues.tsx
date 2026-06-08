@@ -63,6 +63,7 @@ export async function LeadQueue({ where, title }: { where: Record<string, unknow
           <td className={`${cell} text-slate-600 dark:text-slate-300`}>{l.owner?.name ?? <span className="text-amber-600">unassigned</span>}</td>
           <td className={cell}>
             <div className="flex flex-wrap items-center gap-1.5">
+              <Link href={`/leads/${l.id}/call`} className="rounded border border-rose-300 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-slate-800">Open call ☑</Link>
               <form action={logCall.bind(null, l.id)} className="flex items-center gap-1">
                 <select name="outcome" defaultValue="follow_up_required" className={tinySelect}>{CALL_OUTCOMES.map((o) => <option key={o} value={o}>{o.replace(/_/g, " ")}</option>)}</select>
                 <button className={tinyBtn}>Log call</button>
@@ -102,6 +103,7 @@ export async function FollowUpQueue({ where, overdue, title }: { where: Record<s
             {overdue && <td className={`${cell} text-xs text-slate-500 dark:text-slate-400`}>{ESCALATION_LABEL[escalationLevel(age)]}</td>}
             <td className={cell}>
               <div className="flex flex-wrap items-center gap-1.5">
+                <Link href={`/follow-ups/${f.id}/call`} className="rounded border border-rose-300 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-slate-800">Open call ☑</Link>
                 <Link href={`/appointments/book?mrd=${encodeURIComponent(f.patientMrd)}`} className="rounded bg-rose-600 px-2 py-1 text-xs font-medium text-white hover:bg-rose-700">Book</Link>
                 <form action={transitionFollowUp.bind(null, f.id, "done")}><button className={tinyBtn}>Done</button></form>
                 <form action={transitionFollowUp.bind(null, f.id, "missed")}><button className={tinyBtn}>{overdue ? "Escalate" : "Missed"}</button></form>
