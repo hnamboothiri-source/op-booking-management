@@ -2,13 +2,14 @@ import Link from "next/link";
 import { MODULES, PHASES } from "@/lib/blueprint";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { can, conversionRate, branchScopeWhere, type DrillEntity, type DrillFilters } from "@prm/core";
+import { can, conversionRate, funnelRate, branchScopeWhere, type DrillEntity, type DrillFilters } from "@prm/core";
 import { DrillStat } from "@/components/drill/DrillStat";
 import { DrillCount } from "@/components/drill/DrillCount";
 import { Card } from "@/components/ui";
 import { ModuleCard } from "@/components/ModuleCard";
 import { LeadFunnelChart } from "@/components/charts/LeadFunnelChart";
 import { leadFunnel } from "@/lib/leads/funnel";
+import { BarChartCard } from "@/components/charts/BarChartCard";
 
 async function ManagementKpis({ role, branchId }: { role: Parameters<typeof branchScopeWhere>[0]; branchId: string | null }) {
   const scope = branchScopeWhere(role, branchId);
@@ -57,6 +58,55 @@ async function LeadFunnelSection({ role, branchId }: { role: Parameters<typeof b
   );
 }
 
+async function AppointmentsOverview({ role, branchId }: { role: Parameters<typeof branchScopeWhere>[0]; branchId: string | null }) {
+  const scope = branchScopeWhere(role, branchId);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const today = new Date(todayStr);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dayWhere = (status: string[]) => ({ ...scope, appointmentDate: today, status: { in: status } } as any);
+  const [booked, arrived, waiting, completed, noShow, slots] = await Promise.all([
+    prisma.opBooking.count({ where: dayWhere(["booked", "confirmed"]) }),
+    prisma.opBooking.count({ where: dayWhere(["arrived"]) }),
+    prisma.opBooking.count({ where: dayWhere(["waiting", "in_consultation"]) }),
+    prisma.opBooking.count({ where: dayWhere(["completed"]) }),
+    prisma.opBooking.count({ where: dayWhere(["no_show"]) }),
+    prisma.timeSlot.findMany({ where: { slotDate: today }, select: { capacity: true, bookedCount: true } }),
+  ]);
+  const cap = slots.reduce((s, x) => s + (x.capacity ?? 0), 0);
+  const bookedSlots = slots.reduce((s, x) => s + (x.bookedCount ?? 0), 0);
+  const utilisation = funnelRate(bookedSlots, cap);
+  const arrivedAll = arrived + waiting + completed;
+
+  const tiles: { label: string; value: React.ReactNode; filters: DrillFilters }[] = [
+    { label: "Booked", value: booked, filters: { date: todayStr, status: "booked,confirmed" } },
+    { label: "Arrived", value: arrived, filters: { date: todayStr, status: "arrived" } },
+    { label: "Waiting", value: waiting, filters: { date: todayStr, status: "waiting,in_consultation" } },
+    { label: "Completed", value: completed, filters: { date: todayStr, status: "completed" } },
+    { label: "No-show", value: noShow, filters: { date: todayStr, status: "no_show" } },
+  ];
+
+  return (
+    <section className="mb-10">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Appointments today</h2>
+        <Link href="/reports/appointments" className="text-sm text-rose-700 hover:underline dark:text-rose-300">Full appointment report →</Link>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {tiles.map((t) => <DrillStat key={t.label} label={t.label} value={t.value} entity="appointments" filters={t.filters} />)}
+        <DrillStat label="Slot utilisation" value={`${utilisation}%`} entity="appointments" filters={{ date: todayStr }} />
+      </div>
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        <Card><div className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Today&apos;s flow</div><BarChartCard data={[{ label: "Booked", value: booked + arrivedAll }, { label: "Arrived", value: arrivedAll }, { label: "Completed", value: completed }]} height={130} /></Card>
+        <div className="flex flex-col justify-center gap-2 rounded-xl border border-slate-200 bg-white p-4 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <Link href="/appointments/calendar" className="text-rose-700 hover:underline dark:text-rose-300">📅 Doctor calendar →</Link>
+          <Link href="/appointments/branches" className="text-rose-700 hover:underline dark:text-rose-300">🏥 Branch schedule dashboard →</Link>
+          <Link href="/queue" className="text-rose-700 hover:underline dark:text-rose-300">🎫 Patient queue (tokens) →</Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 async function DoctorToday() {
   const todayStr = new Date().toISOString().slice(0, 10);
   const today = new Date(todayStr);
@@ -98,6 +148,7 @@ export default async function Dashboard() {
 
       {can(user.role, "dashboards", "view") && <ManagementKpis role={user.role} branchId={user.branchId} />}
       {can(user.role, "dashboards", "view") && <LeadFunnelSection role={user.role} branchId={user.branchId} />}
+      {can(user.role, "appointments", "view") && <AppointmentsOverview role={user.role} branchId={user.branchId} />}
       {user.role === "doctor" && <DoctorToday />}
 
       <section className="mb-10">

@@ -20,6 +20,8 @@ const NAV: (NavItem & { resource: Resource })[] = [
   { href: "/communication", label: "Messaging", icon: "message", group: "Engagement", resource: "communication" },
 
   { href: "/appointments", label: "Appointments", icon: "calendar", group: "Clinical", resource: "appointments" },
+  { href: "/appointments/calendar", label: "Calendar", icon: "calendar", group: "Clinical", resource: "appointments" },
+  { href: "/appointments/branches", label: "Branches", icon: "building", group: "Clinical", resource: "appointments" },
   { href: "/waitlist", label: "Waitlist", icon: "hourglass", group: "Clinical", resource: "appointments" },
   { href: "/queue", label: "Queue", icon: "queue", group: "Clinical", resource: "consultations" },
   { href: "/consultations", label: "Consultations", icon: "stethoscope", group: "Clinical", resource: "consultations" },

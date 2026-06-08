@@ -22,7 +22,7 @@ export interface ModuleInfo {
 export const MODULES: ModuleInfo[] = [
   { id: "M1", name: "Lead Management", phase: 1, status: "done", summary: "Capture, stages, sources, owners, duplicate detection, calls.", href: "/leads", drill: "leads" },
   { id: "M2", name: "Call Center", phase: 1, status: "done", summary: "Queues dashboard, call outcomes, conversion by executive.", href: "/call-center" },
-  { id: "M3", name: "Appointment Management", phase: 1, status: "done", summary: "Schedules, slot generation, booking, worklist, lifecycle.", href: "/appointments", drill: "appointments" },
+  { id: "M3", name: "Appointment Management", phase: 1, status: "done", summary: "Doctor calendar, branch dashboard, slot booking, queue tokens, reschedule/cancel reasons, reminders, no-show & utilisation reports.", href: "/appointments", drill: "appointments" },
   { id: "M4", name: "Patient 360 Profile", phase: 1, status: "done", summary: "Search, segments, full history: bookings, leads, follow-ups, referrals, admissions, comms.", href: "/patients", drill: "patients" },
   { id: "M5", name: "Consultation Workflow", phase: 2, status: "done", summary: "Diagnosis, advice, outcome, Rx summary, lab/optometry referral, treatment plan.", href: "/consultations", drill: "consultations" },
   { id: "M6", name: "Referral Management", phase: 3, status: "done", summary: "Patient/doctor/org referrals, conversion, revenue, top referrers.", href: "/referrals", drill: "referrals" },
