@@ -94,10 +94,10 @@ export const DRILL: Record<DrillEntity, DrillDef> = {
   appointments: {
     resource: "appointments",
     branchScoped: true,
-    filters: ["date", "status", "doctorId", "departmentId", "branchId", "patientMrd", "bookedOn"],
+    filters: ["date", "status", "doctorId", "departmentId", "branchId", "patientMrd", "bookedOn", "appointmentType", "source"],
     listPath: "/appointments",
     buildWhere: (f) => {
-      const w = simpleWhere(f, ["status", "doctorId", "departmentId", "branchId", "patientMrd"]);
+      const w = simpleWhere(f, ["status", "doctorId", "departmentId", "branchId", "patientMrd", "appointmentType", "source"]);
       if (f.date) w.appointmentDate = new Date(f.date);
       // "Booked today" counts by when the booking was made, not the appointment date.
       if (f.bookedOn === "today") w.bookedAt = { gte: startOfToday() };

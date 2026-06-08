@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
-  canTransitionBooking, releasesSlot, generateSlotTimes, nextQueueToken, type BookingStatus,
+  canTransitionBooking, releasesSlot, generateSlotTimes, nextQueueToken, roomConflict, type BookingStatus,
 } from "@prm/core";
 import { prisma } from "../db";
 import { requireCan } from "../session";
@@ -20,6 +20,24 @@ async function issueQueueToken(branchId: string | null, date: Date): Promise<num
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sameDay = await prisma.opBooking.findMany({ where: { branchId, appointmentDate: date, queueToken: { not: null } } as any, select: { queueToken: true } });
   return nextQueueToken(sameDay.map((b) => b.queueToken as number));
+}
+
+/** Append an appointment status-transition history row (best-effort). */
+async function writeStatusHistory(bookingId: string, fromStatus: string | null, toStatus: string, reason: string | null, actorId: string) {
+  try {
+    await prisma.appointmentStatusHistory.create({ data: { bookingId, fromStatus, toStatus, reason, actorId } });
+  } catch { /* history is non-critical */ }
+}
+
+/** Throw if `roomId` is already taken by an active booking at this date+time (FRS §7). */
+async function assertRoomFree(roomId: string | null, date: Date, startTime: string, excludeId?: string) {
+  if (!roomId) return;
+  const others = await prisma.opBooking.findMany({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    where: { roomId, appointmentDate: date, status: { notIn: ["cancelled", "rescheduled", "no_show"] }, ...(excludeId ? { id: { not: excludeId } } : {}) } as any,
+    select: { startTime: true },
+  });
+  if (roomConflict(others, startTime)) throw new Error(`Room is already occupied at ${startTime} on ${date.toISOString().slice(0, 10)}`);
 }
 
 // --- Doctor schedule templates ---
@@ -49,6 +67,26 @@ export async function createSchedule(fd: FormData): Promise<void> {
   redirect("/appointments/schedules");
 }
 
+// --- Doctor leave / emergency block ---
+export async function createDoctorLeave(fd: FormData): Promise<void> {
+  const user = await requireCan("appointments", "create");
+  const doctorId = str(fd, "doctorId");
+  const fromStr = str(fd, "fromDate");
+  const toStr = str(fd, "toDate") ?? fromStr;
+  if (!doctorId || !fromStr) throw new Error("Doctor and from-date are required");
+  const fromDate = new Date(fromStr); const toDate = new Date(toStr!);
+
+  const leave = await prisma.doctorLeave.create({
+    data: { doctorId, branchId: str(fd, "branchId"), fromDate, toDate, kind: str(fd, "kind") ?? "leave", reason: str(fd, "reason") },
+  });
+  // Block any already-generated slots in the leave window.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await prisma.timeSlot.updateMany({ where: { doctorId, slotDate: { gte: fromDate, lte: toDate } } as any, data: { status: "blocked" } });
+  await writeAudit({ actorId: user.id, action: "doctor.leave", entity: "doctor_leave", entityId: leave.id, after: { doctorId, fromStr, toStr } });
+  revalidatePath("/appointments/schedules");
+  redirect("/appointments/schedules");
+}
+
 // --- Slot generation for a date ---
 export async function generateSlots(fd: FormData): Promise<void> {
   const user = await requireCan("appointments", "create");
@@ -60,9 +98,14 @@ export async function generateSlots(fd: FormData): Promise<void> {
   const schedules = await prisma.doctorSchedule.findMany({
     where: { active: true, OR: [{ dayOfWeek: dow }, { specificDate: date }] },
   });
+  // Doctors on leave that day are skipped.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const leaves = await prisma.doctorLeave.findMany({ where: { fromDate: { lte: date }, toDate: { gte: date } } as any, select: { doctorId: true } });
+  const onLeave = new Set(leaves.map((l) => l.doctorId));
 
   let created = 0;
   for (const s of schedules) {
+    if (onLeave.has(s.doctorId)) continue;
     for (const t of generateSlotTimes(s.startTime, s.endTime, s.slotDurationMinutes)) {
       const exists = await prisma.timeSlot.findFirst({ where: { doctorId: s.doctorId, slotDate: date, startTime: t.start } });
       if (exists) continue;
@@ -94,18 +137,22 @@ export async function createBooking(fd: FormData): Promise<void> {
   const timeSlotId = str(fd, "timeSlotId");
   const leadId = str(fd, "leadId");
   const source = str(fd, "source") ?? "call_centre";
+  const roomId = str(fd, "roomId");
+  const date = new Date(dateStr);
+  await assertRoomFree(roomId, date, startTime);
 
   const count = await prisma.opBooking.count();
-  const bookingRef = `OP-${new Date(dateStr).getUTCFullYear()}-${String(count + 1).padStart(6, "0")}`;
+  const bookingRef = `OP-${date.getUTCFullYear()}-${String(count + 1).padStart(6, "0")}`;
 
   const created = await prisma.$transaction(async (tx) => {
     const b = await tx.opBooking.create({
       data: {
         bookingRef, patientMrd, doctorId, departmentId,
         branchId: str(fd, "branchId"),
-        roomId: str(fd, "roomId"),
+        roomId,
         timeSlotId,
-        appointmentDate: new Date(dateStr),
+        appointmentType: str(fd, "appointmentType") ?? "regular",
+        appointmentDate: date,
         startTime,
         endTime: str(fd, "endTime"),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -148,6 +195,9 @@ export async function walkInRegister(fd: FormData): Promise<void> {
   }
 
   const today = new Date(new Date().toISOString().slice(0, 10));
+  const startTime = str(fd, "startTime") ?? new Date().toTimeString().slice(0, 5);
+  const roomId = str(fd, "roomId");
+  await assertRoomFree(roomId, today, startTime);
   const count = await prisma.opBooking.count();
   const bookingRef = `OP-${today.getUTCFullYear()}-${String(count + 1).padStart(6, "0")}`;
   const branchId = str(fd, "branchId");
@@ -158,9 +208,9 @@ export async function walkInRegister(fd: FormData): Promise<void> {
       doctorId,
       departmentId,
       branchId,
-      roomId: str(fd, "roomId"),
+      roomId,
       appointmentDate: today,
-      startTime: str(fd, "startTime") ?? new Date().toTimeString().slice(0, 5),
+      startTime,
       source: "front_desk",
       appointmentType: "regular",
       status: "arrived",
@@ -187,6 +237,9 @@ export async function rescheduleBooking(oldId: string, fd: FormData): Promise<vo
   const startTime = str(fd, "startTime");
   if (!doctorId || !departmentId || !dateStr || !startTime) throw new Error("Doctor, department, date and time are required");
   const timeSlotId = str(fd, "timeSlotId");
+  const reasonId = str(fd, "rescheduleReasonId");
+  const reasonRow = reasonId ? await prisma.reasonMaster.findUnique({ where: { id: reasonId } }) : null;
+  const reasonText = str(fd, "rescheduleReason") ?? reasonRow?.label ?? null;
 
   const count = await prisma.opBooking.count();
   const bookingRef = `OP-${new Date(dateStr).getUTCFullYear()}-${String(count + 1).padStart(6, "0")}`;
@@ -200,6 +253,7 @@ export async function rescheduleBooking(oldId: string, fd: FormData): Promise<vo
         departmentId,
         branchId: str(fd, "branchId") ?? old.branchId,
         timeSlotId,
+        appointmentType: str(fd, "appointmentType") ?? old.appointmentType ?? "regular",
         appointmentDate: new Date(dateStr),
         startTime,
         endTime: str(fd, "endTime"),
@@ -213,14 +267,15 @@ export async function rescheduleBooking(oldId: string, fd: FormData): Promise<vo
       if (slot.bookedCount >= slot.capacity) await tx.timeSlot.update({ where: { id: timeSlotId }, data: { status: "full" } });
     }
     // Supersede the old booking and free its slot.
-    await tx.opBooking.update({ where: { id: oldId }, data: { status: "rescheduled" } });
+    await tx.opBooking.update({ where: { id: oldId }, data: { status: "rescheduled", rescheduleReason: reasonText, rescheduleReasonId: reasonId } });
     if (old.timeSlotId) {
       const s = await tx.timeSlot.update({ where: { id: old.timeSlotId }, data: { bookedCount: { decrement: 1 } } });
       if (s.bookedCount < s.capacity && s.status === "full") await tx.timeSlot.update({ where: { id: old.timeSlotId }, data: { status: "open" } });
     }
     return fresh;
   });
-  await writeAudit({ actorId: user.id, action: "booking.reschedule", entity: "op_booking", entityId: oldId, after: { bookingRef } });
+  await writeStatusHistory(oldId, old.status as BookingStatus, "rescheduled", reasonText, user.id);
+  await writeAudit({ actorId: user.id, action: "booking.reschedule", entity: "op_booking", entityId: oldId, after: { bookingRef, reason: reasonText } });
   revalidatePath("/appointments");
   redirect(`/appointments?date=${dateStr}`);
 }
@@ -261,6 +316,32 @@ export async function transitionBooking(id: string, to: BookingStatus): Promise<
 
   if (to === "no_show") await runAutomation("appointment_no_show", { patientMrd: b.patientMrd, bookingId: id });
 
+  await writeStatusHistory(id, from, to, null, user.id);
   await writeAudit({ actorId: user.id, action: "booking.transition", entity: "op_booking", entityId: id, before: { status: from }, after: { status: to } });
   revalidatePath("/appointments");
+  revalidatePath(`/appointments/${id}`);
+}
+
+/** Cancel a booking with a structured reason (FRS §10). Reason is kept; row not deleted. */
+export async function cancelBooking(id: string, fd: FormData): Promise<void> {
+  const user = await requireCan("appointments", "edit");
+  const b = await prisma.opBooking.findUnique({ where: { id } });
+  if (!b) throw new Error("Booking not found");
+  const from = b.status as BookingStatus;
+  if (!canTransitionBooking(from, "cancelled")) throw new Error(`Cannot cancel from ${from}`);
+  const reasonId = str(fd, "cancellationReasonId");
+  const reasonRow = reasonId ? await prisma.reasonMaster.findUnique({ where: { id: reasonId } }) : null;
+  const reasonText = str(fd, "cancellationReason") ?? reasonRow?.label ?? null;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.opBooking.update({ where: { id }, data: { status: "cancelled", cancelledAt: new Date(), cancellationReason: reasonText, cancellationReasonId: reasonId } });
+    if (b.timeSlotId) {
+      const slot = await tx.timeSlot.update({ where: { id: b.timeSlotId }, data: { bookedCount: { decrement: 1 } } });
+      if (slot.bookedCount < slot.capacity && slot.status === "full") await tx.timeSlot.update({ where: { id: b.timeSlotId }, data: { status: "open" } });
+    }
+  });
+  await writeStatusHistory(id, from, "cancelled", reasonText, user.id);
+  await writeAudit({ actorId: user.id, action: "booking.cancel", entity: "op_booking", entityId: id, before: { status: from }, after: { status: "cancelled", reason: reasonText } });
+  revalidatePath("/appointments");
+  revalidatePath(`/appointments/${id}`);
 }

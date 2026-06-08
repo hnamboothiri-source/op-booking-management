@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { createSchedule, generateSlots } from "@/lib/appointments/actions";
+import { createSchedule, generateSlots, createDoctorLeave } from "@/lib/appointments/actions";
 import { PageHeader, SubmitButton, Card, Badge, LinkButton } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -13,12 +13,13 @@ export default async function Schedules({ searchParams }: { searchParams: Promis
   await requireCan("appointments", "view");
   const { date, generated } = await searchParams;
 
-  const [schedules, doctors, departments, branches, slots] = await Promise.all([
+  const [schedules, doctors, departments, branches, slots, leaves] = await Promise.all([
     prisma.doctorSchedule.findMany({ where: { active: true }, include: { doctor: true, department: true }, orderBy: { dayOfWeek: "asc" } }),
     prisma.doctor.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.department.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.branch.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     date ? prisma.timeSlot.findMany({ where: { slotDate: new Date(date) }, include: { doctor: true, department: true }, orderBy: [{ doctor: { name: "asc" } }, { startTime: "asc" }] }) : [],
+    prisma.doctorLeave.findMany({ include: { doctor: true }, orderBy: { fromDate: "desc" }, take: 20 }),
   ]);
 
   return (
@@ -52,6 +53,28 @@ export default async function Schedules({ searchParams }: { searchParams: Promis
             <label className="text-xs font-medium text-slate-600">View slots on<input type="date" name="date" defaultValue={date ?? ""} className={input} /></label>
             <button className="rounded-md bg-slate-700 px-3 py-1.5 text-sm font-medium text-white">View</button>
           </form>
+        </Card>
+      </div>
+
+      <div className="mt-6">
+        <Card>
+          <h2 className="mb-3 font-semibold">Doctor leave / emergency block</h2>
+          <form action={createDoctorLeave} className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            <label className="text-xs font-medium text-slate-600">Doctor<select name="doctorId" required className={input}>{doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+            <label className="text-xs font-medium text-slate-600">From<input type="date" name="fromDate" required className={input} /></label>
+            <label className="text-xs font-medium text-slate-600">To<input type="date" name="toDate" className={input} /></label>
+            <label className="text-xs font-medium text-slate-600">Kind<select name="kind" className={input}><option value="leave">leave</option><option value="emergency_block">emergency block</option></select></label>
+            <div className="flex items-end"><SubmitButton tone="ghost">Block</SubmitButton></div>
+          </form>
+          {leaves.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {leaves.map((l) => (
+                <span key={l.id} className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                  {l.doctor.name} · {l.fromDate.toISOString().slice(0, 10)}{l.toDate && l.toDate.toISOString().slice(0, 10) !== l.fromDate.toISOString().slice(0, 10) ? `–${l.toDate.toISOString().slice(0, 10)}` : ""} · {l.kind.replace(/_/g, " ")}
+                </span>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
 
