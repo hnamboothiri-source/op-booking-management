@@ -62,9 +62,9 @@ export default async function Appointments({ searchParams }: { searchParams: Pro
             {bookings.map((b) => (
               <tr key={b.id} className="border-t border-slate-100">
                 <td className="px-4 py-2 font-medium">{b.startTime}</td>
-                <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(b.patientMrd)}`} className="text-rose-700 hover:underline dark:text-rose-300">{b.patient.name}</Link></td>
-                <td className="px-4 py-2 text-slate-600">{b.doctor.name}</td>
-                <td className="px-4 py-2 text-slate-600">{b.department.name}</td>
+                <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(b.patientMrd)}`} className="text-rose-700 hover:underline dark:text-rose-300">{b.patient?.name ?? b.patientMrd}</Link></td>
+                <td className="px-4 py-2 text-slate-600">{b.doctor?.name ?? "—"}</td>
+                <td className="px-4 py-2 text-slate-600">{b.department?.name ?? "—"}</td>
                 <td className="px-4 py-2 text-slate-600 capitalize">{(b.appointmentType ?? "regular").replace(/_/g, " ")}</td>
                 <td className="px-4 py-2 text-slate-600">{b.room?.name ?? "—"}</td>
                 <td className="px-4 py-2 font-mono text-xs"><Link href={`/appointments/${b.id}`} className="text-rose-700 hover:underline dark:text-rose-300">{b.bookingRef}</Link></td>

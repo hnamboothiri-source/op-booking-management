@@ -232,7 +232,7 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
   }
 
   // Book a few patients into today's open slots so the agenda/calendar show real consultations.
-  const demoPatients = ["MRD-1001", "MRD-1002", "MRD-1003", "MRD-1004", "MRD-1005"];
+  const demoPatients = ["MRD-1001", "MRD-1002", "MRD-1003", "MRD-1005", "MRD-DORMANT1"];
   const bookableToday = timeSlots.filter((s) => s.status === "open").slice(0, 6);
   bookableToday.forEach((slot, i) => {
     slot.bookedCount = 1;
