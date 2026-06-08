@@ -8,7 +8,7 @@
  * completeness but are managed inside their own modules in later phases.
  */
 
-export type FieldType = "text" | "number" | "money" | "boolean" | "select" | "textarea" | "ref";
+export type FieldType = "text" | "number" | "money" | "boolean" | "select" | "textarea" | "ref" | "date";
 
 export interface FieldDef {
   name: string;
@@ -16,7 +16,7 @@ export interface FieldDef {
   type: FieldType;
   required?: boolean;
   options?: { value: string; label: string }[]; // for `select`
-  ref?: "branch" | "department"; // for `ref`
+  ref?: "branch" | "department" | "marketingChannel"; // for `ref`
 }
 
 export interface MasterDef {
@@ -180,6 +180,32 @@ export const MASTERS: MasterDef[] = [
       { name: "active", label: "Active", type: "boolean" },
     ],
     listColumns: ["category", "label", "active"],
+  },
+
+  {
+    key: "marketing-channels", label: "Marketing Channel", model: "marketingChannelMaster",
+    fields: [
+      { name: "name", label: "Name", type: "text", required: true },
+      { name: "pricingModel", label: "Pricing model", type: "select", required: true, options: opts("cpm", "cpc", "flat", "per_post") },
+      { name: "baseRate", label: "Base rate (₹) — per 1,000 reach for CPM", type: "money" },
+      { name: "minReach", label: "Min reach", type: "number" },
+      { name: "notes", label: "Notes", type: "textarea" },
+      { name: "active", label: "Active", type: "boolean" },
+    ],
+    listColumns: ["name", "pricingModel", "baseRate", "active"],
+  },
+  {
+    key: "channel-offers", label: "Channel Seasonal Offer", model: "channelSeasonalOffer",
+    fields: [
+      { name: "channelMasterId", label: "Channel", type: "ref", ref: "marketingChannel", required: true },
+      { name: "name", label: "Offer name", type: "text", required: true },
+      { name: "fromDate", label: "From", type: "date", required: true },
+      { name: "toDate", label: "To", type: "date", required: true },
+      { name: "discountPct", label: "Discount %", type: "number" },
+      { name: "bonusReachPct", label: "Bonus reach %", type: "number" },
+      { name: "active", label: "Active", type: "boolean" },
+    ],
+    listColumns: ["name", "fromDate", "toDate", "active"],
   },
 
   // --- Operational masters surfaced for completeness (managed in their module) ---

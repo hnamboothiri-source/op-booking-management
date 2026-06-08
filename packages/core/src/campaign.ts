@@ -38,6 +38,30 @@ export function withinHours(at: Date, since: Date, hours: number): boolean {
 export const CAMPAIGN_CHANNELS = ["youtube", "instagram", "google_ads", "facebook", "whatsapp", "newspaper", "tv", "radio", "other"] as const;
 export const RESPONSE_CHANNELS = ["call", "whatsapp", "email", "walk_in"] as const;
 
+/** Channel pricing models for the marketing-channel master. */
+export const PRICING_MODELS = ["cpm", "cpc", "flat", "per_post"] as const;
+export type PricingModel = (typeof PRICING_MODELS)[number];
+
+/**
+ * Quote a channel buy from its rate card + a seasonal offer (master data).
+ * CPM bills per 1,000 reach; other models bill the flat baseRate. A bonus-reach
+ * offer boosts the delivered reach for the same spend; a discount reduces cost.
+ * All money in paise.
+ */
+export function quoteForReach(args: {
+  pricingModel: PricingModel | string;
+  baseRate: number;
+  reach: number;
+  discountPct?: number | null;
+  bonusReachPct?: number | null;
+}): { cost: number; effectiveReach: number } {
+  const reach = Math.max(0, Math.floor(args.reach));
+  const effectiveReach = Math.round(reach * (1 + (args.bonusReachPct ?? 0) / 100));
+  const base = args.pricingModel === "cpm" ? Math.round((reach / 1000) * args.baseRate) : args.baseRate;
+  const cost = Math.round(base * (1 - (args.discountPct ?? 0) / 100));
+  return { cost: Math.max(0, cost), effectiveReach };
+}
+
 export interface CampaignMetrics {
   leads: number;
   leads24h: number;

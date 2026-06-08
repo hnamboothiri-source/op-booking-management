@@ -323,12 +323,25 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     { id: "camp-1", name: "Cataract Awareness June", type: "facebook_ads", budget: 5000000, sourceId: leadSources[2].id, targetLocation: "Kochi", targetDistrict: "Ernakulam", targetDisease: "Cataract", targetAgeMin: 45, targetAgeMax: 75, targetGender: "all", targetAudience: "Seniors with blurred vision / cataract symptoms", status: "running", launchedAt: day(-3), active: true, createdAt: day(-30) },
     { id: "camp-2", name: "Diabetic Eye Camp", type: "camp", budget: 2000000, targetLocation: "Thrissur", targetDistrict: "Thrissur", targetDisease: "Diabetic retinopathy", targetAgeMin: 35, targetAgeMax: 70, targetGender: "all", targetAudience: "Known diabetics, retinopathy screening", status: "running", launchedAt: day(-1), active: true, createdAt: day(-15) },
   ];
+  // Marketing-channel master (rate cards) + seasonal offers.
+  const marketingChannels: Row[] = [
+    { id: "mch-yt", name: "YouTube", pricingModel: "cpm", baseRate: 50000, minReach: 5000, active: true, notes: "Reels / pre-roll", createdAt: day(-60) },
+    { id: "mch-insta", name: "Instagram", pricingModel: "cpm", baseRate: 60000, minReach: 5000, active: true, notes: "Reels + feed", createdAt: day(-60) },
+    { id: "mch-fb", name: "Facebook", pricingModel: "cpm", baseRate: 45000, minReach: 5000, active: true, createdAt: day(-60) },
+    { id: "mch-google", name: "Google Ads", pricingModel: "cpc", baseRate: 1200, active: true, notes: "Search + display", createdAt: day(-60) },
+    { id: "mch-wa", name: "WhatsApp", pricingModel: "flat", baseRate: 800000, active: true, notes: "Broadcast blast", createdAt: day(-60) },
+  ];
+  const channelSeasonalOffers: Row[] = [
+    { id: "off-1", channelMasterId: "mch-insta", name: "Onam reach offer", fromDate: day(-10), toDate: day(20), discountPct: null, bonusReachPct: 15, active: true, createdAt: day(-12) },
+    { id: "off-2", channelMasterId: "mch-google", name: "Festive discount", fromDate: day(-5), toDate: day(15), discountPct: 10, bonusReachPct: null, active: true, createdAt: day(-6) },
+    { id: "off-3", channelMasterId: "mch-yt", name: "New-year bundle", fromDate: day(120), toDate: day(150), discountPct: 12, bonusReachPct: 10, active: true, createdAt: day(-3) },
+  ];
   const campaignChannels: Row[] = [
-    { id: "cc-1", campaignId: "camp-1", channel: "youtube", promisedReach: 40000, achievedReach: 38500, quotedCost: 2000000, createdAt: day(-5) },
-    { id: "cc-2", campaignId: "camp-1", channel: "instagram", promisedReach: 25000, achievedReach: 27200, quotedCost: 1500000, createdAt: day(-5) },
-    { id: "cc-3", campaignId: "camp-1", channel: "google_ads", promisedReach: 30000, achievedReach: 26000, quotedCost: 1500000, createdAt: day(-5) },
-    { id: "cc-4", campaignId: "camp-2", channel: "whatsapp", promisedReach: 15000, achievedReach: 14200, quotedCost: 800000, createdAt: day(-3) },
-    { id: "cc-5", campaignId: "camp-2", channel: "facebook", promisedReach: 20000, achievedReach: null, quotedCost: 1200000, createdAt: day(-3) },
+    { id: "cc-1", campaignId: "camp-1", channel: "youtube", channelMasterId: "mch-yt", promisedReach: 40000, achievedReach: 38500, quotedCost: 2000000, createdAt: day(-5) },
+    { id: "cc-2", campaignId: "camp-1", channel: "instagram", channelMasterId: "mch-insta", promisedReach: 25000, achievedReach: 27200, quotedCost: 1500000, createdAt: day(-5) },
+    { id: "cc-3", campaignId: "camp-1", channel: "google_ads", channelMasterId: "mch-google", promisedReach: 30000, achievedReach: 26000, quotedCost: 1500000, createdAt: day(-5) },
+    { id: "cc-4", campaignId: "camp-2", channel: "whatsapp", channelMasterId: "mch-wa", promisedReach: 15000, achievedReach: 14200, quotedCost: 800000, createdAt: day(-3) },
+    { id: "cc-5", campaignId: "camp-2", channel: "facebook", channelMasterId: "mch-fb", promisedReach: 20000, achievedReach: null, quotedCost: 1200000, createdAt: day(-3) },
   ];
 
   // --- Organizations / Camps / Mobile clinics ---
@@ -404,7 +417,9 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
   appointmentReminders.forEach((r) => { r.booking = byId(bookings, r.bookingId) ?? null; });
   doctorLeaves.forEach((l) => { l.doctor = byId(doctors, l.doctorId) ?? null; });
   campaigns.forEach((c) => { c.channels = campaignChannels.filter((ch) => ch.campaignId === c.id); });
-  campaignChannels.forEach((ch) => { ch.campaign = byId(campaigns, ch.campaignId) ?? null; });
+  campaignChannels.forEach((ch) => { ch.campaign = byId(campaigns, ch.campaignId) ?? null; ch.channelMaster = byId(marketingChannels, ch.channelMasterId) ?? null; });
+  marketingChannels.forEach((m) => { m.offers = channelSeasonalOffers.filter((o) => o.channelMasterId === m.id); });
+  channelSeasonalOffers.forEach((o) => { o.channel = byId(marketingChannels, o.channelMasterId) ?? null; });
   consultations.forEach((c) => {
     c.patient = byId(patients, c.patientMrd, "mrd");
     c.doctor = byId(doctors, c.doctorId);
@@ -458,6 +473,7 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     leadActivity: leadActivities, leadAssignment: leadAssignments, campaignChannel: campaignChannels,
     appointmentStatusHistory, appointmentReminder: appointmentReminders, doctorLeave: doctorLeaves,
     doctorSchedule: doctorSchedules, timeSlot: timeSlots,
+    marketingChannelMaster: marketingChannels, channelSeasonalOffer: channelSeasonalOffers,
   };
   return { store, counters: {} };
 }

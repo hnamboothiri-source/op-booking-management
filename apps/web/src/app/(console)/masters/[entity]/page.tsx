@@ -10,7 +10,11 @@ export const dynamic = "force-dynamic";
 function render(value: unknown, col: string): React.ReactNode {
   if (typeof value === "boolean") return value ? <Badge tone="green">active</Badge> : <Badge tone="red">inactive</Badge>;
   if (value === null || value === undefined) return <span className="text-slate-300">—</span>;
-  if ((col === "price" || col === "estimatedCost") && typeof value === "number") return `₹${(value / 100).toLocaleString("en-IN")}`;
+  if ((col === "price" || col === "estimatedCost" || col === "baseRate") && typeof value === "number") return `₹${(value / 100).toLocaleString("en-IN")}`;
+  if (value instanceof Date || ((col === "fromDate" || col === "toDate") && (typeof value === "string" || typeof value === "number"))) {
+    const d = value instanceof Date ? value : new Date(value);
+    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  }
   return String(value).replace(/_/g, " ");
 }
 

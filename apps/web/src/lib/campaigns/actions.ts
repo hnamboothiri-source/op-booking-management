@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
+import { quoteForReach } from "@prm/core";
 
 const str = (fd: FormData, k: string) => {
   const v = fd.get(k)?.toString().trim();
@@ -48,21 +49,37 @@ export async function createCampaign(fd: FormData): Promise<void> {
   redirect(`/campaigns/${created.id}`);
 }
 
-/** Add a channel line-item (assured reach quote) to a campaign (FRS §3-4). */
+/** Add a channel line-item to a campaign, auto-quoting cost from the channel
+ * master's rate + any active seasonal offer (FRS §3-5). Manual cost still wins. */
 export async function addCampaignChannel(campaignId: string, fd: FormData): Promise<void> {
   const user = await requireCan("campaigns", "create");
-  const channel = fd.get("channel")?.toString() || "other";
-  const reach = str(fd, "promisedReach");
-  const cost = str(fd, "quotedCost");
+  const channelMasterId = str(fd, "channelMasterId");
+  const enteredReach = num(fd, "promisedReach") ?? 0;
+  const enteredCost = str(fd, "quotedCost");
+
+  let channel = fd.get("channel")?.toString() || "other";
+  let promisedReach = enteredReach;
+  let quotedCost = enteredCost ? Math.round(parseFloat(enteredCost) * 100) : 0;
+
+  if (channelMasterId) {
+    const master = await prisma.marketingChannelMaster.findUnique({ where: { id: channelMasterId } });
+    if (master) {
+      channel = master.name;
+      // Active seasonal offer (today within window).
+      const now = new Date();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const offers = await prisma.channelSeasonalOffer.findMany({ where: { channelMasterId, active: true } as any });
+      const offer = offers.find((o) => new Date(o.fromDate) <= now && now <= new Date(o.toDate));
+      const q = quoteForReach({ pricingModel: master.pricingModel, baseRate: master.baseRate, reach: enteredReach, discountPct: offer?.discountPct, bonusReachPct: offer?.bonusReachPct });
+      promisedReach = q.effectiveReach;
+      if (!enteredCost) quotedCost = q.cost; // blank → auto-quote
+    }
+  }
+
   await prisma.campaignChannel.create({
-    data: {
-      campaignId, channel,
-      promisedReach: reach ? parseInt(reach, 10) : 0,
-      quotedCost: cost ? Math.round(parseFloat(cost) * 100) : 0,
-      notes: str(fd, "notes"),
-    },
+    data: { campaignId, channel, channelMasterId, promisedReach, quotedCost, notes: str(fd, "notes") },
   });
-  await writeAudit({ actorId: user.id, action: "campaign.add_channel", entity: "campaign", entityId: campaignId, after: { channel } });
+  await writeAudit({ actorId: user.id, action: "campaign.add_channel", entity: "campaign", entityId: campaignId, after: { channel, promisedReach, quotedCost } });
   revalidatePath(`/campaigns/${campaignId}`);
 }
 

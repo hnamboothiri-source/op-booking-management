@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { costPer, roiPct, campaignKpis, riskFromRetention, monthsBetween, costPerThousandReach, reachToLeadRate, withinHours } from "./campaign";
+import { costPer, roiPct, campaignKpis, riskFromRetention, monthsBetween, costPerThousandReach, reachToLeadRate, withinHours, quoteForReach } from "./campaign";
 
 describe("campaign cost metrics", () => {
   it("computes cost per unit in paise", () => {
@@ -35,6 +35,20 @@ describe("campaign reach metrics", () => {
     expect(withinHours(new Date("2026-06-08T20:00:00Z"), launch, 24)).toBe(true);
     expect(withinHours(new Date("2026-06-09T10:00:00Z"), launch, 24)).toBe(false);
     expect(withinHours(new Date("2026-06-08T08:00:00Z"), launch, 24)).toBe(false); // before launch
+  });
+});
+
+describe("quoteForReach", () => {
+  it("CPM bills per 1,000 reach", () => {
+    expect(quoteForReach({ pricingModel: "cpm", baseRate: 50000, reach: 40000 })).toEqual({ cost: 2000000, effectiveReach: 40000 }); // ₹500 CPM × 40 = ₹20000
+  });
+  it("flat models ignore reach for cost", () => {
+    expect(quoteForReach({ pricingModel: "flat", baseRate: 1500000, reach: 99999 })).toEqual({ cost: 1500000, effectiveReach: 99999 });
+  });
+  it("applies a discount and bonus reach", () => {
+    const q = quoteForReach({ pricingModel: "cpm", baseRate: 50000, reach: 40000, discountPct: 10, bonusReachPct: 15 });
+    expect(q.cost).toBe(1800000); // 10% off ₹20000
+    expect(q.effectiveReach).toBe(46000); // +15%
   });
 });
 

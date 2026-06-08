@@ -35,8 +35,9 @@ export async function getRow(key: string, id: string): Promise<Record<string, un
 }
 
 /** Options for a foreign-key `ref` field. */
-export async function refOptions(ref: "branch" | "department"): Promise<{ value: string; label: string }[]> {
-  const rows = await delegate(ref).findMany({ where: { active: true }, orderBy: { name: "asc" } });
+export async function refOptions(ref: "branch" | "department" | "marketingChannel"): Promise<{ value: string; label: string }[]> {
+  const model = ref === "marketingChannel" ? "marketingChannelMaster" : ref;
+  const rows = await delegate(model).findMany({ where: { active: true }, orderBy: { name: "asc" } });
   return rows.map((r) => ({ value: String(r.id), label: String(r.name) }));
 }
 
@@ -52,6 +53,10 @@ function coerce(field: FieldDef, fd: FormData): unknown {
     case "money": {
       const s = raw?.toString().trim();
       return s ? Math.round(parseFloat(s) * 100) : null; // rupees → paise
+    }
+    case "date": {
+      const s = raw?.toString().trim();
+      return s ? new Date(s) : null;
     }
     default: {
       const s = raw?.toString().trim();

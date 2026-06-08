@@ -1155,19 +1155,56 @@ model Campaign {
 // A social/media channel line-item within a campaign, with the agency's assured
 // reach quote (FRS §3-5): promised vs achieved reach + quoted cost.
 model CampaignChannel {
-  id            String   @id @default(uuid())
-  campaignId    String   @map("campaign_id")
-  channel       String   // youtube | instagram | google_ads | facebook | whatsapp | newspaper | tv | radio | other
-  promisedReach Int      @default(0) @map("promised_reach")
-  achievedReach Int?     @map("achieved_reach")
-  quotedCost    Int      @default(0) @map("quoted_cost") // paise
-  notes         String?
-  createdAt     DateTime @default(now()) @map("created_at")
+  id              String   @id @default(uuid())
+  campaignId      String   @map("campaign_id")
+  channel         String   // youtube | instagram | google_ads | facebook | whatsapp | newspaper | tv | radio | other
+  channelMasterId String?  @map("channel_master_id")
+  promisedReach   Int      @default(0) @map("promised_reach")
+  achievedReach   Int?     @map("achieved_reach")
+  quotedCost      Int      @default(0) @map("quoted_cost") // paise
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
 
-  campaign Campaign @relation(fields: [campaignId], references: [id])
+  campaign      Campaign               @relation(fields: [campaignId], references: [id])
+  channelMaster MarketingChannelMaster? @relation(fields: [channelMasterId], references: [id])
 
   @@index([campaignId])
   @@map("campaign_channels")
+}
+
+// Master of social/media channels with their pricing pattern (rate card).
+model MarketingChannelMaster {
+  id           String   @id @default(uuid())
+  name         String   // Instagram | Facebook | WhatsApp | YouTube | Google Ads | ...
+  pricingModel String   @default("cpm") // cpm (per 1,000 reach) | cpc | flat | per_post
+  baseRate     Int      @default(0) @map("base_rate") // paise
+  minReach     Int?     @map("min_reach")
+  active       Boolean  @default(true)
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  offers          ChannelSeasonalOffer[]
+  campaignChannels CampaignChannel[]
+
+  @@map("marketing_channel_masters")
+}
+
+// Seasonal offer on a channel: a discount and/or bonus reach during a date window.
+model ChannelSeasonalOffer {
+  id              String   @id @default(uuid())
+  channelMasterId String   @map("channel_master_id")
+  name            String
+  fromDate        DateTime @map("from_date") @db.Date
+  toDate          DateTime @map("to_date") @db.Date
+  discountPct     Int?     @map("discount_pct")
+  bonusReachPct   Int?     @map("bonus_reach_pct")
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  channel MarketingChannelMaster @relation(fields: [channelMasterId], references: [id])
+
+  @@index([channelMasterId])
+  @@map("channel_seasonal_offers")
 }
 
 // ===========================================================================

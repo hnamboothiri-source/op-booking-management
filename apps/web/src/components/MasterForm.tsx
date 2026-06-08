@@ -47,12 +47,15 @@ async function Field({ field, row }: { field: FieldDef; row?: Record<string, unk
   }
 
   // text / number / money
-  const display = field.type === "money" && typeof value === "number" ? (value / 100).toString() : (value as string) ?? "";
+  const display =
+    field.type === "money" && typeof value === "number" ? (value / 100).toString()
+    : field.type === "date" && value ? new Date(value as string).toISOString().slice(0, 10)
+    : (value as string) ?? "";
   return (
     <div>
       {label}
       <input
-        type={field.type === "money" || field.type === "number" ? "number" : "text"}
+        type={field.type === "money" || field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
         step={field.type === "money" ? "0.01" : undefined}
         name={field.name}
         required={field.required}

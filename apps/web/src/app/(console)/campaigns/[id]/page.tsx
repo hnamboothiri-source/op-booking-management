@@ -23,11 +23,22 @@ export default async function CampaignDetail({ params }: { params: Promise<{ id:
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const campaign = await prisma.campaign.findUnique({ where: { id }, include: { channels: true } as any }) as any;
   if (!campaign) notFound();
-  const [k, leads] = await Promise.all([
+  const [k, leads, channelMasters] = await Promise.all([
     computeCampaignKpis(campaign.id, campaign.budget, campaign.launchedAt),
     prisma.lead.findMany({ where: { campaignId: id }, select: { responseChannel: true } }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prisma.marketingChannelMaster.findMany({ where: { active: true } as any, include: { offers: true } as any, orderBy: { name: "asc" } }) as any,
   ]);
   const channels: { id: string; channel: string; promisedReach: number; achievedReach: number | null; quotedCost: number }[] = campaign.channels ?? [];
+
+  // Build channel-master picker labels with rate + active-offer flag.
+  const now = new Date();
+  const rupees = (p: number) => `₹${(p / 100).toLocaleString("en-IN")}`;
+  const masterOptions = (channelMasters as { id: string; name: string; pricingModel: string; baseRate: number; offers?: { fromDate: string | Date; toDate: string | Date; active: boolean; name: string }[] }[]).map((m) => {
+    const offer = (m.offers ?? []).find((o) => o.active && new Date(o.fromDate) <= now && now <= new Date(o.toDate));
+    const rateLabel = m.pricingModel === "cpm" ? `${rupees(m.baseRate)}/1k` : m.pricingModel === "flat" ? `${rupees(m.baseRate)} flat` : `${rupees(m.baseRate)}/${m.pricingModel === "cpc" ? "click" : "post"}`;
+    return { id: m.id, label: `${m.name} · ${rateLabel}${offer ? ` · 🎉 ${offer.name}` : ""}` };
+  });
 
   // Response-channel breakdown (step 8).
   const byChannel: Record<string, number> = {};
@@ -122,12 +133,19 @@ export default async function CampaignDetail({ params }: { params: Promise<{ id:
           </table>
         </div>
         {canEdit && (
+         <>
           <form action={addCampaignChannel.bind(null, id)} className="mt-3 flex flex-wrap items-end gap-2">
-            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Channel<select name="channel" className={`${input} block`}>{CAMPAIGN_CHANNELS.map((c) => <option key={c} value={c}>{c.replace(/_/g, " ")}</option>)}</select></label>
+            {masterOptions.length > 0 ? (
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Channel<select name="channelMasterId" className={`${input} block`}>{masterOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select></label>
+            ) : (
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Channel<select name="channel" className={`${input} block`}>{CAMPAIGN_CHANNELS.map((c) => <option key={c} value={c}>{c.replace(/_/g, " ")}</option>)}</select></label>
+            )}
             <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Promised reach<input name="promisedReach" type="number" className={`${input} block w-28`} /></label>
-            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Quoted cost (₹)<input name="quotedCost" type="number" step="0.01" className={`${input} block w-28`} /></label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Quoted cost (₹)<input name="quotedCost" type="number" step="0.01" placeholder="auto" className={`${input} block w-28`} /></label>
             <SubmitButton tone="ghost">Add channel</SubmitButton>
           </form>
+          <p className="mt-1 text-xs text-slate-400">Leave quoted cost blank to auto-quote from the channel rate &amp; active seasonal offer. <Link href="/masters/marketing-channels" className="text-rose-600 hover:underline dark:text-rose-400">Channel rates →</Link></p>
+         </>
         )}
       </div>
 
