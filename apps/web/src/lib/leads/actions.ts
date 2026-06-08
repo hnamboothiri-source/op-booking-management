@@ -116,3 +116,21 @@ export async function logCall(leadId: string, fd: FormData): Promise<void> {
   await writeAudit({ actorId: user.id, action: "call.log", entity: "lead", entityId: leadId, after: { outcome } });
   revalidatePath(`/leads/${leadId}`);
 }
+
+/** Escalate a lead to a manager — creates an urgent escalated task referencing it. */
+export async function escalateLead(leadId: string): Promise<void> {
+  const user = await requireCan("leads", "edit");
+  const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+  const created = await prisma.task.create({
+    data: {
+      type: "call_back_patient",
+      subject: `[escalated] Lead ${lead?.contactName ?? leadId}`,
+      leadId,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      status: "escalated" as any,
+      priority: "urgent",
+    },
+  });
+  await writeAudit({ actorId: user.id, action: "lead.escalate", entity: "lead", entityId: leadId, after: { taskId: created.id } });
+  revalidatePath("/call-center");
+}

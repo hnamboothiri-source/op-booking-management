@@ -58,7 +58,7 @@ export const DRILL: Record<DrillEntity, DrillDef> = {
   leads: {
     resource: "leads",
     branchScoped: true,
-    filters: ["stage", "sourceId", "campaignId", "branchId", "ownerId", "patientMrd", "callback"],
+    filters: ["stage", "sourceId", "campaignId", "branchId", "ownerId", "patientMrd", "callback", "unassigned"],
     listPath: "/leads",
     buildWhere: (f) => {
       const w: Where = { mergedIntoId: null, ...simpleWhere(f, ["stage", "sourceId", "campaignId", "branchId", "ownerId", "patientMrd"]) };
@@ -66,6 +66,11 @@ export const DRILL: Record<DrillEntity, DrillDef> = {
       if (f.callback === "pending") {
         w.followUpDate = { lte: startOfToday() };
         w.stage = { in: ["contacted", "interested", "not_reachable", "appointment_suggested"] };
+      }
+      // Unassigned: open leads with no owner.
+      if (f.unassigned === "true") {
+        w.ownerId = null;
+        if (!w.stage) w.stage = { notIn: ["converted_to_patient", "lost", "not_interested"] };
       }
       return w;
     },

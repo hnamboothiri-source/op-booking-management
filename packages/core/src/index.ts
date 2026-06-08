@@ -11,3 +11,4 @@ export * from "./waitlist";
 export * from "./template";
 export * from "./timeline";
 export * from "./drill";
+export * from "./callcenter";

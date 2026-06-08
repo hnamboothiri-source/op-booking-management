@@ -78,11 +78,11 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
 
   // --- Bookings ---
   const bookings: Row[] = [
-    { id: "bk-1", bookingRef: "OP-0001", patientMrd: "MRD-1003", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, roomId: consultationRooms[0].id, appointmentDate: today, startTime: "10:30", status: "arrived", source: "online", bookedAt: day(-1), leadId: "lead-4" },
-    { id: "bk-2", bookingRef: "OP-0002", patientMrd: "MRD-1001", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, appointmentDate: today, startTime: "11:00", status: "waiting", source: "front_desk", bookedAt: today },
-    { id: "bk-3", bookingRef: "OP-0003", patientMrd: "MRD-1002", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[0].id, appointmentDate: day(-5), startTime: "09:30", status: "completed", source: "call_centre", bookedAt: day(-6), completedAt: day(-5) },
-    { id: "bk-4", bookingRef: "OP-0004", patientMrd: "MRD-1005", doctorId: doctors[2].id, departmentId: departments[0].id, branchId: branches[0].id, appointmentDate: day(3), startTime: "12:00", status: "booked", source: "follow_up", bookedAt: day(-1) },
-    { id: "bk-5", bookingRef: "OP-0005", patientMrd: "MRD-1002", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, appointmentDate: day(-40), startTime: "10:00", status: "no_show", source: "call_centre", bookedAt: day(-42), cancellationReason: "Forgot appointment" },
+    { id: "bk-1", bookingRef: "OP-0001", patientMrd: "MRD-1003", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, roomId: consultationRooms[0].id, appointmentDate: today, startTime: "10:30", status: "arrived", source: "online", bookedAt: day(-1), bookedBy: "stf-callexec", leadId: "lead-4" },
+    { id: "bk-2", bookingRef: "OP-0002", patientMrd: "MRD-1001", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, appointmentDate: today, startTime: "11:00", status: "waiting", source: "front_desk", bookedAt: today, bookedBy: "stf-front" },
+    { id: "bk-3", bookingRef: "OP-0003", patientMrd: "MRD-1002", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[0].id, appointmentDate: day(-5), startTime: "09:30", status: "completed", source: "call_centre", bookedAt: day(-6), bookedBy: "stf-callexec", completedAt: day(-5) },
+    { id: "bk-4", bookingRef: "OP-0004", patientMrd: "MRD-1005", doctorId: doctors[2].id, departmentId: departments[0].id, branchId: branches[0].id, appointmentDate: day(3), startTime: "12:00", status: "booked", source: "follow_up", bookedAt: day(-1), bookedBy: "stf-callexec" },
+    { id: "bk-5", bookingRef: "OP-0005", patientMrd: "MRD-1002", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, appointmentDate: day(-40), startTime: "10:00", status: "no_show", source: "call_centre", bookedAt: day(-42), bookedBy: "stf-callexec", cancellationReason: "Forgot appointment" },
   ];
 
   // --- Consultations ---
