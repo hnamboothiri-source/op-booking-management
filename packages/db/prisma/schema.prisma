@@ -811,6 +811,9 @@ model OpBooking {
   cancellationReasonId String?         @map("cancellation_reason_id")
   rescheduleReason   String?           @map("reschedule_reason")
   rescheduleReasonId String?           @map("reschedule_reason_id")
+  chiefComplaint     String?           @map("chief_complaint")
+  bp                 String?
+  pulseBpm           Int?              @map("pulse_bpm")
   notes              String?
   enquiryId          String?           @map("enquiry_id")
   waitlistId         String?           @map("waitlist_id")

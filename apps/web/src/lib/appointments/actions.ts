@@ -14,6 +14,11 @@ const str = (fd: FormData, k: string) => {
   const v = fd.get(k)?.toString().trim();
   return v ? v : null;
 };
+const num = (fd: FormData, k: string) => {
+  const v = str(fd, k);
+  const n = v ? parseInt(v, 10) : NaN;
+  return Number.isFinite(n) ? n : null;
+};
 
 /** Next per-branch, per-day queue token (FRS §12). */
 async function issueQueueToken(branchId: string | null, date: Date): Promise<number> {
@@ -191,7 +196,9 @@ export async function walkInRegister(fd: FormData): Promise<void> {
   const user = await requireCan("appointments", "create");
   const doctorId = str(fd, "doctorId");
   const departmentId = str(fd, "departmentId");
+  const chiefComplaint = str(fd, "chiefComplaint");
   if (!doctorId || !departmentId) throw new Error("Doctor and department are required");
+  if (!chiefComplaint) throw new Error("Chief complaint is required");
 
   let patientMrd = str(fd, "patientMrd");
   if (!patientMrd) {
@@ -222,6 +229,9 @@ export async function walkInRegister(fd: FormData): Promise<void> {
       source: "front_desk",
       appointmentType: "regular",
       status: "arrived",
+      chiefComplaint,
+      bp: str(fd, "bp"),
+      pulseBpm: num(fd, "pulseBpm"),
       checkedInAt: new Date(),
       queueToken: await issueQueueToken(branchId, today),
       bookedBy: user.id,
@@ -230,6 +240,7 @@ export async function walkInRegister(fd: FormData): Promise<void> {
   await writeAudit({ actorId: user.id, action: "booking.walkin", entity: "op_booking", entityId: created.id, after: { bookingRef } });
   revalidatePath("/appointments");
   revalidatePath("/queue");
+  revalidatePath("/reception");
   redirect(`/queue`);
 }
 
