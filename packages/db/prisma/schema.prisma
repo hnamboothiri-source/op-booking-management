@@ -303,6 +303,7 @@ enum ReasonCategory {
   no_show
   admission_rejection
   cancellation
+  reschedule
 }
 
 // ===========================================================================
@@ -361,6 +362,7 @@ model Doctor {
   consultations  Consultation[]
   followUps      FollowUp[]
   waitlistPrefs  WaitlistEntry[]
+  leaves         DoctorLeave[]
 
   @@map("doctors")
 }
@@ -767,12 +769,17 @@ model OpBooking {
   endTime            String?           @map("end_time")
   status             AppointmentStatus @default(booked)
   source             BookingSource
+  appointmentType    String?           @map("appointment_type") // regular | follow_up | emergency | senior | teleconsultation | camp_follow_up
+  queueToken         Int?              @map("queue_token")
   bookedBy           String?           @map("booked_by")
   bookedAt           DateTime          @default(now()) @map("booked_at")
   checkedInAt        DateTime?         @map("checked_in_at")
   completedAt        DateTime?         @map("completed_at")
   cancelledAt        DateTime?         @map("cancelled_at")
   cancellationReason String?           @map("cancellation_reason")
+  cancellationReasonId String?         @map("cancellation_reason_id")
+  rescheduleReason   String?           @map("reschedule_reason")
+  rescheduleReasonId String?           @map("reschedule_reason_id")
   notes              String?
   enquiryId          String?           @map("enquiry_id")
   waitlistId         String?           @map("waitlist_id")
@@ -789,12 +796,65 @@ model OpBooking {
   rescheduledTo   OpBooking[] @relation("Reschedule")
   consultation Consultation?
   followUps    FollowUp[]
+  statusHistory AppointmentStatusHistory[]
+  reminders     AppointmentReminder[]
 
   @@index([appointmentDate, departmentId])
   @@index([doctorId, appointmentDate])
   @@index([patientMrd])
   @@index([status])
   @@map("op_bookings")
+}
+
+// Status-transition audit for an appointment (FRS §16 / §19).
+model AppointmentStatusHistory {
+  id         String   @id @default(uuid())
+  bookingId  String   @map("booking_id")
+  fromStatus String?  @map("from_status")
+  toStatus   String   @map("to_status")
+  reason     String?
+  actorId    String?  @map("actor_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  booking OpBooking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId, createdAt])
+  @@map("appointment_status_history")
+}
+
+// Scheduled appointment reminder (FRS §14). The timed scheduler is backend-deferred;
+// the daily cron fills/sends these against the mock in the prototype.
+model AppointmentReminder {
+  id           String    @id @default(uuid())
+  bookingId    String    @map("booking_id")
+  kind         String    // booking | day_before | morning
+  channel      String    @default("whatsapp")
+  scheduledFor DateTime  @map("scheduled_for")
+  sentAt       DateTime? @map("sent_at")
+  status       String    @default("scheduled") // scheduled | sent | failed
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  booking OpBooking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+  @@map("appointment_reminders")
+}
+
+// Doctor leave / emergency block — overlapping slots are marked blocked (FRS §4).
+model DoctorLeave {
+  id        String   @id @default(uuid())
+  doctorId  String   @map("doctor_id")
+  branchId  String?  @map("branch_id")
+  fromDate  DateTime @map("from_date") @db.Date
+  toDate    DateTime @map("to_date") @db.Date
+  kind      String   @default("leave") // leave | emergency_block
+  reason    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  doctor Doctor @relation(fields: [doctorId], references: [id])
+
+  @@index([doctorId, fromDate])
+  @@map("doctor_leaves")
 }
 
 model WaitlistEntry {

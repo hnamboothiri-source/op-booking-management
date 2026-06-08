@@ -59,6 +59,23 @@ export function hasCapacity(bookedCount: number, capacity: number): boolean {
   return bookedCount < capacity;
 }
 
+/** Next queue/token number for the day, given the tokens already issued. */
+export function nextQueueToken(existing: number[]): number {
+  return (existing.length ? Math.max(...existing) : 0) + 1;
+}
+
+/**
+ * Whether a room is already occupied by another booking at the same date+time.
+ * `existing` are other bookings in that room on that date (status-filtered by
+ * the caller); pure so the action layer can reject conflicts.
+ */
+export function roomConflict(
+  existing: { startTime: string }[],
+  candidateStartTime: string,
+): boolean {
+  return existing.some((b) => b.startTime === candidateStartTime);
+}
+
 /**
  * Generate slot start/end times for a session.
  * e.g. ("09:00","12:00",30) → [{start:"09:00",end:"09:30"}, ...].

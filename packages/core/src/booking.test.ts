@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   canTransitionBooking, nextBookingStatuses, occupiesSlot, releasesSlot,
-  slotStatusFor, hasCapacity, generateSlotTimes,
+  slotStatusFor, hasCapacity, generateSlotTimes, nextQueueToken, roomConflict,
 } from "./booking";
 import { conversionRate, isConverted, isClosedStage } from "./leads";
 
@@ -48,6 +48,23 @@ describe("generateSlotTimes", () => {
   });
   it("drops a trailing partial slot", () => {
     expect(generateSlotTimes("09:00", "09:50", 20)).toHaveLength(2);
+  });
+});
+
+describe("nextQueueToken", () => {
+  it("starts at 1 and increments past the max issued", () => {
+    expect(nextQueueToken([])).toBe(1);
+    expect(nextQueueToken([1, 2, 3])).toBe(4);
+    expect(nextQueueToken([3, 1, 2])).toBe(4);
+  });
+});
+
+describe("roomConflict", () => {
+  it("flags a room already used at the same start time", () => {
+    const existing = [{ startTime: "09:00" }, { startTime: "09:20" }];
+    expect(roomConflict(existing, "09:00")).toBe(true);
+    expect(roomConflict(existing, "09:40")).toBe(false);
+    expect(roomConflict([], "09:00")).toBe(false);
   });
 });
 

@@ -22,6 +22,18 @@ export default async function Queue({ searchParams }: { searchParams: Promise<{ 
     orderBy: { startTime: "asc" },
   });
 
+  // Order by issued token (nulls last), then scheduled time.
+  queue.sort((a, b) => {
+    const ta = a.queueToken ?? Number.MAX_SAFE_INTEGER, tb = b.queueToken ?? Number.MAX_SAFE_INTEGER;
+    return ta !== tb ? ta - tb : a.startTime.localeCompare(b.startTime);
+  });
+  const now = Date.now();
+  const waited = (since: Date | null) => {
+    if (!since) return null;
+    const m = Math.max(0, Math.round((now - new Date(since).getTime()) / 60000));
+    return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
+  };
+
   return (
     <div>
       <PageHeader title="Patient queue" subtitle={`Waiting / in consultation on ${day} (Module 5)`} />
@@ -37,18 +49,25 @@ export default async function Queue({ searchParams }: { searchParams: Promise<{ 
 
       <div className="space-y-2">
         {queue.length === 0 && <p className="text-sm text-slate-400">No patients waiting. Check them in from <a href="/appointments" className="text-rose-700 underline">Appointments</a>.</p>}
-        {queue.map((b) => (
-          <div key={b.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3">
-            <div>
-              <div className="font-medium">{b.startTime} · {b.patient.name}</div>
-              <div className="text-xs text-slate-500">{b.doctor.name} · {b.department.name} · {b.bookingRef}</div>
+        {queue.map((b) => {
+          const wait = waited(b.checkedInAt);
+          return (
+            <div key={b.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rose-100 text-sm font-bold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300" title="Queue token">{b.queueToken ?? "—"}</span>
+                <div>
+                  <div className="font-medium">{b.startTime} · {b.patient.name}</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">{b.doctor.name} · {b.department.name} · {b.bookingRef}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {wait && <span className="text-xs text-slate-500 dark:text-slate-400" title="Waiting time">waited {wait}</span>}
+                <Badge tone="amber">{b.status.replace(/_/g, " ")}</Badge>
+                <LinkButton href={`/consultations/${b.id}`}>Consult</LinkButton>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Badge tone="amber">{b.status.replace(/_/g, " ")}</Badge>
-              <LinkButton href={`/consultations/${b.id}`}>Consult</LinkButton>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

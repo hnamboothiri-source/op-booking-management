@@ -45,7 +45,7 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
   ];
   const followUpTypes: Row[] = [["Consultation review", "consultation_review"], ["Medicine follow-up", "medicine"], ["Test follow-up", "test"], ["Admission follow-up", "admission"], ["Annual checkup", "annual_checkup"]].map(([name, type], i) => ({ id: `fut-${i}`, name, type, active: true }));
   const taskTypes: Row[] = [["Call back patient", "call_back_patient"], ["Confirm appointment", "confirm_appointment"], ["Follow up admission", "follow_up_admission"], ["Contact dormant patient", "contact_dormant_patient"]].map(([name, type], i) => ({ id: `tt-${i}`, name, type, active: true }));
-  const reasons: Row[] = [["lost_lead", "Not interested"], ["lost_lead", "Chose another hospital"], ["no_show", "Forgot appointment"], ["admission_rejection", "Cost concern"], ["cancellation", "Patient rescheduled"]].map(([category, label], i) => ({ id: `rsn-${i}`, category, label, active: true }));
+  const reasons: Row[] = [["lost_lead", "Not interested"], ["lost_lead", "Chose another hospital"], ["no_show", "Forgot appointment"], ["admission_rejection", "Cost concern"], ["cancellation", "Patient rescheduled"], ["cancellation", "Doctor unavailable"], ["cancellation", "Chose another hospital"], ["cancellation", "Cost concern"], ["cancellation", "Duplicate booking"], ["reschedule", "Patient request"], ["reschedule", "Doctor unavailable"], ["reschedule", "Branch issue"], ["reschedule", "Emergency"]].map(([category, label], i) => ({ id: `rsn-${i}`, category, label, active: true }));
   const communicationTemplates: Row[] = [
     { id: "tpl-0", name: "Appointment confirmation", channel: "whatsapp", body: "Hi {{name}}, your appointment is confirmed.", active: true },
     { id: "tpl-1", name: "Follow-up reminder", channel: "sms", body: "Hi {{first_name}}, it's time for your follow-up.", active: true },
@@ -81,12 +81,36 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
 
   // --- Bookings ---
   const bookings: Row[] = [
-    { id: "bk-1", bookingRef: "OP-0001", patientMrd: "MRD-1003", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, roomId: consultationRooms[0].id, appointmentDate: today, startTime: "10:30", status: "arrived", source: "online", bookedAt: day(-1), bookedBy: "stf-callexec", leadId: "lead-4" },
-    { id: "bk-2", bookingRef: "OP-0002", patientMrd: "MRD-1001", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, appointmentDate: today, startTime: "11:00", status: "waiting", source: "front_desk", bookedAt: today, bookedBy: "stf-front" },
-    { id: "bk-3", bookingRef: "OP-0003", patientMrd: "MRD-1002", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[0].id, appointmentDate: day(-5), startTime: "09:30", status: "completed", source: "call_centre", bookedAt: day(-6), bookedBy: "stf-callexec", completedAt: day(-5) },
-    { id: "bk-4", bookingRef: "OP-0004", patientMrd: "MRD-1005", doctorId: doctors[2].id, departmentId: departments[0].id, branchId: branches[0].id, appointmentDate: day(3), startTime: "12:00", status: "booked", source: "follow_up", bookedAt: day(-1), bookedBy: "stf-callexec" },
-    { id: "bk-5", bookingRef: "OP-0005", patientMrd: "MRD-1002", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, appointmentDate: day(-40), startTime: "10:00", status: "no_show", source: "call_centre", bookedAt: day(-42), bookedBy: "stf-callexec", cancellationReason: "Forgot appointment" },
+    { id: "bk-1", bookingRef: "OP-0001", patientMrd: "MRD-1003", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, roomId: consultationRooms[0].id, appointmentDate: today, startTime: "10:30", status: "arrived", source: "online", appointmentType: "regular", queueToken: 1, checkedInAt: day(0), bookedAt: day(-1), bookedBy: "stf-callexec", leadId: "lead-4" },
+    { id: "bk-2", bookingRef: "OP-0002", patientMrd: "MRD-1001", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, appointmentDate: today, startTime: "11:00", status: "waiting", source: "front_desk", appointmentType: "regular", queueToken: 2, checkedInAt: day(0), bookedAt: today, bookedBy: "stf-front" },
+    { id: "bk-3", bookingRef: "OP-0003", patientMrd: "MRD-1002", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[0].id, appointmentDate: day(-5), startTime: "09:30", status: "completed", source: "call_centre", appointmentType: "regular", bookedAt: day(-6), bookedBy: "stf-callexec", completedAt: day(-5) },
+    { id: "bk-4", bookingRef: "OP-0004", patientMrd: "MRD-1005", doctorId: doctors[2].id, departmentId: departments[0].id, branchId: branches[0].id, appointmentDate: day(1), startTime: "12:00", status: "booked", source: "follow_up", appointmentType: "follow_up", bookedAt: day(-1), bookedBy: "stf-callexec" },
+    { id: "bk-5", bookingRef: "OP-0005", patientMrd: "MRD-1002", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, appointmentDate: day(-40), startTime: "10:00", status: "no_show", source: "call_centre", appointmentType: "regular", bookedAt: day(-42), bookedBy: "stf-callexec", cancellationReason: "Forgot appointment" },
   ];
+
+  // Doctor schedule templates + generated slots for today (so the calendar demos).
+  const doctorSchedules: Row[] = [
+    { id: "sch-1", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, dayOfWeek: null, specificDate: today, startTime: "09:00", endTime: "12:00", slotDurationMinutes: 30, maxPatientsPerSlot: 1, active: true },
+    { id: "sch-2", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[0].id, dayOfWeek: null, specificDate: today, startTime: "09:00", endTime: "11:00", slotDurationMinutes: 30, maxPatientsPerSlot: 1, active: true },
+  ];
+  const timeSlots: Row[] = [
+    { id: "ts-1", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, scheduleId: "sch-1", slotDate: today, startTime: "09:00", endTime: "09:30", capacity: 1, bookedCount: 0, status: "open" },
+    { id: "ts-2", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, scheduleId: "sch-1", slotDate: today, startTime: "09:30", endTime: "10:00", capacity: 1, bookedCount: 0, status: "open" },
+    { id: "ts-3", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, scheduleId: "sch-1", slotDate: today, startTime: "10:30", endTime: "11:00", capacity: 1, bookedCount: 1, status: "full" },
+    { id: "ts-4", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, scheduleId: "sch-1", slotDate: today, startTime: "11:00", endTime: "11:30", capacity: 1, bookedCount: 1, status: "full" },
+    { id: "ts-5", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[0].id, scheduleId: "sch-2", slotDate: today, startTime: "09:00", endTime: "09:30", capacity: 2, bookedCount: 0, status: "open" },
+    { id: "ts-6", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[0].id, scheduleId: "sch-2", slotDate: today, startTime: "09:30", endTime: "10:00", capacity: 2, bookedCount: 0, status: "blocked" },
+  ];
+
+  const appointmentStatusHistory: Row[] = [
+    { id: "ash-1", bookingId: "bk-1", fromStatus: "booked", toStatus: "confirmed", actorId: "stf-callexec", createdAt: day(-1) },
+    { id: "ash-2", bookingId: "bk-1", fromStatus: "confirmed", toStatus: "arrived", actorId: "stf-front", createdAt: day(0) },
+    { id: "ash-3", bookingId: "bk-3", fromStatus: "in_consultation", toStatus: "completed", actorId: "stf-menon", createdAt: day(-5) },
+  ];
+  const appointmentReminders: Row[] = [
+    { id: "rem-1", bookingId: "bk-4", kind: "booking", channel: "whatsapp", scheduledFor: day(-1), sentAt: day(-1), status: "sent" },
+  ];
+  const doctorLeaves: Row[] = [];
 
   // --- Consultations ---
   const consultations: Row[] = [
@@ -213,9 +237,17 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     b.patient = byId(patients, b.patientMrd, "mrd");
     b.doctor = byId(doctors, b.doctorId);
     b.department = byId(departments, b.departmentId);
+    b.branch = byId(branches, b.branchId) ?? null;
     b.room = byId(consultationRooms, b.roomId) ?? null;
     b.consultation = consultations.find((c) => c.bookingId === b.id) ?? null;
+    b.statusHistory = appointmentStatusHistory.filter((h) => h.bookingId === b.id);
+    b.reminders = appointmentReminders.filter((r) => r.bookingId === b.id);
   });
+  doctorSchedules.forEach((s) => { s.doctor = byId(doctors, s.doctorId) ?? null; s.department = byId(departments, s.departmentId) ?? null; });
+  timeSlots.forEach((s) => { s.doctor = byId(doctors, s.doctorId) ?? null; s.department = byId(departments, s.departmentId) ?? null; });
+  appointmentStatusHistory.forEach((h) => { h.booking = byId(bookings, h.bookingId) ?? null; });
+  appointmentReminders.forEach((r) => { r.booking = byId(bookings, r.bookingId) ?? null; });
+  doctorLeaves.forEach((l) => { l.doctor = byId(doctors, l.doctorId) ?? null; });
   consultations.forEach((c) => {
     c.patient = byId(patients, c.patientMrd, "mrd");
     c.doctor = byId(doctors, c.doctorId);
@@ -267,6 +299,8 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     organization: organizations, camp: camps, campPatient: campPatients, mobileClinic: mobileClinics,
     mobileClinicPatient: mobileClinicPatients, auditLog,
     leadActivity: leadActivities, leadAssignment: leadAssignments,
+    appointmentStatusHistory, appointmentReminder: appointmentReminders, doctorLeave: doctorLeaves,
+    doctorSchedule: doctorSchedules, timeSlot: timeSlots,
   };
   return { store, counters: {} };
 }

@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
-  canTransitionBooking, releasesSlot, generateSlotTimes, type BookingStatus,
+  canTransitionBooking, releasesSlot, generateSlotTimes, nextQueueToken, type BookingStatus,
 } from "@prm/core";
 import { prisma } from "../db";
 import { requireCan } from "../session";
@@ -14,6 +14,13 @@ const str = (fd: FormData, k: string) => {
   const v = fd.get(k)?.toString().trim();
   return v ? v : null;
 };
+
+/** Next per-branch, per-day queue token (FRS §12). */
+async function issueQueueToken(branchId: string | null, date: Date): Promise<number> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sameDay = await prisma.opBooking.findMany({ where: { branchId, appointmentDate: date, queueToken: { not: null } } as any, select: { queueToken: true } });
+  return nextQueueToken(sameDay.map((b) => b.queueToken as number));
+}
 
 // --- Doctor schedule templates ---
 export async function createSchedule(fd: FormData): Promise<void> {
@@ -143,19 +150,22 @@ export async function walkInRegister(fd: FormData): Promise<void> {
   const today = new Date(new Date().toISOString().slice(0, 10));
   const count = await prisma.opBooking.count();
   const bookingRef = `OP-${today.getUTCFullYear()}-${String(count + 1).padStart(6, "0")}`;
+  const branchId = str(fd, "branchId");
   const created = await prisma.opBooking.create({
     data: {
       bookingRef,
       patientMrd,
       doctorId,
       departmentId,
-      branchId: str(fd, "branchId"),
+      branchId,
       roomId: str(fd, "roomId"),
       appointmentDate: today,
       startTime: str(fd, "startTime") ?? new Date().toTimeString().slice(0, 5),
       source: "front_desk",
+      appointmentType: "regular",
       status: "arrived",
       checkedInAt: new Date(),
+      queueToken: await issueQueueToken(branchId, today),
       bookedBy: user.id,
     },
   });
@@ -226,7 +236,10 @@ export async function transitionBooking(id: string, to: BookingStatus): Promise<
   const now = new Date();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data: any = { status: to };
-  if (to === "arrived") data.checkedInAt = now;
+  if (to === "arrived") {
+    data.checkedInAt = now;
+    if (!b.queueToken) data.queueToken = await issueQueueToken(b.branchId, b.appointmentDate);
+  }
   if (to === "completed") data.completedAt = now;
   if (to === "cancelled") data.cancelledAt = now;
 
