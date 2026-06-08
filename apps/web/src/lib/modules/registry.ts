@@ -223,6 +223,7 @@ export const MODULE_DASHBOARDS: ModuleDef[] = [
     kpis: [],
     links: [
       { label: "Master data", desc: "20+ master datasets with generic CRUD", href: "/masters", resource: "masters" },
+      { label: "Module access by role", desc: "Which department / role sees which module", href: "/module-access", resource: "masters" },
       { label: "Audit log", desc: "Who changed what, when", href: "/audit", resource: "audit" },
     ],
   },

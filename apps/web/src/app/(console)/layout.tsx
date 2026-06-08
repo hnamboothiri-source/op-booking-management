@@ -12,6 +12,7 @@ const UTILITY: NavDef[] = [
   { href: "/", label: "Dashboard", icon: "dashboard", group: "Overview", resource: "dashboards", match: ["/"] },
   { href: "/analytics", label: "Analytics", icon: "chart", group: "Overview", resource: "dashboards" },
   { href: "/reports", label: "Reports", icon: "report", group: "Overview", resource: "reports" },
+  { href: "/module-access", label: "Module access", icon: "shield", group: "Admin", resource: "masters" },
   { href: "/audit", label: "Audit", icon: "shield", group: "Admin", resource: "audit" },
 ];
 
