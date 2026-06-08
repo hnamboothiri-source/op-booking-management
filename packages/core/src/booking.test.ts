@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   canTransitionBooking, nextBookingStatuses, occupiesSlot, releasesSlot,
   slotStatusFor, hasCapacity, generateSlotTimes, nextQueueToken, roomConflict, dueReminders,
+  splitSessionSlots, weekOfMonthLabel,
 } from "./booking";
 import { conversionRate, isConverted, isClosedStage } from "./leads";
 
@@ -65,6 +66,28 @@ describe("roomConflict", () => {
     expect(roomConflict(existing, "09:00")).toBe(true);
     expect(roomConflict(existing, "09:40")).toBe(false);
     expect(roomConflict([], "09:00")).toBe(false);
+  });
+});
+
+describe("splitSessionSlots", () => {
+  it("divides a window into N equal back-to-back slots", () => {
+    const s = splitSessionSlots("09:00", "12:30", 7);
+    expect(s).toHaveLength(7);
+    expect(s[0]).toEqual({ start: "09:00", end: "09:30" });
+    expect(s[6].end).toBe("12:30");
+  });
+  it("returns one slot for count <= 1 or bad window", () => {
+    expect(splitSessionSlots("09:00", "12:00", 1)).toEqual([{ start: "09:00", end: "12:00" }]);
+    expect(splitSessionSlots("12:00", "09:00", 3)).toEqual([{ start: "12:00", end: "09:00" }]);
+  });
+});
+
+describe("weekOfMonthLabel", () => {
+  it("formats rotation tags", () => {
+    expect(weekOfMonthLabel("1,3")).toBe("1st & 3rd");
+    expect(weekOfMonthLabel("2")).toBe("2nd");
+    expect(weekOfMonthLabel("1&5")).toBe("1st & 5th");
+    expect(weekOfMonthLabel(null)).toBe("");
   });
 });
 

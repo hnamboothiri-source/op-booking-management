@@ -109,6 +109,30 @@ export function dueReminders(items: ReminderCandidate[], now: Date): { bookingId
   return out;
 }
 
+// --- Real-schedule helpers (Sreedhareeyam doctor/room/slot plan) ---
+
+/**
+ * Divide a session window into exactly `count` equal back-to-back slots
+ * ("‑Nnos" = N patients in that window). e.g. ("09:00","12:30",7) → 7 slots of
+ * 30 min each. Falls back to one slot when count ≤ 1.
+ */
+export function splitSessionSlots(start: string, end: string, count: number): { start: string; end: string }[] {
+  const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  const toStr = (n: number) => `${String(Math.floor(n / 60)).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
+  const s = toMin(start), e = toMin(end);
+  const n = Math.max(1, Math.floor(count));
+  if (e <= s) return [{ start, end }];
+  const step = Math.floor((e - s) / n);
+  return Array.from({ length: n }, (_, i) => ({ start: toStr(s + i * step), end: toStr(i === n - 1 ? e : s + (i + 1) * step) }));
+}
+
+/** Human label for a week-of-month rotation tag, e.g. "1,3" → "1st & 3rd Sun/Sat". */
+export function weekOfMonthLabel(weekOfMonth?: string | null): string {
+  if (!weekOfMonth) return "";
+  const ord = (n: string) => ({ "1": "1st", "2": "2nd", "3": "3rd", "4": "4th", "5": "5th" }[n.trim()] ?? n.trim());
+  return weekOfMonth.split(/[,&]/).map((p) => p.trim()).filter(Boolean).map(ord).join(" & ");
+}
+
 /**
  * Generate slot start/end times for a session.
  * e.g. ("09:00","12:00",30) → [{start:"09:00",end:"09:30"}, ...].

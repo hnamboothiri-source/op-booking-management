@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { branchScopeWhere, layoutCalendar, type CalendarItem } from "@prm/core";
+import { layoutCalendar, type CalendarItem } from "@prm/core";
 import { PageHeader, LinkButton } from "@/components/ui";
 import { CalendarGrid } from "@/components/appointments/CalendarGrid";
 
@@ -20,12 +20,11 @@ const slotState = (s: { status: string; bookedCount: number; capacity: number })
   s.status === "blocked" ? "blocked" : s.bookedCount >= s.capacity ? "full" : s.bookedCount > 0 ? "booked" : "open";
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ date?: string; view?: string; doctorId?: string }> }) {
-  const user = await requireCan("appointments", "view");
+  await requireCan("appointments", "view");
   const sp = await searchParams;
   const view = (["doctor", "room", "branch", "week"].includes(sp.view ?? "") ? sp.view : "doctor") as View;
   const dateStr = sp.date ?? iso(new Date());
   const date = new Date(dateStr);
-  const scope = branchScopeWhere(user.role, user.branchId);
 
   const [doctors, branches, rooms] = await Promise.all([
     prisma.doctor.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
@@ -38,15 +37,12 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   let columnOrder: string[] = [];
 
   if (view === "room") {
-    // Room view is booking-centric (rooms are assigned at booking time, not on slots).
-    const bookings = await prisma.opBooking.findMany({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      where: { ...scope, appointmentDate: date, roomId: { not: null }, status: { notIn: ["cancelled", "rescheduled", "no_show"] } } as any,
-      include: { patient: true, doctor: true },
-      orderBy: { startTime: "asc" },
-    });
-    items = bookings.map((b) => ({ id: b.id, column: b.roomId as string, startTime: b.startTime, endTime: b.endTime ?? undefined, state: "booked", label: `${b.patient?.name ?? b.patientMrd} · ${b.doctor?.name ?? ""}`, href: `/appointments/${b.id}` }));
-    columnLabels = Object.fromEntries(rooms.map((r) => [r.id, r.name]));
+    // Room view is slot-centric: the day's generated slots grouped by assigned room
+    // (reflects the real room allotment grid).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const slots = await prisma.timeSlot.findMany({ where: { slotDate: date, roomId: { not: null } } as any, include: { doctor: true }, orderBy: { startTime: "asc" } });
+    items = slots.map((s) => ({ id: s.id, column: s.roomId as string, startTime: s.startTime, endTime: s.endTime, state: slotState(s), label: `${s.doctor?.name ?? ""} ${s.bookedCount}/${s.capacity}`, href: s.status !== "blocked" && s.bookedCount < s.capacity ? `/appointments/book?slotId=${s.id}` : undefined }));
+    columnLabels = Object.fromEntries(rooms.map((r) => [r.id, r.purpose && r.purpose !== "consultation" ? `${r.name} · ${r.purpose.replace(/_/g, " ")}` : r.name]));
     columnOrder = rooms.map((r) => r.id);
   } else if (view === "week") {
     const doctorId = sp.doctorId ?? doctors[0]?.id;
@@ -62,7 +58,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     const colOf = (s: { doctorId: string; branchId: string | null }) => (view === "branch" ? (s.branchId ?? "—") : s.doctorId);
     items = slots.map((s) => ({ id: s.id, column: colOf(s), startTime: s.startTime, endTime: s.endTime, state: slotState(s), label: `${s.bookedCount}/${s.capacity}`, href: s.status !== "blocked" && s.bookedCount < s.capacity ? `/appointments/book?slotId=${s.id}` : undefined }));
     if (view === "branch") { columnLabels = { "—": "Unassigned", ...Object.fromEntries(branches.map((b) => [b.id, b.name])) }; columnOrder = branches.map((b) => b.id); }
-    else { columnLabels = Object.fromEntries(doctors.map((d) => [d.id, d.name])); columnOrder = doctors.map((d) => d.id); }
+    else {
+      const roleSuffix = (role: string | null) => (role === "cmo" ? " · CMO" : role === "chief_physician" ? " · Chief" : role === "dy_chief_physician" ? " · Dy Chief" : "");
+      columnLabels = Object.fromEntries(doctors.map((d) => [d.id, `${d.name}${roleSuffix(d.role ?? null)}`]));
+      columnOrder = doctors.map((d) => d.id);
+    }
   }
 
   const layout = layoutCalendar(items, columnOrder);

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { createSchedule, generateSlots, createDoctorLeave } from "@/lib/appointments/actions";
+import { weekOfMonthLabel } from "@prm/core";
 import { PageHeader, SubmitButton, Card, Badge, LinkButton } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -13,14 +14,17 @@ export default async function Schedules({ searchParams }: { searchParams: Promis
   await requireCan("appointments", "view");
   const { date, generated } = await searchParams;
 
-  const [schedules, doctors, departments, branches, slots, leaves] = await Promise.all([
+  const [schedules, doctors, departments, branches, slots, leaves, rooms] = await Promise.all([
     prisma.doctorSchedule.findMany({ where: { active: true }, include: { doctor: true, department: true }, orderBy: { dayOfWeek: "asc" } }),
     prisma.doctor.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.department.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.branch.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     date ? prisma.timeSlot.findMany({ where: { slotDate: new Date(date) }, include: { doctor: true, department: true }, orderBy: [{ doctor: { name: "asc" } }, { startTime: "asc" }] }) : [],
     prisma.doctorLeave.findMany({ include: { doctor: true }, orderBy: { fromDate: "desc" }, take: 20 }),
+    prisma.consultationRoom.findMany({ where: { active: true } }),
   ]);
+  const roomName = new Map(rooms.map((r) => [r.id, r.name]));
+  schedules.sort((a, b) => (a.doctor.name).localeCompare(b.doctor.name) || (a.dayOfWeek ?? 0) - (b.dayOfWeek ?? 0));
 
   return (
     <div>
@@ -81,12 +85,23 @@ export default async function Schedules({ searchParams }: { searchParams: Promis
       <div className="mt-6">
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Templates ({schedules.length})</h2>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {schedules.map((s) => (
-            <div key={s.id} className="rounded border border-slate-100 bg-white px-3 py-2 text-sm">
-              <div className="font-medium">{s.doctor.name} · {s.department.name}</div>
-              <div className="text-xs text-slate-500">{s.dayOfWeek !== null ? DOW[s.dayOfWeek] : s.specificDate?.toISOString().slice(0, 10)} · {s.startTime}–{s.endTime} · {s.slotDurationMinutes}m · cap {s.maxPatientsPerSlot}</div>
-            </div>
-          ))}
+          {schedules.map((s) => {
+            const room = roomName.get(s.roomId ?? "");
+            const wk = weekOfMonthLabel(s.weekOfMonth);
+            return (
+              <div key={s.id} className="rounded border border-slate-100 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+                <div className="font-medium">{s.doctor.name}</div>
+                <div className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                  <span className="font-medium text-slate-600 dark:text-slate-300">{s.dayOfWeek !== null ? DOW[s.dayOfWeek] : s.specificDate?.toISOString().slice(0, 10)}</span>
+                  {wk && <Badge tone="amber">{wk}</Badge>}
+                  {s.session && s.session !== "full" && <Badge tone="blue">{s.session}</Badge>}
+                  <span>{s.startTime}–{s.endTime}</span>
+                  {s.slotsCount ? <span>· {s.slotsCount} nos</span> : null}
+                  {room && <span>· {room}</span>}
+                </div>
+              </div>
+            );
+          })}
           {schedules.length === 0 && <p className="text-sm text-slate-400">No templates yet.</p>}
         </div>
       </div>

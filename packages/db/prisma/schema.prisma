@@ -350,6 +350,8 @@ model Doctor {
   id              String   @id @default(uuid())
   name            String
   designation     String?
+  role            String?  // chief_physician | dy_chief_physician | cmo | consultant | medical_officer | holistic | dietitian | yoga
+  opDoctor        Boolean  @default(true) @map("op_doctor")
   registrationNo  String?  @unique @map("registration_no")
   dailyTarget     Int?     @map("daily_target")
   active          Boolean  @default(true)
@@ -368,11 +370,14 @@ model Doctor {
 }
 
 model ConsultationRoom {
-  id           String   @id @default(uuid())
-  name         String
-  departmentId String?  @map("department_id")
-  branchId     String?  @map("branch_id")
-  active       Boolean  @default(true)
+  id            String   @id @default(uuid())
+  name          String
+  code          String?  // e.g. "Room 7"
+  purpose       String?  // consultation | initial_assessment | procedure | jalooka
+  fixedDoctorId String?  @map("fixed_doctor_id") // permanent room for a chief, if any
+  departmentId  String?  @map("department_id")
+  branchId      String?  @map("branch_id")
+  active        Boolean  @default(true)
 
   department Department? @relation(fields: [departmentId], references: [id])
   bookings   OpBooking[]
@@ -503,6 +508,10 @@ model DoctorSchedule {
   branchId            String?   @map("branch_id")
   dayOfWeek           Int?      @map("day_of_week") // 0=Sun..6=Sat
   specificDate        DateTime? @map("specific_date") @db.Date
+  session             String?   // morning | afternoon | full
+  roomId              String?   @map("room_id")
+  slotsCount          Int?      @map("slots_count") // patients per session ("nos")
+  weekOfMonth         String?   @map("week_of_month") // e.g. "1,3"; null = every week
   startTime           String    @map("start_time")
   endTime             String    @map("end_time")
   slotDurationMinutes Int       @map("slot_duration_minutes")
@@ -525,6 +534,7 @@ model TimeSlot {
   departmentId String     @map("department_id")
   branchId     String?    @map("branch_id")
   scheduleId   String?    @map("schedule_id")
+  roomId       String?    @map("room_id")
   slotDate     DateTime   @map("slot_date") @db.Date
   startTime    String     @map("start_time")
   endTime      String     @map("end_time")

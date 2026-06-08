@@ -27,12 +27,66 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     { id: "br-koc", name: "Kochi Branch", code: "KOC", location: "Ernakulam", active: true },
   ];
   const departments: Row[] = ["General", "Ophthalmology", "Skin & Allergy", "Orthopedic", "Gynecology"].map((name, i) => ({ id: `dep-${i}`, name, active: true }));
-  const doctors: Row[] = [
-    { id: "doc-menon", name: "Dr. Menon", designation: "Senior Consultant", registrationNo: "KMC-1001", dailyTarget: 20, active: true },
-    { id: "doc-pillai", name: "Dr. Pillai", designation: "Consultant", registrationNo: "KMC-1002", dailyTarget: 15, active: true },
-    { id: "doc-thomas", name: "Dr. Thomas", designation: "Medical Officer", registrationNo: "KMC-1003", dailyTarget: 25, active: true },
+  // --- Real Sreedhareeyam doctor roster (chiefs first so doctors[0..2] resolve) ---
+  const oph = departments[1].id; // Ophthalmology / Ayurveda OP
+  // [key, full name, role, dailyTarget, opDoctor]
+  const DOCTOR_DEFS: [string, string, string | null, number, boolean][] = [
+    ["narayanan", "Dr Narayanan Namboothiri", "chief_physician", 12, true],
+    ["sreekala", "Dr Sreekala N P", "dy_chief_physician", 6, true],
+    ["sreekanth", "Dr Sreekanth P Namboothiri", "cmo", 14, true],
+    ["anjalynv", "Dr Anjaly N V", "consultant", 8, true],
+    ["manjusree", "Dr Manjusree R P", "consultant", 6, true],
+    ["sreerag", "Dr Sreerag P Namboothiri", "consultant", 7, true],
+    ["priyak", "Dr Priya K", "consultant", 4, true],
+    ["subha", "Dr Subha P K", "consultant", 4, true],
+    ["priyadev", "Dr Priyadev S", "consultant", 2, true],
+    ["robin", "Dr Robin Roy", "consultant", 4, true],
+    ["elsyitta", "Dr Elsyitta M J", "consultant", 4, true],
+    ["vidhya", "Dr Vidhya Sugunan", "consultant", 4, true],
+    ["nithin", "Dr Nithin C Alex", "consultant", 4, true],
+    ["minu", "Dr Minu Padmini", "consultant", 4, true],
+    ["lissa", "Dr Lissa Jose", "consultant", 4, true],
+    ["rajesh", "Dr N S Rajesh", "consultant", 2, true],
+    ["jeena", "Dr Jeena Joy", "medical_officer", 4, true],
+    ["anjalyjose", "Dr Anjaly Jose", "medical_officer", 4, true],
+    ["tom", "Dr Tom Augustine", "medical_officer", 4, true],
+    ["aswin", "Dr Ashwin P V", "medical_officer", 2, true],
+    ["geethumol", "Dr Geethumol Baby", "medical_officer", 4, true],
+    ["hafis", "Dr Hafis C Hameed", "medical_officer", 4, true],
+    ["sreeja", "Dr Sreeja Manohar", "medical_officer", 4, true],
+    ["maheswari", "Dr Maheswari", "medical_officer", 4, true],
+    ["aswathysusan", "Dr Aswathy Susan Baby", "medical_officer", 4, true],
+    ["rajitha", "Dr Rajitha", "medical_officer", 2, true],
+    ["aswathyts", "Dr Aswathy T S", "medical_officer", 4, true],
+    ["athira", "Dr Athira Radhakrishnan", "medical_officer", 4, true],
+    ["anu", "Dr Anu Jacob", "medical_officer", 4, true],
+    ["aparna", "Dr Aparna K S", "medical_officer", 4, true],
+    ["sreejith", "Dr Sreejith K P", "medical_officer", 2, true],
+    ["subramanyan", "Dr Subramanyan Namboodiri", "medical_officer", 2, true],
+    ["susan", "Dr Susan Rose", "medical_officer", 4, true],
+    ["dhanya", "Dr Dhanya N Pillai", "medical_officer", 4, true],
+    ["remya", "Dr Remya R", "medical_officer", 4, true],
+    ["priyasam", "Dr Priya Sam", "medical_officer", 4, true],
+    ["sanju", "Dr Sanju M Babu", "holistic", 0, false],
+    ["neeta", "Neeta Mary George", "dietitian", 0, false],
+    ["yoga", "Yoga (General)", "yoga", 0, false],
   ];
-  const consultationRooms: Row[] = ["Room 1", "Room 2", "Room 3"].map((name, i) => ({ id: `room-${i}`, name, departmentId: departments[1].id, branchId: branches[0].id, active: true }));
+  const ROLE_LABEL: Record<string, string> = { chief_physician: "Chief Physician", dy_chief_physician: "Dy Chief Physician", cmo: "CMO", consultant: "Consultant", medical_officer: "Medical Officer", holistic: "Holistic", dietitian: "Dietitian", yoga: "Yoga" };
+  const doctors: Row[] = DOCTOR_DEFS.map(([key, name, role, dailyTarget, opDoctor], i) => ({ id: `doc-${key}`, name, role, designation: role ? ROLE_LABEL[role] : null, opDoctor, dailyTarget, registrationNo: `KMC-${2001 + i}`, active: true }));
+  const docId = (key: string) => `doc-${key}`;
+
+  // --- Rooms (consultation rooms first; then chief/purpose rooms) ---
+  const CONSULT_ROOM_NS = [8, 9, 10, 11, 12, 13, 16, 17, 18, 19];
+  const consultationRooms: Row[] = [
+    ...CONSULT_ROOM_NS.map((n) => ({ id: `room-${n}`, name: `Room ${n}`, code: `Room ${n}`, purpose: "consultation", fixedDoctorId: null, departmentId: oph, branchId: branches[0].id, active: true })),
+    { id: "room-7", name: "Room 7", code: "Room 7", purpose: "consultation", fixedDoctorId: docId("narayanan"), departmentId: oph, branchId: branches[0].id, active: true },
+    { id: "room-6", name: "Room 6", code: "Room 6", purpose: "consultation", fixedDoctorId: docId("sreekala"), departmentId: oph, branchId: branches[0].id, active: true },
+    { id: "room-5", name: "Room 5", code: "Room 5", purpose: "consultation", fixedDoctorId: docId("sreekanth"), departmentId: oph, branchId: branches[0].id, active: true },
+    ...[1, 2, 3, 4].map((n) => ({ id: `room-${n}`, name: `Room ${n}`, code: `Room ${n}`, purpose: "initial_assessment", fixedDoctorId: null, departmentId: oph, branchId: branches[0].id, active: true })),
+    { id: "room-14", name: "Room 14", code: "Room 14", purpose: "procedure", fixedDoctorId: null, departmentId: oph, branchId: branches[0].id, active: true },
+    { id: "room-15", name: "Room 15", code: "Room 15", purpose: "jalooka", fixedDoctorId: null, departmentId: oph, branchId: branches[0].id, active: true },
+  ];
+  const roomId = (n: number) => `room-${n}`;
   const sourceGroups: Record<string, string> = { social_media: "digital", google_ads: "digital", website: "digital", phone: "branch", whatsapp: "digital", email: "digital", doctor_referral: "referral", patient_referral: "referral", camp: "camp", walk_in: "walk_in" };
   const leadSources: Row[] = ["social_media", "google_ads", "website", "phone", "whatsapp", "email", "doctor_referral", "patient_referral", "camp", "walk_in"].map((name, i) => ({ id: `src-${i}`, name, group: sourceGroups[name] ?? "digital", active: true }));
   const diseases: Row[] = ["Cataract", "Glaucoma", "Dry eye", "Allergic conjunctivitis", "Diabetic retinopathy"].map((name, i) => ({ id: `dis-${i}`, name, active: true }));
@@ -88,19 +142,92 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     { id: "bk-5", bookingRef: "OP-0005", patientMrd: "MRD-1002", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, appointmentDate: day(-40), startTime: "10:00", status: "no_show", source: "call_centre", appointmentType: "regular", bookedAt: day(-42), bookedBy: "stf-callexec", cancellationReason: "Forgot appointment" },
   ];
 
-  // Doctor schedule templates + generated slots for today (so the calendar demos).
-  const doctorSchedules: Row[] = [
-    { id: "sch-1", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, dayOfWeek: null, specificDate: today, startTime: "09:00", endTime: "12:00", slotDurationMinutes: 30, maxPatientsPerSlot: 1, active: true },
-    { id: "sch-2", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[0].id, dayOfWeek: null, specificDate: today, startTime: "09:00", endTime: "11:00", slotDurationMinutes: 30, maxPatientsPerSlot: 1, active: true },
+  // --- Real weekly room/doctor/session grid (Sheet 2) → DoctorSchedule rows ---
+  // Tuple: [docKey, dayOfWeek(0=Sun..6=Sat), session('m'|'a'|'full'), roomN, slotsCount, weekOfMonth|null, startOverride?, endOverride?]
+  const MORN = ["09:00", "12:30"], AFTN = ["14:00", "18:00"], FULL = ["09:30", "16:00"];
+  type SD = [string, number, "m" | "a" | "full", number, number, string | null, string?, string?];
+  const SCHEDULE_DEFS: SD[] = [
+    // Chiefs (Sheet 1)
+    ["narayanan", 1, "full", 7, 6, null, "09:00", "13:00"], ["narayanan", 3, "full", 7, 6, null, "09:00", "13:00"], ["narayanan", 5, "full", 7, 6, null, "09:00", "13:00"],
+    ["sreekala", 3, "full", 6, 3, null, "09:00", "17:00"], ["sreekala", 6, "full", 6, 3, null, "09:00", "17:00"],
+    ["sreekanth", 4, "full", 5, 7, null, "09:30", "13:00"], ["sreekanth", 6, "full", 5, 7, null, "09:30", "13:00"],
+    // Room 8
+    ["sreerag", 1, "full", 8, 3, null, "09:30", "15:00"], ["sreerag", 2, "full", 8, 3, null, "09:30", "15:00"], ["sreerag", 0, "m", 8, 4, null, "09:00", "13:00"],
+    ["minu", 3, "full", 8, 2, null], ["minu", 5, "full", 8, 2, null], ["elsyitta", 4, "full", 8, 2, null], ["elsyitta", 6, "full", 8, 2, null],
+    // Room 9 (AM/PM)
+    ["geethumol", 1, "m", 9, 2, null], ["hafis", 1, "a", 9, 2, null],
+    ["anjalyjose", 2, "m", 9, 2, null], ["aswathysusan", 2, "a", 9, 2, null],
+    ["hafis", 3, "m", 9, 2, null], ["anjalyjose", 3, "a", 9, 2, null],
+    ["aswathyts", 4, "m", 9, 2, null], ["tom", 4, "a", 9, 2, null],
+    ["tom", 5, "m", 9, 2, null], ["geethumol", 5, "a", 9, 2, null],
+    ["aswathysusan", 6, "m", 9, 2, null], ["aswathyts", 6, "a", 9, 2, null],
+    ["tom", 0, "m", 9, 2, "1"], ["anjalyjose", 0, "m", 9, 2, "2,5"], ["hafis", 0, "m", 9, 2, "3"], ["geethumol", 0, "m", 9, 2, "4"],
+    // Room 10
+    ["vidhya", 1, "full", 10, 2, null], ["subha", 2, "full", 10, 2, null], ["rajitha", 3, "full", 10, 2, null, "09:00", "16:30"],
+    ["athira", 4, "m", 10, 2, null], ["aparna", 4, "a", 10, 2, null], ["subha", 5, "full", 10, 2, null], ["vidhya", 6, "full", 10, 2, null],
+    ["vidhya", 0, "m", 10, 2, "1"], ["aswathysusan", 0, "m", 10, 2, "2"], ["rajitha", 0, "m", 10, 2, "3"], ["subha", 0, "m", 10, 2, "4"],
+    // Room 11
+    ["subramanyan", 1, "m", 11, 2, null, "09:00", "12:30"], ["susan", 1, "a", 11, 2, null],
+    ["dhanya", 2, "m", 11, 2, null], ["remya", 2, "a", 11, 2, null, "14:00", "17:00"],
+    ["subramanyan", 3, "m", 11, 2, null], ["remya", 3, "a", 11, 2, null],
+    ["remya", 4, "m", 11, 2, null], ["dhanya", 4, "a", 11, 2, null, "14:00", "17:00"],
+    ["subramanyan", 5, "m", 11, 2, null], ["dhanya", 5, "a", 11, 2, null],
+    ["rajesh", 6, "full", 11, 2, "1,3", "11:00", "15:00"],
+    ["remya", 0, "m", 11, 2, "1,5"], ["aswathyts", 0, "m", 11, 2, "2"], ["dhanya", 0, "m", 11, 2, "4"],
+    // Room 12
+    ["maheswari", 1, "m", 12, 2, null], ["sreeja", 1, "a", 12, 2, null],
+    ["priyadev", 2, "full", 12, 2, null, "09:00", "16:00"], ["jeena", 3, "a", 12, 2, null],
+    ["anu", 4, "m", 12, 2, null], ["maheswari", 4, "a", 12, 2, null],
+    ["sreeja", 5, "m", 12, 2, null], ["aswin", 5, "a", 12, 2, null],
+    ["jeena", 6, "m", 12, 2, null], ["anu", 6, "a", 12, 2, null], ["aswin", 0, "a", 12, 2, null],
+    // Room 13
+    ["priyasam", 1, "m", 13, 2, null], ["susan", 1, "a", 13, 2, null],
+    ["anjalynv", 2, "full", 13, 4, null, "11:00", "14:00"], ["anjalynv", 4, "full", 13, 4, null, "11:00", "14:00"],
+    ["susan", 6, "full", 13, 2, null, "09:00", "17:00"],
+    // Room 16
+    ["sreejith", 1, "full", 16, 2, null, "09:30", "13:00"], ["sreejith", 2, "full", 16, 2, null, "09:30", "13:00"], ["sreejith", 6, "full", 16, 2, null, "09:30", "13:00"],
+    ["susan", 4, "m", 16, 2, null], ["priyasam", 4, "a", 16, 2, null, "14:00", "17:00"],
+    ["priyasam", 0, "m", 16, 2, "2"], ["susan", 0, "m", 16, 2, "3"],
+    // Room 17 (Sun rotation only)
+    ["sreeja", 0, "m", 17, 2, "1"], ["jeena", 0, "m", 17, 2, "2"], ["anu", 0, "m", 17, 2, "3"], ["maheswari", 0, "m", 17, 2, "4"],
+    // Room 18
+    ["manjusree", 1, "full", 18, 3, null, "09:30", "15:00"], ["manjusree", 2, "full", 18, 3, null, "09:30", "15:00"],
+    ["lissa", 3, "full", 18, 2, null], ["nithin", 4, "full", 18, 2, null], ["lissa", 5, "full", 18, 2, null], ["nithin", 6, "full", 18, 2, null],
+    ["minu", 0, "m", 18, 2, "1"], ["elsyitta", 0, "m", 18, 2, "2"], ["nithin", 0, "m", 18, 2, "3"],
+    // Room 19
+    ["priyak", 1, "full", 19, 2, null, "09:30", "15:30"], ["robin", 2, "full", 19, 2, null], ["priyak", 3, "full", 19, 2, null, "09:30", "15:30"], ["robin", 4, "full", 19, 2, null],
+    ["aparna", 6, "m", 19, 2, null], ["athira", 6, "a", 19, 2, null],
+    ["priyak", 0, "m", 19, 2, "1"], ["robin", 0, "m", 19, 2, "2"], ["aparna", 0, "m", 19, 2, "3"], ["athira", 0, "m", 19, 2, "4"],
   ];
-  const timeSlots: Row[] = [
-    { id: "ts-1", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, scheduleId: "sch-1", slotDate: today, startTime: "09:00", endTime: "09:30", capacity: 1, bookedCount: 0, status: "open" },
-    { id: "ts-2", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, scheduleId: "sch-1", slotDate: today, startTime: "09:30", endTime: "10:00", capacity: 1, bookedCount: 0, status: "open" },
-    { id: "ts-3", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, scheduleId: "sch-1", slotDate: today, startTime: "10:30", endTime: "11:00", capacity: 1, bookedCount: 1, status: "full" },
-    { id: "ts-4", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, scheduleId: "sch-1", slotDate: today, startTime: "11:00", endTime: "11:30", capacity: 1, bookedCount: 1, status: "full" },
-    { id: "ts-5", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[0].id, scheduleId: "sch-2", slotDate: today, startTime: "09:00", endTime: "09:30", capacity: 2, bookedCount: 0, status: "open" },
-    { id: "ts-6", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[0].id, scheduleId: "sch-2", slotDate: today, startTime: "09:30", endTime: "10:00", capacity: 2, bookedCount: 0, status: "blocked" },
-  ];
+  const sessWindow = (s: "m" | "a" | "full", so?: string, eo?: string): [string, string] => so && eo ? [so, eo] : s === "m" ? [MORN[0], MORN[1]] : s === "a" ? [AFTN[0], AFTN[1]] : [FULL[0], FULL[1]];
+  const sessLabel = (s: "m" | "a" | "full") => (s === "m" ? "morning" : s === "a" ? "afternoon" : "full");
+  const doctorSchedules: Row[] = SCHEDULE_DEFS.map((d, i) => {
+    const [key, dow, sess, rN, slots, wom, so, eo] = d;
+    const [st, en] = sessWindow(sess, so, eo);
+    return { id: `sch-${i}`, doctorId: docId(key), departmentId: oph, branchId: branches[0].id, dayOfWeek: dow, specificDate: null, session: sessLabel(sess), roomId: roomId(rN), slotsCount: slots, weekOfMonth: wom, startTime: st, endTime: en, slotDurationMinutes: Math.max(10, Math.floor(((parseInt(en) * 60) - (parseInt(st) * 60)) / Math.max(1, slots))), maxPatientsPerSlot: 1, active: true };
+  });
+
+  // Generate today's slots from the schedules on today's weekday (split each session into `slotsCount`).
+  const todayDow = today.getUTCDay();
+  const onLeaveToday = new Set(["lissa"]); // Dr Lissa Jose is on leave
+  const splitSlots = (start: string, end: string, count: number) => {
+    const m = (t: string) => { const [h, mm] = t.split(":").map(Number); return h * 60 + mm; };
+    const str = (n: number) => `${String(Math.floor(n / 60)).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
+    const s = m(start), e = m(end), n = Math.max(1, count); if (e <= s) return [[start, end]] as [string, string][];
+    const step = Math.floor((e - s) / n);
+    return Array.from({ length: n }, (_, i) => [str(s + i * step), str(i === n - 1 ? e : s + (i + 1) * step)] as [string, string]);
+  };
+  const timeSlots: Row[] = [];
+  let tsN = 0;
+  for (const sch of doctorSchedules) {
+    if (sch.dayOfWeek !== todayDow) continue;
+    if (sch.weekOfMonth) continue; // rotation tags not generated (shown only)
+    const docKey = (sch.doctorId as string).replace("doc-", "");
+    const blocked = onLeaveToday.has(docKey);
+    for (const [st, en] of splitSlots(sch.startTime, sch.endTime, sch.slotsCount ?? 1)) {
+      timeSlots.push({ id: `ts-${tsN++}`, doctorId: sch.doctorId, departmentId: oph, branchId: branches[0].id, scheduleId: sch.id, roomId: sch.roomId, slotDate: today, startTime: st, endTime: en, capacity: 1, bookedCount: 0, status: blocked ? "blocked" : "open" });
+    }
+  }
 
   const appointmentStatusHistory: Row[] = [
     { id: "ash-1", bookingId: "bk-1", fromStatus: "booked", toStatus: "confirmed", actorId: "stf-callexec", createdAt: day(-1) },
@@ -110,7 +237,9 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
   const appointmentReminders: Row[] = [
     { id: "rem-1", bookingId: "bk-4", kind: "booking", channel: "whatsapp", scheduledFor: day(-1), sentAt: day(-1), status: "sent" },
   ];
-  const doctorLeaves: Row[] = [];
+  const doctorLeaves: Row[] = [
+    { id: "dl-1", doctorId: docId("lissa"), branchId: branches[0].id, fromDate: day(-7), toDate: day(21), kind: "leave", reason: "On leave", createdAt: day(-8) },
+  ];
 
   // --- Consultations ---
   const consultations: Row[] = [

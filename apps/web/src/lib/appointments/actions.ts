@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
-  canTransitionBooking, releasesSlot, generateSlotTimes, nextQueueToken, roomConflict, type BookingStatus,
+  canTransitionBooking, releasesSlot, generateSlotTimes, splitSessionSlots, nextQueueToken, roomConflict, type BookingStatus,
 } from "@prm/core";
 import { prisma } from "../db";
 import { requireCan } from "../session";
@@ -106,12 +106,20 @@ export async function generateSlots(fd: FormData): Promise<void> {
   let created = 0;
   for (const s of schedules) {
     if (onLeave.has(s.doctorId)) continue;
-    for (const t of generateSlotTimes(s.startTime, s.endTime, s.slotDurationMinutes)) {
+    if (s.weekOfMonth) continue; // nth-week rotation tags are shown, not auto-generated
+    // Honour the "nos" patient-count when present (split the session window into that many slots),
+    // else fall back to fixed-duration slots.
+    const times = s.slotsCount && s.slotsCount > 0
+      ? splitSessionSlots(s.startTime, s.endTime, s.slotsCount)
+      : generateSlotTimes(s.startTime, s.endTime, s.slotDurationMinutes);
+    for (const t of times) {
       const exists = await prisma.timeSlot.findFirst({ where: { doctorId: s.doctorId, slotDate: date, startTime: t.start } });
       if (exists) continue;
       await prisma.timeSlot.create({
         data: {
           doctorId: s.doctorId, departmentId: s.departmentId, branchId: s.branchId, scheduleId: s.id,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          roomId: (s as any).roomId ?? null,
           slotDate: date, startTime: t.start, endTime: t.end, capacity: s.maxPatientsPerSlot, bookedCount: 0, status: "open",
         },
       });
