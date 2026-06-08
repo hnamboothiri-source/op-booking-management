@@ -58,10 +58,10 @@ export const DRILL: Record<DrillEntity, DrillDef> = {
   leads: {
     resource: "leads",
     branchScoped: true,
-    filters: ["stage", "sourceId", "campaignId", "branchId", "ownerId", "patientMrd", "callback", "unassigned"],
+    filters: ["stage", "sourceId", "campaignId", "branchId", "ownerId", "patientMrd", "callback", "unassigned", "priorityTier"],
     listPath: "/leads",
     buildWhere: (f) => {
-      const w: Where = { mergedIntoId: null, ...simpleWhere(f, ["stage", "sourceId", "campaignId", "branchId", "ownerId", "patientMrd"]) };
+      const w: Where = { mergedIntoId: null, ...simpleWhere(f, ["stage", "sourceId", "campaignId", "branchId", "ownerId", "patientMrd", "priorityTier"]) };
       // Call-centre "pending callbacks": a follow-up is due (followUpDate ≤ today) and the lead is still workable.
       if (f.callback === "pending") {
         w.followUpDate = { lte: startOfToday() };

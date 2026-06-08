@@ -20,7 +20,7 @@ export interface ModuleInfo {
 }
 
 export const MODULES: ModuleInfo[] = [
-  { id: "M1", name: "Lead Management", phase: 1, status: "done", summary: "Capture, stages, sources, owners, duplicate detection, calls.", href: "/leads", drill: "leads" },
+  { id: "M1", name: "Lead Management", phase: 1, status: "done", summary: "Capture + duplicate detection, per-lead timeline, auto-assignment, hot/warm/cold + SLA, call-centre desks, follow-ups, funnel & reports.", href: "/leads/overview" },
   { id: "M2", name: "Call Center", phase: 1, status: "done", summary: "Queues dashboard, call outcomes, conversion by executive.", href: "/call-center" },
   { id: "M3", name: "Appointment Management", phase: 1, status: "done", summary: "Doctor calendar, branch dashboard, slot booking, queue tokens, reschedule/cancel reasons, reminders, no-show & utilisation reports.", href: "/appointments", drill: "appointments" },
   { id: "M4", name: "Patient 360 Profile", phase: 1, status: "done", summary: "Search, segments, full history: bookings, leads, follow-ups, referrals, admissions, comms.", href: "/patients", drill: "patients" },

@@ -58,6 +58,53 @@ async function LeadFunnelSection({ role, branchId }: { role: Parameters<typeof b
   );
 }
 
+async function LeadsOverview({ role, branchId }: { role: Parameters<typeof branchScopeWhere>[0]; branchId: string | null }) {
+  const scope = branchScopeWhere(role, branchId);
+  const today = new Date(new Date().toISOString().slice(0, 10));
+  const tomorrow = new Date(today.getTime() + 86_400_000);
+  const open = ["new_lead", "contacted", "interested", "not_reachable", "appointment_suggested"];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const L = (extra: Record<string, unknown> = {}) => ({ ...scope, mergedIntoId: null, ...extra } as any);
+  const [total, converted, newLeads, unassigned, pending, hot, dueFu] = await Promise.all([
+    prisma.lead.count({ where: L() }),
+    prisma.lead.count({ where: L({ stage: { in: ["appointment_booked", "converted_to_patient"] } }) }),
+    prisma.lead.count({ where: L({ stage: "new_lead" }) }),
+    prisma.lead.count({ where: L({ ownerId: null, stage: { in: open } }) }),
+    prisma.lead.count({ where: L({ followUpDate: { lte: today }, stage: { in: ["contacted", "interested", "not_reachable", "appointment_suggested"] } }) }),
+    prisma.lead.count({ where: L({ priorityTier: "hot", stage: { in: open } }) }),
+    prisma.followUp.count({ where: { status: { in: ["pending", "booked"] }, dueDate: { gte: today, lt: tomorrow } } }),
+  ]);
+  const tiles: { label: string; value: React.ReactNode; entity: DrillEntity; filters: DrillFilters }[] = [
+    { label: "New leads", value: newLeads, entity: "leads", filters: { stage: "new_lead" } },
+    { label: "Unassigned", value: unassigned, entity: "leads", filters: { unassigned: "true" } },
+    { label: "Pending callbacks", value: pending, entity: "leads", filters: { callback: "pending" } },
+    { label: "Hot leads", value: hot, entity: "leads", filters: { priorityTier: "hot" } },
+    { label: "Due follow-ups", value: dueFu, entity: "followups", filters: { due: "today" } },
+    { label: "Conversion", value: `${conversionRate(converted, total)}%`, entity: "leads", filters: { stage: "appointment_booked,converted_to_patient" } },
+  ];
+  const links = [
+    ["Leads", "/leads"], ["New lead", "/leads/new"], ["Prioritize", "/prioritize"], ["Call centre", "/call-center"],
+    ["Follow-ups", "/follow-ups"], ["Messaging", "/communication"],
+  ];
+  return (
+    <section className="mb-10">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Leads today</h2>
+        <div className="flex gap-3 text-sm">
+          <Link href="/leads/overview" className="text-rose-700 hover:underline dark:text-rose-300">Lead Management hub →</Link>
+          <Link href="/reports/leads" className="text-rose-700 hover:underline dark:text-rose-300">Lead report →</Link>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {tiles.map((t) => <DrillStat key={t.label} label={t.label} value={t.value} entity={t.entity} filters={t.filters} />)}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {links.map(([label, href]) => <Link key={href} href={href} className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300">{label}</Link>)}
+      </div>
+    </section>
+  );
+}
+
 async function AppointmentsOverview({ role, branchId }: { role: Parameters<typeof branchScopeWhere>[0]; branchId: string | null }) {
   const scope = branchScopeWhere(role, branchId);
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -147,6 +194,7 @@ export default async function Dashboard() {
       </header>
 
       {can(user.role, "dashboards", "view") && <ManagementKpis role={user.role} branchId={user.branchId} />}
+      {can(user.role, "leads", "view") && <LeadsOverview role={user.role} branchId={user.branchId} />}
       {can(user.role, "dashboards", "view") && <LeadFunnelSection role={user.role} branchId={user.branchId} />}
       {can(user.role, "appointments", "view") && <AppointmentsOverview role={user.role} branchId={user.branchId} />}
       {user.role === "doctor" && <DoctorToday />}
