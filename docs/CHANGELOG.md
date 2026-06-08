@@ -149,11 +149,50 @@ from ~65% → essentially complete). Built in three verified sub-phases.
 - New **`/reports/leads`** consolidating the funnel + Leads-by-source (chart + table) + Executive
   performance + Branch performance + Campaign ROI in one drill-aware view, with CSV export.
 
+## Phase 13 — Appointment Management to full FRS coverage (`53aaab4`, `d9b1db1`, `4181329`)
+
+Closed the M3 gaps against the detailed Appointment FRS (book → confirm → arrive → queue → consult →
+complete, across branches), in three verified sub-phases. Reused the existing 9-state machine
+(`packages/core/src/booking.ts`), DoctorSchedule→TimeSlot generation, waitlist, walk-in, and the
+lead→appointment→consultation wiring.
+
+### 13A — Doctor calendar + branch dashboard + queue tokens (`53aaab4`)
+- core `layoutCalendar` (column×time grid) + `nextQueueToken` + `roomConflict` + tests.
+- schema: `OpBooking.queueToken/appointmentType` + reschedule/cancel reason FKs; new
+  **AppointmentStatusHistory**, **AppointmentReminder**, **DoctorLeave** models; `reschedule`
+  ReasonCategory; seeded slots/schedules/history.
+- **`/appointments/calendar`** — custom CSS calendar: day grid (doctor / room / branch columns) +
+  week view per doctor, open/booked/full/blocked tinting, book links.
+- **`/appointments/branches`** — per-branch doctors-on + booked/arrived/waiting/completed/cancelled/
+  no-show counts, each drillable.
+- **Queue** gains token badges, waiting time (now − checkedInAt), token ordering; walk-in + arrival
+  issue per-branch/day tokens.
+
+### 13B — Reasons, status history, type, leave & conflict guards (`d9b1db1`)
+- `cancelBooking` captures a ReasonMaster cancellation reason; reschedule captures a reschedule
+  reason; transition/cancel/reschedule write **AppointmentStatusHistory** rows.
+- Appointment detail shows Type·Room, a cancel-with-reason form, the reschedule chain, and a
+  **status-history timeline**; the list gains a Type column.
+- Book form: appointment-type select + **duplicate-booking warning** (active bookings for the
+  patient) + reschedule-reason select.
+- **Doctor leave / emergency block** (`createDoctorLeave`) blocks overlapping slots and is skipped by
+  slot generation; **room-conflict guard** rejects double-booked rooms; drill `appointments` gains
+  `appointmentType` + `source` filters.
+
+### 13C — Reminders (cron) + consolidated report (`4181329`)
+- core `dueReminders` (day-before for tomorrow, morning-of for today; skip already-sent) + tests.
+- The daily cron now fires `appointment_upcoming` for due reminders, dispatches WhatsApp +
+  `CommunicationLog`, writes `AppointmentReminder` rows, and is **idempotent** (reads reminders fresh).
+- New **`/reports/appointments`** — no-show rate, slot utilisation, walk-in vs booked, doctor-wise
+  (with target) + branch-wise drillable tables, and funnel / no-show-by-source charts; CSV export.
+- Fix: retention recompute reads the patient referral count defensively so the mock daily cron no
+  longer 500s.
+
 ---
 
 ## Verification standard
 
-Every phase: pure helpers land in `@prm/core` with **vitest** coverage first (99 tests currently
+Every phase: pure helpers land in `@prm/core` with **vitest** coverage first (107 tests currently
 green); then a **production build with Postgres OFF** must be clean; then a **browser walk-through**
 (via the preview MCP) covering the new flows in light + dark + 375px; then commit + push.
 
