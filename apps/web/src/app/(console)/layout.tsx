@@ -36,24 +36,24 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-6">
-            <span className="font-bold text-emerald-700">Sreedhareeyam PRM</span>
-            <nav className="flex gap-4 text-sm">
+      <header className="border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-3">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <span className="font-bold text-emerald-700 dark:text-emerald-400">Sreedhareeyam PRM</span>
+            <nav className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
               {items.map((n) => (
-                <Link key={n.href} href={n.href} className="text-slate-600 hover:text-slate-900">
+                <Link key={n.href} href={n.href} className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">
                   {n.label}
                 </Link>
               ))}
             </nav>
           </div>
           <div className="flex items-center gap-3 text-sm">
-            <span className="text-slate-500">
+            <span className="text-slate-500 dark:text-slate-400">
               {user.name} · <span className="font-medium">{user.role.replace(/_/g, " ")}</span>
             </span>
             <form action={logout}>
-              <button type="submit" className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50">
+              <button type="submit" className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
                 Sign out
               </button>
             </form>
