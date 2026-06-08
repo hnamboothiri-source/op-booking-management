@@ -9,9 +9,13 @@ const NAV: (NavItem & { resource: Resource })[] = [
   { href: "/analytics", label: "Analytics", icon: "chart", group: "Overview", resource: "dashboards" },
   { href: "/reports", label: "Reports", icon: "report", group: "Overview", resource: "reports" },
 
+  { href: "/call-center", label: "Overview", icon: "headset", group: "Call Centre", resource: "calls" },
+  { href: "/reception", label: "Reception", icon: "patients", group: "Call Centre", resource: "calls" },
+  { href: "/front-office", label: "Front Office", icon: "bell", group: "Call Centre", resource: "follow_ups" },
+  { href: "/back-office", label: "Back Office", icon: "target", group: "Call Centre", resource: "calls" },
+  { href: "/calls", label: "Calls", icon: "phone", group: "Call Centre", resource: "calls" },
+
   { href: "/leads", label: "Leads", icon: "leads", group: "Engagement", resource: "leads" },
-  { href: "/call-center", label: "Call Center", icon: "headset", group: "Engagement", resource: "calls" },
-  { href: "/calls", label: "Calls", icon: "phone", group: "Engagement", resource: "calls" },
   { href: "/prioritize", label: "Prioritize", icon: "target", group: "Engagement", resource: "calls" },
   { href: "/communication", label: "Messaging", icon: "message", group: "Engagement", resource: "communication" },
 

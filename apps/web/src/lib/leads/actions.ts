@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { isClosedStage, type LeadStage } from "@prm/core";
+import { isClosedStage, deskForSource, type LeadStage, type CallDesk } from "@prm/core";
 import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
@@ -19,13 +19,17 @@ export async function createLead(fd: FormData): Promise<void> {
   const phone = str(fd, "phone");
   if (!contactName || !phone) throw new Error("Name and phone are required");
 
+  // Auto-route to a call-centre desk by the lead's source (Reception vs Back Office).
+  const sourceId = str(fd, "sourceId");
+  const desk = str(fd, "desk") ?? deskForSource(sourceId ? (await prisma.leadSourceMaster.findUnique({ where: { id: sourceId } }))?.name : null);
+
   const created = await prisma.lead.create({
     data: {
       contactName,
       phone,
       whatsapp: str(fd, "whatsapp"),
       email: str(fd, "email"),
-      sourceId: str(fd, "sourceId"),
+      sourceId,
       campaignId: str(fd, "campaignId"),
       diseaseId: str(fd, "diseaseId"),
       branchId: str(fd, "branchId"),
@@ -33,6 +37,7 @@ export async function createLead(fd: FormData): Promise<void> {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       priority: (str(fd, "priority") as any) ?? "medium",
       ownerId: str(fd, "ownerId") ?? user.id,
+      desk,
     },
   });
 
@@ -115,6 +120,15 @@ export async function logCall(leadId: string, fd: FormData): Promise<void> {
   });
   await writeAudit({ actorId: user.id, action: "call.log", entity: "lead", entityId: leadId, after: { outcome } });
   revalidatePath(`/leads/${leadId}`);
+}
+
+/** Re-route a lead to a different call-centre desk. */
+export async function routeLeadToDesk(leadId: string, desk: CallDesk): Promise<void> {
+  const user = await requireCan("leads", "edit");
+  await prisma.lead.update({ where: { id: leadId }, data: { desk } });
+  await writeAudit({ actorId: user.id, action: "lead.route_desk", entity: "lead", entityId: leadId, after: { desk } });
+  revalidatePath("/reception");
+  revalidatePath("/back-office");
 }
 
 /** Escalate a lead to a manager — creates an urgent escalated task referencing it. */

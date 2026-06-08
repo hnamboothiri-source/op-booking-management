@@ -44,3 +44,37 @@ export const ESCALATION_LABEL: Record<1 | 2 | 3 | 4, string> = {
 export function funnelRate(part: number, whole: number): number {
   return whole > 0 ? Math.round((part / whole) * 100) : 0;
 }
+
+// --- Call-centre desks (Reception / Front Office / Back Office) ----------
+
+export type CallDesk = "reception" | "front_office" | "back_office";
+
+export interface DeskInfo {
+  key: CallDesk;
+  label: string;
+  blurb: string;
+  href: string;
+}
+
+export const CALL_DESKS: DeskInfo[] = [
+  { key: "reception", label: "Reception", blurb: "Inbound enquiry & booking calls from patients", href: "/reception" },
+  { key: "front_office", label: "Front Office", blurb: "Review calls to previously-consulted patients", href: "/front-office" },
+  { key: "back_office", label: "Back Office", blurb: "Lead nurture — ads, email, WhatsApp, referrals", href: "/back-office" },
+];
+
+/** Sources whose leads are direct inbound callers (Reception); everything else is an acquired lead (Back Office). */
+export const RECEPTION_SOURCES = ["phone", "walk_in"];
+
+/** Which desk owns a lead, by its source name. */
+export function deskForSource(sourceName?: string | null): CallDesk {
+  return sourceName && RECEPTION_SOURCES.includes(sourceName) ? "reception" : "back_office";
+}
+
+/** Front office owns patient-review follow-ups. */
+export function deskForFollowUp(): CallDesk {
+  return "front_office";
+}
+
+export function deskLabel(key?: string | null): string {
+  return CALL_DESKS.find((d) => d.key === key)?.label ?? "—";
+}

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { deskForFollowUp, type CallDesk } from "@prm/core";
 import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
@@ -28,11 +29,20 @@ export async function createFollowUp(fd: FormData): Promise<void> {
       doctorId: str(fd, "doctorId"),
       ownerId: str(fd, "ownerId") ?? user.id,
       notes: str(fd, "notes"),
+      desk: deskForFollowUp(),
     },
   });
   await writeAudit({ actorId: user.id, action: "followup.create", entity: "follow_up", entityId: created.id, after: { type } });
   revalidatePath("/follow-ups");
   redirect("/follow-ups");
+}
+
+/** Re-route a follow-up to a different desk. */
+export async function routeFollowUpToDesk(id: string, desk: CallDesk): Promise<void> {
+  const user = await requireCan("follow_ups", "edit");
+  await prisma.followUp.update({ where: { id }, data: { desk } });
+  await writeAudit({ actorId: user.id, action: "followup.route_desk", entity: "follow_up", entityId: id, after: { desk } });
+  revalidatePath("/front-office");
 }
 
 export async function transitionFollowUp(id: string, status: string): Promise<void> {

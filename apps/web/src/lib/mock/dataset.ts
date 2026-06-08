@@ -33,7 +33,7 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     { id: "doc-thomas", name: "Dr. Thomas", designation: "Medical Officer", registrationNo: "KMC-1003", dailyTarget: 25, active: true },
   ];
   const consultationRooms: Row[] = ["Room 1", "Room 2", "Room 3"].map((name, i) => ({ id: `room-${i}`, name, departmentId: departments[1].id, branchId: branches[0].id, active: true }));
-  const leadSources: Row[] = ["social_media", "google_ads", "website", "phone", "whatsapp", "doctor_referral", "patient_referral", "camp", "walk_in"].map((name, i) => ({ id: `src-${i}`, name, active: true }));
+  const leadSources: Row[] = ["social_media", "google_ads", "website", "phone", "whatsapp", "email", "doctor_referral", "patient_referral", "camp", "walk_in"].map((name, i) => ({ id: `src-${i}`, name, active: true }));
   const diseases: Row[] = ["Cataract", "Glaucoma", "Dry eye", "Allergic conjunctivitis", "Diabetic retinopathy"].map((name, i) => ({ id: `dis-${i}`, name, active: true }));
   const services: Row[] = [{ id: "svc-0", name: "OP Consultation", price: 30000, active: true }];
   const referralSources: Row[] = [{ id: "rs-0", name: "Existing patient", active: true }];
@@ -69,11 +69,13 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
 
   // --- Leads ---
   const leads: Row[] = [
-    { id: "lead-1", contactName: "Lakshmi Nair", phone: "9847012345", whatsapp: "9847012345", stage: "new_lead", sourceId: leadSources[2].id, ownerId: staffUsers[1].id, branchId: branches[0].id, preferredDoctor: "Dr. Menon", followUpDate: day(-2), mergedIntoId: null, patientMrd: null, campaignId: "camp-1", createdAt: day(-3) },
-    { id: "lead-2", contactName: "Joseph Mathew", phone: "9847062345", stage: "contacted", sourceId: leadSources[1].id, ownerId: staffUsers[1].id, branchId: branches[0].id, followUpDate: day(1), mergedIntoId: null, createdAt: day(-6) },
-    { id: "lead-3", contactName: "Meera Das", phone: "9847072345", stage: "interested", sourceId: leadSources[0].id, ownerId: staffUsers[1].id, branchId: branches[0].id, followUpDate: day(-1), mergedIntoId: null, createdAt: day(-8) },
-    { id: "lead-4", contactName: "Anita George", phone: "9847032345", stage: "appointment_booked", sourceId: leadSources[2].id, ownerId: staffUsers[1].id, branchId: branches[0].id, patientMrd: "MRD-1003", mergedIntoId: null, createdAt: day(-30) },
-    { id: "lead-5", contactName: "Vinod P", phone: "9847082345", stage: "not_reachable", sourceId: leadSources[3].id, ownerId: staffUsers[1].id, branchId: branches[0].id, followUpDate: day(-4), mergedIntoId: null, createdAt: day(-10) },
+    { id: "lead-1", contactName: "Lakshmi Nair", phone: "9847012345", whatsapp: "9847012345", stage: "new_lead", sourceId: leadSources[2].id, ownerId: staffUsers[1].id, branchId: branches[0].id, preferredDoctor: "Dr. Menon", followUpDate: day(-2), mergedIntoId: null, patientMrd: null, campaignId: "camp-1", desk: "back_office", createdAt: day(-3) },
+    { id: "lead-2", contactName: "Joseph Mathew", phone: "9847062345", stage: "contacted", sourceId: leadSources[1].id, ownerId: staffUsers[1].id, branchId: branches[0].id, followUpDate: day(1), mergedIntoId: null, desk: "back_office", createdAt: day(-6) },
+    { id: "lead-3", contactName: "Meera Das", phone: "9847072345", stage: "interested", sourceId: leadSources[0].id, ownerId: staffUsers[1].id, branchId: branches[0].id, followUpDate: day(-1), mergedIntoId: null, desk: "back_office", createdAt: day(-8) },
+    { id: "lead-4", contactName: "Anita George", phone: "9847032345", stage: "appointment_booked", sourceId: leadSources[2].id, ownerId: staffUsers[1].id, branchId: branches[0].id, patientMrd: "MRD-1003", mergedIntoId: null, desk: "back_office", createdAt: day(-30) },
+    { id: "lead-5", contactName: "Vinod P", phone: "9847082345", stage: "not_reachable", sourceId: leadSources[3].id, ownerId: staffUsers[1].id, branchId: branches[0].id, followUpDate: day(-4), mergedIntoId: null, desk: "reception", createdAt: day(-10) },
+    { id: "lead-6", contactName: "Ann Mathai", phone: "9847060001", stage: "new_lead", sourceId: leadSources[3].id, ownerId: null, branchId: branches[0].id, mergedIntoId: null, desk: "reception", createdAt: day(0) },
+    { id: "lead-7", contactName: "Bilal K", phone: "9847060002", stage: "new_lead", sourceId: leadSources[4].id, ownerId: staffUsers[1].id, branchId: branches[0].id, mergedIntoId: null, desk: "back_office", createdAt: day(0) },
   ];
 
   // --- Bookings ---
@@ -98,10 +100,10 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
 
   // --- Follow-ups ---
   const followUps: Row[] = [
-    { id: "fu-1", patientMrd: "MRD-1002", type: "admission", dueDate: day(-1), status: "pending", doctorId: doctors[1].id, ownerId: staffUsers[1].id, consultationId: "cons-1", createdAt: day(-5) },
-    { id: "fu-2", patientMrd: "MRD-1003", type: "consultation_review", dueDate: today, status: "pending", ownerId: staffUsers[1].id, createdAt: day(-2) },
-    { id: "fu-3", patientMrd: "MRD-1001", type: "medicine", dueDate: day(5), status: "booked", ownerId: staffUsers[1].id, createdAt: day(-2) },
-    { id: "fu-4", patientMrd: "MRD-DORMANT1", type: "dormant_reactivation", dueDate: day(-10), status: "missed", ownerId: staffUsers[1].id, createdAt: day(-15) },
+    { id: "fu-1", patientMrd: "MRD-1002", type: "admission", dueDate: day(-1), status: "pending", doctorId: doctors[1].id, ownerId: staffUsers[1].id, consultationId: "cons-1", desk: "front_office", createdAt: day(-5) },
+    { id: "fu-2", patientMrd: "MRD-1003", type: "consultation_review", dueDate: today, status: "pending", ownerId: staffUsers[1].id, desk: "front_office", createdAt: day(-2) },
+    { id: "fu-3", patientMrd: "MRD-1001", type: "medicine", dueDate: day(5), status: "booked", ownerId: staffUsers[1].id, desk: "front_office", createdAt: day(-2) },
+    { id: "fu-4", patientMrd: "MRD-DORMANT1", type: "dormant_reactivation", dueDate: day(-10), status: "missed", ownerId: staffUsers[1].id, desk: "front_office", createdAt: day(-15) },
   ];
 
   // --- Tasks ---

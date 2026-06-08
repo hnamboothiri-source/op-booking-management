@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { overdueAgeDays, overdueBucket, escalationLevel, funnelRate } from "./callcenter";
+import { overdueAgeDays, overdueBucket, escalationLevel, funnelRate, deskForSource, deskForFollowUp, deskLabel, CALL_DESKS } from "./callcenter";
 
 const D = (iso: string) => new Date(iso);
 
@@ -44,5 +44,25 @@ describe("funnelRate", () => {
     expect(funnelRate(40, 100)).toBe(40);
     expect(funnelRate(1, 3)).toBe(33);
     expect(funnelRate(5, 0)).toBe(0);
+  });
+});
+
+describe("call-centre desks", () => {
+  it("routes direct-call sources to reception, everything else to back office", () => {
+    expect(deskForSource("phone")).toBe("reception");
+    expect(deskForSource("walk_in")).toBe("reception");
+    expect(deskForSource("website")).toBe("back_office");
+    expect(deskForSource("whatsapp")).toBe("back_office");
+    expect(deskForSource("email")).toBe("back_office");
+    expect(deskForSource(null)).toBe("back_office");
+  });
+  it("routes follow-ups to front office", () => {
+    expect(deskForFollowUp()).toBe("front_office");
+  });
+  it("labels desks and falls back", () => {
+    expect(deskLabel("reception")).toBe("Reception");
+    expect(deskLabel("front_office")).toBe("Front Office");
+    expect(deskLabel(undefined)).toBe("—");
+    expect(CALL_DESKS).toHaveLength(3);
   });
 });

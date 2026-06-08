@@ -639,6 +639,7 @@ model Lead {
   closureReason   String?      @map("closure_reason")
   mergedIntoId    String?      @map("merged_into_id")
   missedEnquiry   Boolean      @default(false) @map("missed_enquiry")
+  desk            String?      // call-centre desk: reception | front_office | back_office
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
 
@@ -923,6 +924,7 @@ model FollowUp {
   status          FollowUpStatus @default(pending)
   callOutcome     CallOutcome?   @map("call_outcome")
   closureReason   String?        @map("closure_reason")
+  desk            String?        // call-centre desk: front_office (patient review)
   notes           String?
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")

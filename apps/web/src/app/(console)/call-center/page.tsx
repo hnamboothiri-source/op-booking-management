@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { branchScopeWhere, nextBookingStatuses, overdueAgeDays, overdueBucket, escalationLevel, ESCALATION_LABEL, type BookingStatus, type OverdueBucket } from "@prm/core";
+import { branchScopeWhere, nextBookingStatuses, overdueAgeDays, overdueBucket, escalationLevel, ESCALATION_LABEL, CALL_DESKS, type BookingStatus, type OverdueBucket } from "@prm/core";
 import { PageHeader, Card, Badge, LinkButton } from "@/components/ui";
 import { DrillStat } from "@/components/drill/DrillStat";
 import { logCall, escalateLead, updateLeadStage } from "@/lib/leads/actions";
@@ -48,9 +48,35 @@ export default async function CallCenter({ searchParams }: { searchParams: Promi
   ]);
   const lostReasons = await prisma.reasonMaster.findMany({ where: { category: "lost_lead" } });
 
+  // Per-desk overview counts (Reception / Front Office / Back Office).
+  const openStages = ["new_lead", ...workable];
+  const [receptionOpen, backOfficeOpen, frontOfficeOpen] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prisma.lead.count({ where: { ...scope, desk: "reception", stage: { in: openStages as any } } as any }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prisma.lead.count({ where: { ...scope, desk: "back_office", stage: { in: openStages as any } } as any }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prisma.followUp.count({ where: { desk: "front_office", status: { in: ["pending", "booked"] }, dueDate: { lt: tomorrow } } as any }),
+  ]);
+  const deskCounts: Record<string, number> = { reception: receptionOpen, front_office: frontOfficeOpen, back_office: backOfficeOpen };
+
   return (
     <div>
-      <PageHeader title="Call Center" subtitle="Lead → Call → Outcome → Task / Appointment / Closure (Module 2)" />
+      <PageHeader title="Call Center · Overview" subtitle="Three desks — Reception (inbound) · Front Office (reviews) · Back Office (leads)" />
+
+      {/* Desk overview — jump to each room's work queue */}
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {CALL_DESKS.map((d) => (
+          <Link key={d.key} href={d.href} className="group rounded-xl border border-slate-200 bg-white p-4 transition hover:border-rose-300 hover:shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:hover:border-rose-500">
+            <div className="flex items-start justify-between">
+              <div className="font-semibold text-slate-800 group-hover:text-rose-700 dark:text-slate-100 dark:group-hover:text-rose-300">{d.label}</div>
+              <span className="text-2xl font-bold text-rose-700 dark:text-rose-300">{deskCounts[d.key] ?? 0}</span>
+            </div>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{d.blurb}</p>
+            <span className="mt-2 inline-block text-xs font-medium text-rose-600 group-hover:underline dark:text-rose-300">Open desk →</span>
+          </Link>
+        ))}
+      </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
         <DrillStat label="New leads" value={newLeads} entity="leads" filters={{ stage: "new_lead" }} />

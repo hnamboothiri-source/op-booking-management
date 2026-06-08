@@ -15,7 +15,7 @@ export interface NavItem {
   group: string;
 }
 
-const GROUP_ORDER = ["Overview", "Engagement", "Clinical", "Outreach", "Growth", "Admin"];
+const GROUP_ORDER = ["Overview", "Call Centre", "Engagement", "Clinical", "Outreach", "Growth", "Admin"];
 
 function isActive(pathname: string, href: string): boolean {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
