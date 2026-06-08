@@ -1,5 +1,12 @@
 # Project status & build documentation
 
+> **Update — front-end prototype mode.** Since this doc was first written, the app was converted to a
+> **front-end-only prototype** (mock data, role-picker login, runs with Postgres off) and several
+> feature phases were added (drill-down system, sidebar/wine-gold redesign, call-centre work console
+> + 3 desks, drillable module cards, Lead Management to full FRS coverage with funnel + reports).
+> The narrative below describes the original DB-backed foundation; for everything built since —
+> including the prototype pivot — see **[CHANGELOG.md](./CHANGELOG.md)**.
+
 A consolidated record of what has been built for the **Sreedhareeyam Patient Relationship
 Management (PRM)** platform, as of branch `prm-foundation` (PR #1).
 

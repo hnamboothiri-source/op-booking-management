@@ -6,8 +6,14 @@ Retention → Referral → Lifetime relationship**.
 
 This repo began as an OP (outpatient) booking system and is being grown into a full PRM platform.
 
+> **Current mode: front-end prototype.** The app runs as a fully clickable UI **with no backend**
+> (in-memory mock data, role-picker login) so it boots with Postgres off. Backend is deferred. To
+> demo: `npm install && npm run dev` → open http://localhost:3000 → pick a role. See
+> [docs/CHANGELOG.md](docs/CHANGELOG.md).
+
 ## Documentation
 
+- **[Build history & changelog](docs/CHANGELOG.md)** — the prototype pivot + every feature phase (timeline, drill-down, design system, call-centre desks, Lead Management to full FRS)
 - **[Project status & build doc](docs/STATUS.md)** — what's built, architecture, routes, commit history, how to run
 - **[Functional spec](docs/MODULES.md)** — all 16 modules, statuses, reports, masters, integrations, automation, scoring, roles
 - **[Data model notes](docs/DATA.md)** — OP scheduling core (prose) + HIS boundary
