@@ -1,21 +1,22 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import bcrypt from "bcryptjs";
-import { prisma } from "./db";
+import { store } from "./mock/dataset";
 import { setSession, clearSession } from "./session";
 
-/** Verify email + password and start a session. */
+/**
+ * PROTOTYPE login: no password. The login role-picker posts a `role`; an email
+ * (if given) is mapped to its mock staff role. Either way we just set the role
+ * cookie and enter the app.
+ */
 export async function loginWithPassword(fd: FormData): Promise<void> {
-  const email = fd.get("email")?.toString().trim().toLowerCase();
-  const password = fd.get("password")?.toString() ?? "";
-  if (!email || !password) redirect("/login?error=1");
-
-  const user = await prisma.staffUser.findUnique({ where: { email } });
-  const ok = !!user && user.active && !!user.passwordHash && (await bcrypt.compare(password, user.passwordHash));
-  if (!ok || !user) redirect("/login?error=1");
-
-  await setSession(user.id);
+  let role = fd.get("role")?.toString().trim();
+  if (!role) {
+    const email = fd.get("email")?.toString().trim().toLowerCase();
+    const staff = (store.staffUser ?? []).find((s) => s.email === email);
+    role = staff?.role ?? "administrator";
+  }
+  await setSession(role ?? "administrator");
   redirect("/");
 }
 

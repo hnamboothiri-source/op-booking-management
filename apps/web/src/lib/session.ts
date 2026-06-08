@@ -1,9 +1,9 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { prisma } from "./db";
 import { can, type Action, type Resource, type RoleName } from "@prm/core";
+import { store } from "./mock/dataset";
 
-const COOKIE = "prm_uid";
+const COOKIE = "prm_role";
 
 export interface CurrentUser {
   id: string;
@@ -14,16 +14,22 @@ export interface CurrentUser {
 }
 
 /**
- * Dev-mode session: a cookie holds the chosen StaffUser id. This stands in for
- * Supabase Auth during Phase 0 so RBAC and branch scoping are demonstrable
- * locally without external auth. Replaced by real auth in a later phase.
+ * PROTOTYPE auth: a `prm_role` cookie holds the chosen role (set by the login
+ * role-picker). The current user is synthesised from the mock staff list — no
+ * database, no password. RBAC (`can`) is unchanged so role-based nav/guards
+ * still demo correctly. Real auth returns in the backend phase.
  */
+function mockUserForRole(role: RoleName): CurrentUser {
+  const staff = (store.staffUser ?? []).find((s) => s.role === role);
+  if (staff) return { id: staff.id, name: staff.name, email: staff.email, role, branchId: staff.branchId ?? null };
+  const title = role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return { id: `mock-${role}`, name: title, email: `${role}@demo.test`, role, branchId: null };
+}
+
 export async function getCurrentUser(): Promise<CurrentUser | null> {
-  const id = (await cookies()).get(COOKIE)?.value;
-  if (!id) return null;
-  const u = await prisma.staffUser.findUnique({ where: { id } });
-  if (!u || !u.active) return null;
-  return { id: u.id, name: u.name, email: u.email, role: u.role as RoleName, branchId: u.branchId };
+  const role = (await cookies()).get(COOKIE)?.value as RoleName | undefined;
+  if (!role) return null;
+  return mockUserForRole(role);
 }
 
 /** Require a logged-in user or redirect to /login. */
@@ -40,8 +46,9 @@ export async function requireCan(resource: Resource, action: Action): Promise<Cu
   return u;
 }
 
-export async function setSession(userId: string): Promise<void> {
-  (await cookies()).set(COOKIE, userId, { httpOnly: true, sameSite: "lax", path: "/" });
+/** Start a session for a chosen role (prototype). */
+export async function setSession(role: string): Promise<void> {
+  (await cookies()).set(COOKIE, role, { httpOnly: true, sameSite: "lax", path: "/" });
 }
 
 export async function clearSession(): Promise<void> {
