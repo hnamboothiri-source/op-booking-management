@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui";
@@ -56,6 +57,9 @@ export default async function Reports() {
   return (
     <div>
       <PageHeader title="Reports" subtitle="Operational & clinical aggregations (§6)" />
+      <div className="mb-4">
+        <Link href="/reports/leads" className="inline-flex items-center gap-1 rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700">📊 Lead Management report →</Link>
+      </div>
       <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
         <span className="text-slate-500">Export CSV:</span>
         <a className={csvLink} href="/api/reports/export?type=leads-by-source">Leads by source</a>

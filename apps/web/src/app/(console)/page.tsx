@@ -7,6 +7,8 @@ import { DrillStat } from "@/components/drill/DrillStat";
 import { DrillCount } from "@/components/drill/DrillCount";
 import { Card } from "@/components/ui";
 import { ModuleCard } from "@/components/ModuleCard";
+import { LeadFunnelChart } from "@/components/charts/LeadFunnelChart";
+import { leadFunnel } from "@/lib/leads/funnel";
 
 async function ManagementKpis({ role, branchId }: { role: Parameters<typeof branchScopeWhere>[0]; branchId: string | null }) {
   const scope = branchScopeWhere(role, branchId);
@@ -38,6 +40,19 @@ async function ManagementKpis({ role, branchId }: { role: Parameters<typeof bran
           <DrillStat key={t.label} label={t.label} value={t.value} entity={t.entity} filters={t.filters} />
         ))}
       </div>
+    </section>
+  );
+}
+
+async function LeadFunnelSection({ role, branchId }: { role: Parameters<typeof branchScopeWhere>[0]; branchId: string | null }) {
+  const stages = await leadFunnel(branchScopeWhere(role, branchId));
+  return (
+    <section className="mb-10">
+      <h2 className="mb-3 text-lg font-semibold">Lead conversion funnel</h2>
+      <Card>
+        <LeadFunnelChart stages={stages} />
+        <p className="mt-2 text-xs text-slate-400">Click a stage to preview the records behind it.</p>
+      </Card>
     </section>
   );
 }
@@ -82,6 +97,7 @@ export default async function Dashboard() {
       </header>
 
       {can(user.role, "dashboards", "view") && <ManagementKpis role={user.role} branchId={user.branchId} />}
+      {can(user.role, "dashboards", "view") && <LeadFunnelSection role={user.role} branchId={user.branchId} />}
       {user.role === "doctor" && <DoctorToday />}
 
       <section className="mb-10">
