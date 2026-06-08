@@ -12,6 +12,11 @@ const str = (fd: FormData, k: string) => {
   const v = fd.get(k)?.toString().trim();
   return v ? v : null;
 };
+const num = (fd: FormData, k: string) => {
+  const v = str(fd, k);
+  const n = v ? parseInt(v, 10) : NaN;
+  return Number.isFinite(n) ? n : null;
+};
 
 /**
  * Record a consultation against a booking (Module 5). Creates the chosen
@@ -44,6 +49,10 @@ export async function createConsultation(bookingId: string, fd: FormData): Promi
         advice: str(fd, "advice"),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         outcome: outcome as any,
+        bp: str(fd, "bp"),
+        pulseBpm: num(fd, "pulseBpm"),
+        weightKg: num(fd, "weightKg"),
+        spo2: num(fd, "spo2"),
         staffRemarks: str(fd, "staffRemarks"),
       },
     });

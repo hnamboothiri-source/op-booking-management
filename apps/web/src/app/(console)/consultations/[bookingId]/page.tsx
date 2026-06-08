@@ -29,7 +29,12 @@ export default async function ConsultPage({ params }: { params: Promise<{ bookin
     return (
       <div>
         <PageHeader title="Consultation" subtitle={`${booking.patient.name} · ${booking.bookingRef}`} />
-        <Card><p className="text-sm">A consultation is already recorded for this booking (outcome: <Badge tone="green">{booking.consultation.outcome.replace(/_/g, " ")}</Badge>).</p></Card>
+        <Card>
+          <p className="text-sm">A consultation is already recorded for this booking (outcome: <Badge tone="green">{booking.consultation.outcome.replace(/_/g, " ")}</Badge>).</p>
+          {(booking.consultation.bp || booking.consultation.pulseBpm || booking.consultation.weightKg || booking.consultation.spo2) && (
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Vitals: {[booking.consultation.bp && `BP ${booking.consultation.bp}`, booking.consultation.pulseBpm && `Pulse ${booking.consultation.pulseBpm}`, booking.consultation.weightKg && `Wt ${booking.consultation.weightKg}kg`, booking.consultation.spo2 && `SpO₂ ${booking.consultation.spo2}%`].filter(Boolean).join(" · ")}</p>
+          )}
+        </Card>
         <div className="mt-4"><Link href={`/patients/${encodeURIComponent(booking.patientMrd)}`} className="text-sm text-rose-700 hover:underline dark:text-rose-300">View patient →</Link></div>
       </div>
     );
@@ -49,6 +54,12 @@ export default async function ConsultPage({ params }: { params: Promise<{ bookin
             <select name="diseaseId" className={input}><option value="">—</option>{diseases.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
           </label>
         </div>
+        <fieldset className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <label className="text-sm font-medium text-slate-700">BP<input name="bp" placeholder="120/80" className={input} /></label>
+          <label className="text-sm font-medium text-slate-700">Pulse (bpm)<input type="number" name="pulseBpm" className={input} /></label>
+          <label className="text-sm font-medium text-slate-700">Weight (kg)<input type="number" name="weightKg" className={input} /></label>
+          <label className="text-sm font-medium text-slate-700">SpO₂ (%)<input type="number" name="spo2" className={input} /></label>
+        </fieldset>
         <label className="block text-sm font-medium text-slate-700">Diagnosis<input name="diagnosis" className={input} /></label>
         <label className="block text-sm font-medium text-slate-700">Advice<input name="advice" className={input} /></label>
         <label className="block text-sm font-medium text-slate-700">Notes<textarea name="notes" rows={2} className={input} /></label>

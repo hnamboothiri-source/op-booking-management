@@ -927,6 +927,10 @@ model Consultation {
   diagnosis     String?
   advice        String?
   outcome       ConsultationOutcome
+  bp            String?
+  pulseBpm      Int?                @map("pulse_bpm")
+  weightKg      Int?                @map("weight_kg")
+  spo2          Int?
   staffRemarks  String?             @map("staff_remarks") // for call centre / front office
   createdAt     DateTime            @default(now()) @map("created_at")
 
