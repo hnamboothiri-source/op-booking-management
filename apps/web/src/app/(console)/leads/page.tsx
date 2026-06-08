@@ -55,7 +55,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             {leads.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">No leads.</td></tr>}
             {leads.map((l) => (
               <tr key={l.id} className="border-t border-slate-100 hover:bg-slate-50">
-                <td className="px-4 py-2"><Link href={`/leads/${l.id}`} className="font-medium text-rose-700 hover:underline">{l.contactName}</Link></td>
+                <td className="px-4 py-2"><Link href={`/leads/${l.id}`} className="font-medium text-rose-700 hover:underline dark:text-rose-300">{l.contactName}</Link></td>
                 <td className="px-4 py-2 text-slate-600">{l.phone}</td>
                 <td className="px-4 py-2 text-slate-600">{l.source?.name?.replace(/_/g, " ") ?? "—"}</td>
                 <td className="px-4 py-2"><Badge tone="blue">{l.stage.replace(/_/g, " ")}</Badge></td>

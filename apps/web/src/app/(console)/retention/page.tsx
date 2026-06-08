@@ -74,7 +74,7 @@ function Section({ title, rows, staff, canEdit, owners }: {
           <tbody>
             {rows.map((s) => (
               <tr key={s.patientMrd} className="border-t border-slate-100">
-                <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(s.patientMrd)}`} className="font-medium text-rose-700 hover:underline">{s.patient.name}</Link></td>
+                <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(s.patientMrd)}`} className="font-medium text-rose-700 hover:underline dark:text-rose-300">{s.patient.name}</Link></td>
                 <td className="px-4 py-2"><Badge tone={s.riskScore >= 60 ? "red" : s.riskScore >= 30 ? "amber" : "green"}>{s.riskScore}</Badge></td>
                 <td className="px-4 py-2 text-slate-600">{owners(s.successOwnerId)}</td>
                 {canEdit && (

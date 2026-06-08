@@ -16,7 +16,7 @@ function Row({ f, canEdit }: { f: { id: string; type: string; dueDate: Date; sta
   return (
     <div className="flex items-center justify-between rounded border border-slate-100 bg-white px-3 py-2 text-sm">
       <span>
-        <Link href={`/patients/${encodeURIComponent(f.patientMrd)}`} className="font-medium text-rose-700 hover:underline">{f.patient.name}</Link>
+        <Link href={`/patients/${encodeURIComponent(f.patientMrd)}`} className="font-medium text-rose-700 hover:underline dark:text-rose-300">{f.patient.name}</Link>
         {" · "}{f.type.replace(/_/g, " ")} · due {f.dueDate.toISOString().slice(0, 10)}
       </span>
       <div className="flex items-center gap-2">

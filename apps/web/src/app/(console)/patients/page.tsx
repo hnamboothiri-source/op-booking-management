@@ -50,7 +50,7 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
               {results.map((p) => (
                 <tr key={p.mrd} className="border-t border-slate-100 hover:bg-slate-50">
                   <td className="px-4 py-2 font-mono text-xs">{p.mrd}</td>
-                  <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(p.mrd)}`} className="font-medium text-rose-700 hover:underline">{p.name}</Link></td>
+                  <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(p.mrd)}`} className="font-medium text-rose-700 hover:underline dark:text-rose-300">{p.name}</Link></td>
                   <td className="px-4 py-2 text-slate-600">{p.phone ?? "—"}</td>
                   <td className="px-4 py-2 text-slate-600">{p.place ?? "—"}</td>
                 </tr>

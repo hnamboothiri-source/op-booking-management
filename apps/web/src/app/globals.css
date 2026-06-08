@@ -1,16 +1,48 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens (shared with the Accommodation app's look).
+ * The brand accent is a deep wine; we re-point Tailwind's built-in `rose-*`
+ * ramp to that wine so every existing `rose-*` utility across the app re-skins
+ * with no per-file churn. A new `gold-*` ramp provides the secondary accent
+ * (KPI card top bars, highlights). Semantic green/amber/red/blue are untouched.
+ */
+@theme {
+  /* Brand — deep wine (maps onto Tailwind's rose scale) */
+  --color-rose-50: #fbf2f5;
+  --color-rose-100: #f6e3ea;
+  --color-rose-200: #ecc6d3;
+  --color-rose-300: #db9cb1;
+  --color-rose-400: #c4647f;
+  --color-rose-500: #a23e5c;
+  --color-rose-600: #7d2e46;
+  --color-rose-700: #5e2235;
+  --color-rose-800: #4a1b2a;
+  --color-rose-900: #3a1521;
+  --color-rose-950: #230d14;
+
+  /* Accent — gold */
+  --color-gold-50: #fbf6ea;
+  --color-gold-100: #f5ebd1;
+  --color-gold-200: #ecd49b;
+  --color-gold-300: #e0bb64;
+  --color-gold-400: #d2a23f;
+  --color-gold-500: #c0892e;
+  --color-gold-600: #a5741f;
+  --color-gold-700: #845a18;
+}
+
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #faf7f4; /* warm cream */
+  --foreground: #2a1f24; /* warm near-black */
 }
 
 /* Dark mode follows the OS preference. Tailwind v4's `dark:` variant keys off
    the same media query, so component-level dark: classes stay in sync. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0b1220;
-    --foreground: #e2e8f0;
+    --background: #1a1216; /* warm near-black */
+    --foreground: #ece3e6;
   }
 }
 

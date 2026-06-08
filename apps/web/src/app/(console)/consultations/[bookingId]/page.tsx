@@ -30,7 +30,7 @@ export default async function ConsultPage({ params }: { params: Promise<{ bookin
       <div>
         <PageHeader title="Consultation" subtitle={`${booking.patient.name} · ${booking.bookingRef}`} />
         <Card><p className="text-sm">A consultation is already recorded for this booking (outcome: <Badge tone="green">{booking.consultation.outcome.replace(/_/g, " ")}</Badge>).</p></Card>
-        <div className="mt-4"><Link href={`/patients/${encodeURIComponent(booking.patientMrd)}`} className="text-sm text-rose-700 hover:underline">View patient →</Link></div>
+        <div className="mt-4"><Link href={`/patients/${encodeURIComponent(booking.patientMrd)}`} className="text-sm text-rose-700 hover:underline dark:text-rose-300">View patient →</Link></div>
       </div>
     );
   }

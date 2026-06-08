@@ -13,10 +13,10 @@ export function Badge({ tone = "slate", children }: { tone?: "slate" | "green" |
 
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <div className="mb-6 flex items-end justify-between">
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{subtitle}</p>}
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -49,6 +49,11 @@ export function SubmitButton({ children, tone = "primary" }: { children: React.R
   );
 }
 
-export function Card({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">{children}</div>;
+export function Card({ children, accent = false }: { children: React.ReactNode; accent?: boolean }) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      {accent && <div className="h-1 bg-gradient-to-r from-rose-700 to-gold-500" />}
+      <div className="p-4">{children}</div>
+    </div>
+  );
 }

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { can, conversionRate, branchScopeWhere, type DrillEntity, type DrillFilters } from "@prm/core";
 import { DrillStat } from "@/components/drill/DrillStat";
 import { DrillCount } from "@/components/drill/DrillCount";
+import { Card } from "@/components/ui";
 
 const STATUS_STYLE: Record<BuildStatus, string> = {
   done: "bg-green-100 text-green-800",
@@ -79,9 +80,9 @@ export default async function Dashboard() {
   return (
     <main>
       <header className="mb-8">
-        <p className="text-sm font-medium text-rose-700">Welcome, {user.name} · {user.role.replace(/_/g, " ")}</p>
-        <h1 className="text-3xl font-bold tracking-tight">Patient Relationship Management</h1>
-        <p className="mt-2 max-w-3xl text-slate-600">
+        <p className="text-sm font-medium text-rose-700 dark:text-rose-300">Welcome, {user.name} · {user.role.replace(/_/g, " ")}</p>
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Patient Relationship Management</h1>
+        <p className="mt-2 max-w-3xl text-slate-500 dark:text-slate-400">
           Lead → Appointment → Consultation → Referral/Test → Treatment/Admission → Follow-up → Retention → Referral → Lifetime relationship.
         </p>
       </header>
@@ -93,11 +94,11 @@ export default async function Dashboard() {
         <h2 className="mb-3 text-lg font-semibold">Roadmap</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {PHASES.map((p) => (
-            <div key={p.n} className="rounded-lg border border-slate-200 bg-white p-3">
-              <div className="text-xs font-semibold text-rose-700">Phase {p.n}</div>
+            <Card key={p.n}>
+              <div className="text-xs font-semibold text-rose-700 dark:text-rose-300">Phase {p.n}</div>
               <div className="text-sm font-medium">{p.name}</div>
-              <div className="text-xs text-slate-500">{p.duration}</div>
-            </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">{p.duration}</div>
+            </Card>
           ))}
         </div>
       </section>
@@ -106,14 +107,14 @@ export default async function Dashboard() {
         <h2 className="mb-3 text-lg font-semibold">Modules ({MODULES.length})</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {MODULES.map((m) => (
-            <div key={m.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <Card key={m.id}>
               <div className="flex items-center justify-between">
                 <span className="font-mono text-xs text-slate-400">{m.id} · Phase {m.phase}</span>
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[m.status]}`}>{STATUS_LABEL[m.status]}</span>
               </div>
               <h3 className="mt-1 font-semibold">{m.name}</h3>
-              <p className="mt-1 text-sm text-slate-600">{m.summary}</p>
-            </div>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{m.summary}</p>
+            </Card>
           ))}
         </div>
       </section>

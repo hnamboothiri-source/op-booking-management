@@ -60,7 +60,7 @@ export default async function Admissions({ searchParams }: { searchParams: Promi
             {recs.length === 0 && <tr><td colSpan={canEdit ? 5 : 4} className="px-4 py-6 text-center text-slate-400">No admission recommendations yet. They are created from consultations.</td></tr>}
             {recs.map((r) => (
               <tr key={r.id} className="border-t border-slate-100 align-top">
-                <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(r.patientMrd)}`} className="font-medium text-rose-700 hover:underline">{r.patient.name}</Link></td>
+                <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(r.patientMrd)}`} className="font-medium text-rose-700 hover:underline dark:text-rose-300">{r.patient.name}</Link></td>
                 <td className="px-4 py-2 text-slate-600">{r.package?.name ?? "—"}</td>
                 <td className="px-4 py-2 text-slate-600">{r.estimatedCost ? `₹${(r.estimatedCost / 100).toLocaleString("en-IN")}` : "—"}</td>
                 <td className="px-4 py-2">

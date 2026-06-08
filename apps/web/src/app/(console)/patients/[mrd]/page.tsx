@@ -132,7 +132,7 @@ export default async function PatientDetail({ params }: { params: Promise<{ mrd:
         )}
         {patient.documents.length === 0 ? <p className="text-sm text-slate-400">None.</p> : patient.documents.map((d) => (
           <div key={d.id} className="flex items-center justify-between rounded border border-slate-100 bg-white px-3 py-2 text-sm">
-            <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-rose-700 hover:underline">{d.label}</a>
+            <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-rose-700 hover:underline dark:text-rose-300">{d.label}</a>
             {can(user.role, "patients", "edit") && <form action={deletePatientDocument.bind(null, d.id, patient.mrd)}><button className="text-xs text-red-500 hover:underline">remove</button></form>}
           </div>
         ))}

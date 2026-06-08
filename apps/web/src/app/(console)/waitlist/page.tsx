@@ -53,7 +53,7 @@ export default async function Waitlist({ searchParams }: { searchParams: Promise
             {ordered.map((w, i) => (
               <tr key={w.id} className="border-t border-slate-100">
                 <td className="px-4 py-2 text-slate-400">{i + 1}</td>
-                <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(w.patientMrd)}`} className="font-medium text-rose-700 hover:underline">{w.patient.name}</Link></td>
+                <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(w.patientMrd)}`} className="font-medium text-rose-700 hover:underline dark:text-rose-300">{w.patient.name}</Link></td>
                 <td className="px-4 py-2 text-slate-600">{deptName(w.departmentId)}</td>
                 <td className="px-4 py-2 text-slate-600">{w.doctor?.name ?? "Any"}</td>
                 <td className="px-4 py-2 text-slate-600">{w.requestedDate.toISOString().slice(0, 10)}</td>
