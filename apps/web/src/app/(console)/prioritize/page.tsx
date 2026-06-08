@@ -3,6 +3,7 @@ import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { leadPropensityScore, branchScopeWhere } from "@prm/core";
 import { PageHeader, Card, Badge } from "@/components/ui";
+import { DrillCount } from "@/components/drill/DrillCount";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +71,10 @@ export default async function Prioritize() {
         </div>
 
         <Card>
-          <h3 className="mb-2 text-sm font-semibold">High-risk patients</h3>
+          <h3 className="mb-2 flex items-center justify-between text-sm font-semibold">
+            High-risk patients
+            <DrillCount value="view all →" entity="retention" filters={{ category: "at_risk,dormant,lost" }} label="High-risk patients" />
+          </h3>
           {highRisk.length === 0 ? <p className="text-sm text-slate-400">Run retention recompute first.</p> : (
             <ul className="space-y-1 text-sm">
               {highRisk.map((s) => (

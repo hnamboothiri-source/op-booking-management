@@ -15,6 +15,8 @@ import {
   filterToWhereValue,
   filtersToQuery,
   pickAllowedFilters,
+  relativeDateRange,
+  parseBool,
   type DrillEntity,
   type DrillFilters,
   type DrillRow,
@@ -33,12 +35,17 @@ export interface DrillDef {
   buildWhere(f: DrillFilters): Where;
   label(f: DrillFilters): string;
   preview(where: Where, take: number): Promise<{ rows: DrillRow[]; total: number }>;
+  /** Override the default `listPath?query` "view full list" URL (e.g. point at a detail page). */
+  listHref?(f: DrillFilters): string;
 }
 
 const eq = filterToWhereValue;
 const humanize = (s: string) => s.replace(/_/g, " ");
 const rupees = (p?: number | null) => (p == null ? "" : `₹${(p / 100).toLocaleString("en-IN")}`);
 const day = (d: Date) => d.toISOString().slice(0, 10);
+const bool = parseBool;
+/** Midnight (UTC) of the current calendar day — for relative-date filters. */
+const startOfToday = () => new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`);
 
 /** Apply the listed simple-equality keys (value → equality or { in }) onto a where. */
 function simpleWhere(f: DrillFilters, keys: readonly string[]): Where {
@@ -51,10 +58,18 @@ export const DRILL: Record<DrillEntity, DrillDef> = {
   leads: {
     resource: "leads",
     branchScoped: true,
-    filters: ["stage", "sourceId", "campaignId", "branchId", "ownerId", "patientMrd"],
+    filters: ["stage", "sourceId", "campaignId", "branchId", "ownerId", "patientMrd", "callback"],
     listPath: "/leads",
-    buildWhere: (f) => ({ mergedIntoId: null, ...simpleWhere(f, ["stage", "sourceId", "campaignId", "branchId", "ownerId", "patientMrd"]) }),
-    label: (f) => (f.stage ? `Leads · ${humanize(f.stage)}` : "Leads"),
+    buildWhere: (f) => {
+      const w: Where = { mergedIntoId: null, ...simpleWhere(f, ["stage", "sourceId", "campaignId", "branchId", "ownerId", "patientMrd"]) };
+      // Call-centre "pending callbacks": a follow-up is due (followUpDate ≤ today) and the lead is still workable.
+      if (f.callback === "pending") {
+        w.followUpDate = { lte: startOfToday() };
+        w.stage = { in: ["contacted", "interested", "not_reachable", "appointment_suggested"] };
+      }
+      return w;
+    },
+    label: (f) => (f.callback === "pending" ? "Pending callbacks" : f.stage ? `Leads · ${humanize(f.stage)}` : "Leads"),
     preview: async (where, take) => {
       const [rows, total] = await Promise.all([
         prisma.lead.findMany({ where, include: { source: true }, orderBy: { createdAt: "desc" }, take }),
@@ -74,14 +89,16 @@ export const DRILL: Record<DrillEntity, DrillDef> = {
   appointments: {
     resource: "appointments",
     branchScoped: true,
-    filters: ["date", "status", "doctorId", "departmentId", "branchId", "patientMrd"],
+    filters: ["date", "status", "doctorId", "departmentId", "branchId", "patientMrd", "bookedOn"],
     listPath: "/appointments",
     buildWhere: (f) => {
       const w = simpleWhere(f, ["status", "doctorId", "departmentId", "branchId", "patientMrd"]);
       if (f.date) w.appointmentDate = new Date(f.date);
+      // "Booked today" counts by when the booking was made, not the appointment date.
+      if (f.bookedOn === "today") w.bookedAt = { gte: startOfToday() };
       return w;
     },
-    label: (f) => (f.status ? `Appointments · ${humanize(f.status)}` : "Appointments"),
+    label: (f) => (f.bookedOn === "today" ? "Booked today" : f.status ? `Appointments · ${humanize(f.status)}` : "Appointments"),
     preview: async (where, take) => {
       const [rows, total] = await Promise.all([
         prisma.opBooking.findMany({ where, include: { patient: true, doctor: true }, orderBy: { appointmentDate: "desc" }, take }),
@@ -149,10 +166,19 @@ export const DRILL: Record<DrillEntity, DrillDef> = {
   followups: {
     resource: "follow_ups",
     branchScoped: false,
-    filters: ["status", "type", "ownerId", "doctorId", "patientMrd"],
+    filters: ["status", "type", "ownerId", "doctorId", "patientMrd", "due"],
     listPath: "/follow-ups",
-    buildWhere: (f) => simpleWhere(f, ["status", "type", "ownerId", "doctorId", "patientMrd"]),
-    label: (f) => (f.status ? `Follow-ups · ${humanize(f.status)}` : "Follow-ups"),
+    buildWhere: (f) => {
+      const w = simpleWhere(f, ["status", "type", "ownerId", "doctorId", "patientMrd"]);
+      // "due" buckets the open worklist by dueDate relative to today.
+      const range = f.due ? relativeDateRange(f.due, new Date()) : null;
+      if (range) {
+        w.dueDate = range;
+        if (!f.status) w.status = { in: ["pending", "booked"] }; // only open ones are "due"
+      }
+      return w;
+    },
+    label: (f) => (f.due ? `Follow-ups · ${humanize(f.due)}` : f.status ? `Follow-ups · ${humanize(f.status)}` : "Follow-ups"),
     preview: async (where, take) => {
       const [rows, total] = await Promise.all([
         prisma.followUp.findMany({ where, include: { patient: true }, orderBy: { dueDate: "asc" }, take }),
@@ -219,10 +245,10 @@ export const DRILL: Record<DrillEntity, DrillDef> = {
   referrals: {
     resource: "referrals",
     branchScoped: false,
-    filters: ["status", "type", "patientMrd"],
+    filters: ["status", "type", "patientMrd", "organizationId"],
     listPath: "/referrals",
     buildWhere: (f) => {
-      const w = simpleWhere(f, ["status", "type"]);
+      const w = simpleWhere(f, ["status", "type", "organizationId"]);
       // A patient can appear as referrer or referred.
       if (f.patientMrd) w.OR = [{ referrerPatientMrd: f.patientMrd }, { referredPatientMrd: f.patientMrd }];
       return w;
@@ -313,11 +339,174 @@ export const DRILL: Record<DrillEntity, DrillDef> = {
       };
     },
   },
+
+  // --- Module 2 / 7 / 8 / 14 entities (no branchId on these models) ---
+
+  calls: {
+    resource: "calls",
+    branchScoped: false,
+    filters: ["outcome", "executiveId", "leadId", "patientMrd", "when"],
+    listPath: "/calls",
+    buildWhere: (f) => {
+      const w = simpleWhere(f, ["outcome", "executiveId", "leadId", "patientMrd"]);
+      if (f.when === "today") w.createdAt = { gte: startOfToday() };
+      return w;
+    },
+    label: (f) => (f.outcome ? `Calls · ${humanize(f.outcome)}` : "Calls"),
+    preview: async (where, take) => {
+      const [rows, total] = await Promise.all([
+        prisma.callLog.findMany({ where, include: { lead: true }, orderBy: { createdAt: "desc" }, take }),
+        prisma.callLog.count({ where }),
+      ]);
+      return {
+        total,
+        rows: rows.map((c) => ({
+          title: c.lead?.contactName ?? c.patientMrd ?? "Call",
+          subtitle: [humanize(c.outcome), c.durationSec ? `${Math.round(c.durationSec / 60)} min` : null].filter(Boolean).join(" · "),
+          href: c.leadId ? `/leads/${c.leadId}` : c.patientMrd ? `/patients/${encodeURIComponent(c.patientMrd)}` : undefined,
+        })),
+      };
+    },
+  },
+
+  campPatients: {
+    resource: "camps",
+    branchScoped: false,
+    filters: ["campId", "recommendedVisit"],
+    listPath: "/camps",
+    listHref: (f) => (f.campId ? `/camps/${f.campId}` : "/camps"),
+    buildWhere: (f) => {
+      const w = simpleWhere(f, ["campId"]);
+      const b = f.recommendedVisit !== undefined ? bool(f.recommendedVisit) : undefined;
+      if (b !== undefined) w.recommendedVisit = b;
+      return w;
+    },
+    label: (f) => (f.recommendedVisit === "true" ? "Camp patients · recommended" : "Camp patients"),
+    preview: async (where, take) => {
+      const [rows, total] = await Promise.all([
+        prisma.campPatient.findMany({ where, orderBy: { createdAt: "desc" }, take }),
+        prisma.campPatient.count({ where }),
+      ]);
+      return {
+        total,
+        rows: rows.map((p) => ({
+          title: p.contactName,
+          subtitle: p.complaint ?? undefined,
+          href: p.patientMrd ? `/patients/${encodeURIComponent(p.patientMrd)}` : undefined,
+          badge: p.recommendedVisit ? "recommended" : undefined,
+          badgeTone: "green" as const,
+        })),
+      };
+    },
+  },
+
+  mobileClinicPatients: {
+    resource: "mobile_clinics",
+    branchScoped: false,
+    filters: ["mobileClinicId", "referredToBranch"],
+    listPath: "/mobile-clinics",
+    listHref: (f) => (f.mobileClinicId ? `/mobile-clinics/${f.mobileClinicId}` : "/mobile-clinics"),
+    buildWhere: (f) => {
+      const w = simpleWhere(f, ["mobileClinicId"]);
+      const b = f.referredToBranch !== undefined ? bool(f.referredToBranch) : undefined;
+      if (b !== undefined) w.referredToBranch = b;
+      return w;
+    },
+    label: (f) => (f.referredToBranch === "true" ? "Mobile-clinic patients · referred" : "Mobile-clinic patients"),
+    preview: async (where, take) => {
+      const [rows, total] = await Promise.all([
+        prisma.mobileClinicPatient.findMany({ where, orderBy: { createdAt: "desc" }, take }),
+        prisma.mobileClinicPatient.count({ where }),
+      ]);
+      return {
+        total,
+        rows: rows.map((p) => ({
+          title: p.contactName,
+          subtitle: p.complaint ?? undefined,
+          href: p.patientMrd ? `/patients/${encodeURIComponent(p.patientMrd)}` : undefined,
+          badge: p.referredToBranch ? "referred" : undefined,
+          badgeTone: "green" as const,
+        })),
+      };
+    },
+  },
+
+  camps: {
+    resource: "camps",
+    branchScoped: false,
+    filters: ["status", "organizerId"],
+    listPath: "/camps",
+    buildWhere: (f) => simpleWhere(f, ["status", "organizerId"]),
+    label: (f) => (f.status ? `Camps · ${humanize(f.status)}` : "Camps"),
+    preview: async (where, take) => {
+      const [rows, total] = await Promise.all([
+        prisma.camp.findMany({ where, orderBy: { createdAt: "desc" }, take }),
+        prisma.camp.count({ where }),
+      ]);
+      return {
+        total,
+        rows: rows.map((c) => ({
+          title: c.name,
+          subtitle: c.location ?? undefined,
+          href: `/camps/${c.id}`,
+          badge: humanize(c.status),
+        })),
+      };
+    },
+  },
+
+  mobileClinics: {
+    resource: "mobile_clinics",
+    branchScoped: false,
+    filters: ["status"],
+    listPath: "/mobile-clinics",
+    buildWhere: (f) => simpleWhere(f, ["status"]),
+    label: (f) => (f.status ? `Mobile clinics · ${humanize(f.status)}` : "Mobile clinics"),
+    preview: async (where, take) => {
+      const [rows, total] = await Promise.all([
+        prisma.mobileClinic.findMany({ where, orderBy: { createdAt: "desc" }, take }),
+        prisma.mobileClinic.count({ where }),
+      ]);
+      return {
+        total,
+        rows: rows.map((m) => ({
+          title: m.routeName,
+          subtitle: m.location ?? undefined,
+          href: `/mobile-clinics/${m.id}`,
+          badge: humanize(m.status),
+        })),
+      };
+    },
+  },
+
+  organizations: {
+    resource: "organizations",
+    branchScoped: false,
+    filters: ["type"],
+    listPath: "/organizations",
+    buildWhere: (f) => simpleWhere(f, ["type"]),
+    label: (f) => (f.type ? `Organizations · ${humanize(f.type)}` : "Organizations"),
+    preview: async (where, take) => {
+      const [rows, total] = await Promise.all([
+        prisma.organization.findMany({ where, orderBy: { name: "asc" }, take }),
+        prisma.organization.count({ where }),
+      ]);
+      return {
+        total,
+        rows: rows.map((o) => ({
+          title: o.name,
+          subtitle: humanize(o.type),
+          href: `/organizations/${o.id}`,
+        })),
+      };
+    },
+  },
 };
 
 /** Build the filtered list-page URL for an entity (used as the "view all" link). */
 export function drillListHref(entity: DrillEntity, filters: DrillFilters): string {
   const def = DRILL[entity];
+  if (def.listHref) return def.listHref(filters);
   const q = filtersToQuery(filters);
   return q ? `${def.listPath}?${q}` : def.listPath;
 }

@@ -4,6 +4,7 @@ import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { computeCampaignKpis } from "@/lib/campaigns/metrics";
 import { PageHeader, Card, Badge } from "@/components/ui";
+import { DrillStat } from "@/components/drill/DrillStat";
 
 export const dynamic = "force-dynamic";
 const money = (p: number | null) => (p === null ? "—" : `₹${(p / 100).toLocaleString("en-IN")}`);
@@ -33,11 +34,12 @@ export default async function CampaignDetail({ params }: { params: Promise<{ id:
         subtitle={`${campaign.type.replace(/_/g, " ")}${campaign.targetLocation ? ` · ${campaign.targetLocation}` : ""}${campaign.targetDisease ? ` · ${campaign.targetDisease}` : ""}`}
         action={k.roi === null ? <Badge>ROI —</Badge> : <Badge tone={k.roi >= 0 ? "green" : "red"}>ROI {k.roi}%</Badge>}
       />
-      <div className="mb-6"><Link href="/campaigns" className="text-sm text-slate-500 hover:underline">← Campaigns</Link></div>
+      <div className="mb-6"><Link href="/campaigns" className="text-sm text-slate-500 hover:underline dark:text-slate-400">← Campaigns</Link></div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {tiles.map((t) => (
-          <Card key={t.label}><div className="text-xl font-bold">{t.value}</div><div className="mt-1 text-xs text-slate-500">{t.label}</div></Card>
+        <DrillStat label="Leads" value={k.leads} entity="leads" filters={{ campaignId: id }} />
+        {tiles.filter((t) => t.label !== "Leads").map((t) => (
+          <Card key={t.label}><div className="text-xl font-bold">{t.value}</div><div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{t.label}</div></Card>
         ))}
       </div>
 

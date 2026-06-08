@@ -2,6 +2,7 @@ import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { branchScopeWhere } from "@prm/core";
 import { PageHeader, Badge, LinkButton } from "@/components/ui";
+import { DrillCount } from "@/components/drill/DrillCount";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ export default async function Queue({ searchParams }: { searchParams: Promise<{ 
   const user = await requireCan("consultations", "view");
   const { date } = await searchParams;
   const day = date ?? new Date().toISOString().slice(0, 10);
+  const QUEUE_STATUSES = "arrived,waiting,in_consultation";
 
   const queue = await prisma.opBooking.findMany({
     where: {
@@ -28,6 +30,10 @@ export default async function Queue({ searchParams }: { searchParams: Promise<{ 
         <input type="date" name="date" defaultValue={day} className="rounded-md border border-slate-300 px-2 py-1.5" />
         <button className="rounded-md bg-slate-700 px-3 py-1.5 font-medium text-white">Go</button>
       </form>
+
+      <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
+        <DrillCount value={queue.length} entity="appointments" filters={{ date: day, status: QUEUE_STATUSES }} label="Queue" /> in queue
+      </p>
 
       <div className="space-y-2">
         {queue.length === 0 && <p className="text-sm text-slate-400">No patients waiting. Check them in from <a href="/appointments" className="text-rose-700 underline">Appointments</a>.</p>}

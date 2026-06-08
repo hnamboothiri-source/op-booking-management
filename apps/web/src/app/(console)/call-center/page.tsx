@@ -2,19 +2,11 @@ import Link from "next/link";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { branchScopeWhere } from "@prm/core";
-import { PageHeader, Card } from "@/components/ui";
+import { PageHeader } from "@/components/ui";
+import { DrillStat } from "@/components/drill/DrillStat";
+import { DrillCount } from "@/components/drill/DrillCount";
 
 export const dynamic = "force-dynamic";
-
-function Tile({ label, value, href }: { label: string; value: number; href?: string }) {
-  const body = (
-    <Card>
-      <div className="text-3xl font-bold">{value}</div>
-      <div className="mt-1 text-sm text-slate-500">{label}</div>
-    </Card>
-  );
-  return href ? <Link href={href}>{body}</Link> : body;
-}
 
 export default async function CallCenter() {
   const user = await requireCan("leads", "view");
@@ -49,12 +41,12 @@ export default async function CallCenter() {
     <div>
       <PageHeader title="Call Center" subtitle="Convert enquiries into appointments (Module 2)" />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Tile label="New leads" value={newLeads} href="/leads?stage=new_lead" />
-        <Tile label="Pending callbacks" value={pendingCallbacks} href="/leads" />
-        <Tile label="Follow-ups due today" value={dueToday} href="/follow-ups" />
-        <Tile label="Overdue follow-ups" value={overdue} href="/follow-ups" />
-        <Tile label="Missed calls today" value={missedToday} />
-        <Tile label="Booked today" value={bookedToday} href="/appointments" />
+        <DrillStat label="New leads" value={newLeads} entity="leads" filters={{ stage: "new_lead" }} />
+        <DrillStat label="Pending callbacks" value={pendingCallbacks} entity="leads" filters={{ callback: "pending" }} />
+        <DrillStat label="Follow-ups due today" value={dueToday} entity="followups" filters={{ due: "today" }} />
+        <DrillStat label="Overdue follow-ups" value={overdue} entity="followups" filters={{ due: "overdue" }} />
+        <DrillStat label="Missed calls today" value={missedToday} entity="calls" filters={{ outcome: "not_reachable", when: "today" }} />
+        <DrillStat label="Booked today" value={bookedToday} entity="appointments" filters={{ bookedOn: "today" }} />
       </div>
 
       <h2 className="mb-2 mt-8 text-sm font-semibold uppercase tracking-wide text-slate-500">Conversion by executive</h2>
@@ -63,10 +55,10 @@ export default async function CallCenter() {
           <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="px-4 py-2">Executive</th><th className="px-4 py-2">Leads</th><th className="px-4 py-2">Converted</th><th className="px-4 py-2">Rate</th></tr></thead>
           <tbody>
             {[...byOwner.entries()].map(([k, v]) => (
-              <tr key={k} className="border-t border-slate-100">
+              <tr key={k} className="border-t border-slate-100 dark:border-slate-700">
                 <td className="px-4 py-2">{k === "unassigned" ? "Unassigned" : ownerName(k)}</td>
-                <td className="px-4 py-2">{v.total}</td>
-                <td className="px-4 py-2">{v.converted}</td>
+                <td className="px-4 py-2">{k === "unassigned" ? v.total : <DrillCount value={v.total} entity="leads" filters={{ ownerId: k }} label={`${ownerName(k)} · leads`} />}</td>
+                <td className="px-4 py-2">{k === "unassigned" ? v.converted : <DrillCount value={v.converted} entity="leads" filters={{ ownerId: k, stage: "appointment_booked,converted_to_patient" }} label={`${ownerName(k)} · converted`} />}</td>
                 <td className="px-4 py-2">{v.total ? Math.round((v.converted / v.total) * 100) : 0}%</td>
               </tr>
             ))}

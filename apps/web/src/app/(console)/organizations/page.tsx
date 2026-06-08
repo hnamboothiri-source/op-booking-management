@@ -4,14 +4,18 @@ import { prisma } from "@/lib/db";
 import { createOrganization } from "@/lib/organizations/actions";
 import { can } from "@prm/core";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
+import { DRILL, listFilters } from "@/lib/drill/registry";
+import { DrillCount } from "@/components/drill/DrillCount";
+import { ActiveFilters } from "@/components/drill/ActiveFilters";
 
 export const dynamic = "force-dynamic";
 const input = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm";
 const TYPES = ["company", "school", "college", "ngo", "panchayat", "religious_institution", "association", "senior_citizen_group"];
 
-export default async function Organizations() {
+export default async function Organizations({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireCan("organizations", "view");
-  const orgs = await prisma.organization.findMany({ include: { _count: { select: { camps: true, referrals: true } } }, orderBy: { createdAt: "desc" } });
+  const filters = listFilters("organizations", await searchParams);
+  const orgs = await prisma.organization.findMany({ where: DRILL.organizations.buildWhere(filters), include: { _count: { select: { camps: true, referrals: true } } }, orderBy: { createdAt: "desc" } });
 
   return (
     <div>
@@ -28,14 +32,21 @@ export default async function Organizations() {
           </form>
         </Card>
       )}
+      <ActiveFilters filters={filters} basePath="/organizations" />
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {orgs.length === 0 && <p className="text-sm text-slate-400">No organizations yet.</p>}
         {orgs.map((o) => (
-          <Link key={o.id} href={`/organizations/${o.id}`} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-rose-300">
-            <div className="flex items-center justify-between"><span className="font-semibold">{o.name}</span><Badge tone="blue">{o.type.replace(/_/g, " ")}</Badge></div>
-            <div className="mt-2 text-sm text-slate-600">{o._count.camps} camps · {o._count.referrals} referrals</div>
+          <div key={o.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-rose-300 dark:border-slate-700 dark:bg-slate-800">
+            <div className="flex items-center justify-between">
+              <Link href={`/organizations/${o.id}`} className="font-semibold text-rose-700 hover:underline dark:text-rose-400">{o.name}</Link>
+              <Badge tone="blue">{o.type.replace(/_/g, " ")}</Badge>
+            </div>
+            <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              <DrillCount value={o._count.camps} entity="camps" filters={{ organizerId: o.id }} label={`${o.name} · camps`} /> camps ·{" "}
+              <DrillCount value={o._count.referrals} entity="referrals" filters={{ organizationId: o.id }} label={`${o.name} · referrals`} /> referrals
+            </div>
             {o.nextEngagement && <div className="mt-1 text-xs text-amber-600">Next: {o.nextEngagement.toISOString().slice(0, 10)}</div>}
-          </Link>
+          </div>
         ))}
       </div>
     </div>

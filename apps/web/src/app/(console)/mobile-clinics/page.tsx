@@ -4,13 +4,17 @@ import { prisma } from "@/lib/db";
 import { createMobileClinic } from "@/lib/outreach/actions";
 import { can } from "@prm/core";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
+import { DRILL, listFilters } from "@/lib/drill/registry";
+import { DrillCount } from "@/components/drill/DrillCount";
+import { ActiveFilters } from "@/components/drill/ActiveFilters";
 
 export const dynamic = "force-dynamic";
 const input = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm";
 
-export default async function MobileClinics() {
+export default async function MobileClinics({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireCan("mobile_clinics", "view");
-  const clinics = await prisma.mobileClinic.findMany({ include: { _count: { select: { patients: true } } }, orderBy: { createdAt: "desc" } });
+  const filters = listFilters("mobileClinics", await searchParams);
+  const clinics = await prisma.mobileClinic.findMany({ where: DRILL.mobileClinics.buildWhere(filters), include: { _count: { select: { patients: true } } }, orderBy: { createdAt: "desc" } });
 
   return (
     <div>
@@ -26,14 +30,20 @@ export default async function MobileClinics() {
           </form>
         </Card>
       )}
+      <ActiveFilters filters={filters} basePath="/mobile-clinics" />
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {clinics.length === 0 && <p className="text-sm text-slate-400">No routes yet.</p>}
         {clinics.map((c) => (
-          <Link key={c.id} href={`/mobile-clinics/${c.id}`} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-rose-300">
-            <div className="flex items-center justify-between"><span className="font-semibold">{c.routeName}</span><Badge tone={c.status === "completed" ? "green" : "slate"}>{c.status}</Badge></div>
-            <div className="mt-1 text-xs text-slate-500">{c.location ?? "—"}</div>
-            <div className="mt-2 text-sm">{c._count.patients} screened</div>
-          </Link>
+          <div key={c.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-rose-300 dark:border-slate-700 dark:bg-slate-800">
+            <div className="flex items-center justify-between">
+              <Link href={`/mobile-clinics/${c.id}`} className="font-semibold text-rose-700 hover:underline dark:text-rose-400">{c.routeName}</Link>
+              <Badge tone={c.status === "completed" ? "green" : "slate"}>{c.status}</Badge>
+            </div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{c.location ?? "—"}</div>
+            <div className="mt-2 text-sm">
+              <DrillCount value={c._count.patients} entity="mobileClinicPatients" filters={{ mobileClinicId: c.id }} label={`${c.routeName} · screened`} /> screened
+            </div>
+          </div>
         ))}
       </div>
     </div>

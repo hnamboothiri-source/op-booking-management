@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { can, conversionRate, branchScopeWhere, type DrillEntity, type DrillFilters } from "@prm/core";
 import { DrillStat } from "@/components/drill/DrillStat";
+import { DrillCount } from "@/components/drill/DrillCount";
 
 const STATUS_STYLE: Record<BuildStatus, string> = {
   done: "bg-green-100 text-green-800",
@@ -47,7 +48,9 @@ async function ManagementKpis({ role, branchId }: { role: Parameters<typeof bran
 }
 
 async function DoctorToday() {
-  const today = new Date(new Date().toISOString().slice(0, 10));
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const today = new Date(todayStr);
+  const worklist = "booked,confirmed,arrived,waiting,in_consultation";
   const appts = await prisma.opBooking.findMany({
     where: { appointmentDate: today, status: { in: ["booked", "confirmed", "arrived", "waiting", "in_consultation"] } },
     include: { patient: true, doctor: true },
@@ -56,7 +59,9 @@ async function DoctorToday() {
   });
   return (
     <section className="mb-10">
-      <h2 className="mb-3 text-lg font-semibold">Today&apos;s clinic ({appts.length})</h2>
+      <h2 className="mb-3 text-lg font-semibold">
+        Today&apos;s clinic (<DrillCount value={appts.length} entity="appointments" filters={{ date: todayStr, status: worklist }} label="Today's clinic" />)
+      </h2>
       <div className="space-y-1">
         {appts.length === 0 && <p className="text-sm text-slate-400">No appointments today.</p>}
         {appts.map((a) => (

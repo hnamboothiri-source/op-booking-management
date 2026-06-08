@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { filterToWhereValue, pickAllowedFilters, filtersToQuery } from "./drill";
+import { filterToWhereValue, pickAllowedFilters, filtersToQuery, relativeDateRange, parseBool } from "./drill";
 
 describe("filterToWhereValue", () => {
   it("returns a bare value for a single token (equality)", () => {
@@ -44,5 +44,41 @@ describe("filtersToQuery", () => {
   it("omits blank values and returns empty for no filters", () => {
     expect(filtersToQuery({ status: "  ", x: "" })).toBe("");
     expect(filtersToQuery({})).toBe("");
+  });
+});
+
+describe("relativeDateRange", () => {
+  // Fixed "now" mid-afternoon to prove it snaps to the calendar day, not the instant.
+  const now = new Date("2026-06-08T14:30:00.000Z");
+
+  it("today spans [midnight today, midnight tomorrow)", () => {
+    expect(relativeDateRange("today", now)).toEqual({
+      gte: new Date("2026-06-08T00:00:00.000Z"),
+      lt: new Date("2026-06-09T00:00:00.000Z"),
+    });
+  });
+
+  it("overdue is strictly before midnight today", () => {
+    expect(relativeDateRange("overdue", now)).toEqual({ lt: new Date("2026-06-08T00:00:00.000Z") });
+  });
+
+  it("upcoming starts at midnight tomorrow", () => {
+    expect(relativeDateRange("upcoming", now)).toEqual({ gte: new Date("2026-06-09T00:00:00.000Z") });
+  });
+
+  it("returns null for an unknown token", () => {
+    expect(relativeDateRange("whenever", now)).toBeNull();
+  });
+});
+
+describe("parseBool", () => {
+  it("parses clean true/false", () => {
+    expect(parseBool("true")).toBe(true);
+    expect(parseBool("false")).toBe(false);
+  });
+  it("returns undefined for anything else", () => {
+    expect(parseBool("1")).toBeUndefined();
+    expect(parseBool("")).toBeUndefined();
+    expect(parseBool("TRUE")).toBeUndefined();
   });
 });

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { setNextEngagement } from "@/lib/organizations/actions";
 import { can } from "@prm/core";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
+import { DrillStat } from "@/components/drill/DrillStat";
 
 export const dynamic = "force-dynamic";
 
@@ -22,13 +23,13 @@ export default async function OrgDetail({ params }: { params: Promise<{ id: stri
   return (
     <div>
       <PageHeader title={org.name} subtitle={org.type.replace(/_/g, " ")} />
-      <div className="mb-4"><Link href="/organizations" className="text-sm text-slate-500 hover:underline">← Organizations</Link></div>
+      <div className="mb-4"><Link href="/organizations" className="text-sm text-slate-500 hover:underline dark:text-slate-400">← Organizations</Link></div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Card><div className="text-2xl font-bold">{org.camps.length}</div><div className="text-xs text-slate-500">Camps conducted</div></Card>
-        <Card><div className="text-2xl font-bold">{org.referrals.length}</div><div className="text-xs text-slate-500">Referrals</div></Card>
-        <Card><div className="text-2xl font-bold">₹{(referralRevenue / 100).toLocaleString("en-IN")}</div><div className="text-xs text-slate-500">Referral revenue</div></Card>
-        <Card><div className="text-sm font-medium">{org.nextEngagement ? org.nextEngagement.toISOString().slice(0, 10) : "—"}</div><div className="text-xs text-slate-500">Next engagement</div></Card>
+        <DrillStat label="Camps conducted" value={org.camps.length} entity="camps" filters={{ organizerId: id }} />
+        <DrillStat label="Referrals" value={org.referrals.length} entity="referrals" filters={{ organizationId: id }} />
+        <Card><div className="text-2xl font-bold">₹{(referralRevenue / 100).toLocaleString("en-IN")}</div><div className="text-xs text-slate-500 dark:text-slate-400">Referral revenue</div></Card>
+        <Card><div className="text-sm font-medium">{org.nextEngagement ? org.nextEngagement.toISOString().slice(0, 10) : "—"}</div><div className="text-xs text-slate-500 dark:text-slate-400">Next engagement</div></Card>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

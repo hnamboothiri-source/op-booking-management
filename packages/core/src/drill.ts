@@ -22,7 +22,13 @@ export type DrillEntity =
   | "referrals"
   | "communications"
   | "waitlist"
-  | "retention";
+  | "retention"
+  | "calls"
+  | "campPatients"
+  | "mobileClinicPatients"
+  | "camps"
+  | "mobileClinics"
+  | "organizations";
 
 /** One preview row in the drill drawer. */
 export interface DrillRow {
@@ -71,4 +77,42 @@ export function pickAllowedFilters(filters: DrillFilters, allowed: readonly stri
 export function filtersToQuery(filters: DrillFilters): string {
   const keys = Object.keys(filters).filter((k) => filters[k]?.trim().length > 0).sort();
   return keys.map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(filters[k])}`).join("&");
+}
+
+/** Inclusive-lower / exclusive-upper day bounds (UTC midnight). */
+export type DateRange = { gte?: Date; lt?: Date };
+
+/** Midnight (UTC) of the given instant's calendar day. */
+function startOfDay(now: Date): Date {
+  return new Date(`${now.toISOString().slice(0, 10)}T00:00:00.000Z`);
+}
+
+/**
+ * Resolve a relative-date token into a Prisma date range, computed from an
+ * explicit `now` (kept as a parameter so this stays pure/testable). Used for
+ * "due today / overdue / upcoming" style figures on date columns.
+ *   today    → [start of today, start of tomorrow)
+ *   overdue  → (…, start of today)        — strictly before today
+ *   upcoming → [start of tomorrow, …)     — tomorrow onward
+ */
+export function relativeDateRange(period: string, now: Date): DateRange | null {
+  const start = startOfDay(now);
+  const next = new Date(start.getTime() + 86_400_000);
+  switch (period) {
+    case "today":
+      return { gte: start, lt: next };
+    case "overdue":
+      return { lt: start };
+    case "upcoming":
+      return { gte: next };
+    default:
+      return null;
+  }
+}
+
+/** Parse a boolean filter value; undefined when not a clean true/false. */
+export function parseBool(value: string): boolean | undefined {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return undefined;
 }

@@ -4,14 +4,18 @@ import { prisma } from "@/lib/db";
 import { createCamp } from "@/lib/outreach/actions";
 import { can } from "@prm/core";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
+import { DRILL, listFilters } from "@/lib/drill/registry";
+import { DrillCount } from "@/components/drill/DrillCount";
+import { ActiveFilters } from "@/components/drill/ActiveFilters";
 
 export const dynamic = "force-dynamic";
 const input = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm";
 
-export default async function Camps() {
+export default async function Camps({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireCan("camps", "view");
+  const filters = listFilters("camps", await searchParams);
   const [camps, orgs] = await Promise.all([
-    prisma.camp.findMany({ include: { organizer: true, _count: { select: { campPatients: true } } }, orderBy: { createdAt: "desc" } }),
+    prisma.camp.findMany({ where: DRILL.camps.buildWhere(filters), include: { organizer: true, _count: { select: { campPatients: true } } }, orderBy: { createdAt: "desc" } }),
     prisma.organization.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
 
@@ -31,14 +35,21 @@ export default async function Camps() {
         </Card>
       )}
 
+      <ActiveFilters filters={filters} basePath="/camps" />
+
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {camps.length === 0 && <p className="text-sm text-slate-400">No camps yet.</p>}
         {camps.map((c) => (
-          <Link key={c.id} href={`/camps/${c.id}`} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-rose-300">
-            <div className="flex items-center justify-between"><span className="font-semibold">{c.name}</span><Badge tone={c.status === "completed" ? "green" : "slate"}>{c.status}</Badge></div>
-            <div className="mt-1 text-xs text-slate-500">{c.location ?? "—"}{c.organizer ? ` · ${c.organizer.name}` : ""}</div>
-            <div className="mt-2 text-sm">{c._count.campPatients} screened · ₹{(c.revenue / 100).toLocaleString("en-IN")}</div>
-          </Link>
+          <div key={c.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-rose-300 dark:border-slate-700 dark:bg-slate-800">
+            <div className="flex items-center justify-between">
+              <Link href={`/camps/${c.id}`} className="font-semibold text-rose-700 hover:underline dark:text-rose-400">{c.name}</Link>
+              <Badge tone={c.status === "completed" ? "green" : "slate"}>{c.status}</Badge>
+            </div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{c.location ?? "—"}{c.organizer ? ` · ${c.organizer.name}` : ""}</div>
+            <div className="mt-2 text-sm">
+              <DrillCount value={c._count.campPatients} entity="campPatients" filters={{ campId: c.id }} label={`${c.name} · screened`} /> screened · ₹{(c.revenue / 100).toLocaleString("en-IN")}
+            </div>
+          </div>
         ))}
       </div>
     </div>

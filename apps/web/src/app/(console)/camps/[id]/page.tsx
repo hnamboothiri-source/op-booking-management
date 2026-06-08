@@ -5,12 +5,15 @@ import { prisma } from "@/lib/db";
 import { addCampPatient } from "@/lib/outreach/actions";
 import { can } from "@prm/core";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
+import { DrillStat } from "@/components/drill/DrillStat";
+import { ActiveFilters } from "@/components/drill/ActiveFilters";
 
 export const dynamic = "force-dynamic";
 const input = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm";
 
-export default async function CampDetail({ params }: { params: Promise<{ id: string }> }) {
+export default async function CampDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ recommendedVisit?: string }> }) {
   const { id } = await params;
+  const { recommendedVisit } = await searchParams;
   const user = await requireCan("camps", "view");
   const camp = await prisma.camp.findUnique({
     where: { id },
@@ -18,17 +21,20 @@ export default async function CampDetail({ params }: { params: Promise<{ id: str
   });
   if (!camp) notFound();
   const recommended = camp.campPatients.filter((p) => p.recommendedVisit).length;
+  // The patient-count drill lands here with ?recommendedVisit=true.
+  const onlyRecommended = recommendedVisit === "true";
+  const shown = onlyRecommended ? camp.campPatients.filter((p) => p.recommendedVisit) : camp.campPatients;
 
   return (
     <div>
       <PageHeader title={camp.name} subtitle={`${camp.location ?? ""}${camp.organizer ? ` · ${camp.organizer.name}` : ""}`} />
-      <div className="mb-4"><Link href="/camps" className="text-sm text-slate-500 hover:underline">← Camps</Link></div>
+      <div className="mb-4"><Link href="/camps" className="text-sm text-slate-500 hover:underline dark:text-slate-400">← Camps</Link></div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Card><div className="text-2xl font-bold">{camp.campPatients.length}</div><div className="text-xs text-slate-500">Screened</div></Card>
-        <Card><div className="text-2xl font-bold">{recommended}</div><div className="text-xs text-slate-500">Recommended visit</div></Card>
-        <Card><div className="text-2xl font-bold">{camp.campPatients.length ? Math.round((recommended / camp.campPatients.length) * 100) : 0}%</div><div className="text-xs text-slate-500">Conversion</div></Card>
-        <Card><div className="text-2xl font-bold">₹{(camp.revenue / 100).toLocaleString("en-IN")}</div><div className="text-xs text-slate-500">Revenue</div></Card>
+        <DrillStat label="Screened" value={camp.campPatients.length} entity="campPatients" filters={{ campId: id }} />
+        <DrillStat label="Recommended visit" value={recommended} entity="campPatients" filters={{ campId: id, recommendedVisit: "true" }} />
+        <Card><div className="text-2xl font-bold">{camp.campPatients.length ? Math.round((recommended / camp.campPatients.length) * 100) : 0}%</div><div className="text-xs text-slate-500 dark:text-slate-400">Conversion</div></Card>
+        <Card><div className="text-2xl font-bold">₹{(camp.revenue / 100).toLocaleString("en-IN")}</div><div className="text-xs text-slate-500 dark:text-slate-400">Revenue</div></Card>
       </div>
 
       {can(user.role, "camps", "edit") && (
@@ -45,16 +51,18 @@ export default async function CampDetail({ params }: { params: Promise<{ id: str
         </Card>
       )}
 
-      <div className="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <ActiveFilters filters={onlyRecommended ? { recommendedVisit: "true" } : {}} basePath={`/camps/${id}`} />
+
+      <div className="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="px-4 py-2">Name</th><th className="px-4 py-2">Phone</th><th className="px-4 py-2">Complaint</th><th className="px-4 py-2">Visit?</th></tr></thead>
+          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 dark:bg-slate-900 dark:text-slate-400"><tr><th className="px-4 py-2">Name</th><th className="px-4 py-2">Phone</th><th className="px-4 py-2">Complaint</th><th className="px-4 py-2">Visit?</th></tr></thead>
           <tbody>
-            {camp.campPatients.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">No screenings yet.</td></tr>}
-            {camp.campPatients.map((p) => (
-              <tr key={p.id} className="border-t border-slate-100">
-                <td className="px-4 py-2">{p.contactName}</td><td className="px-4 py-2 text-slate-600">{p.phone ?? "—"}</td>
-                <td className="px-4 py-2 text-slate-600">{p.complaint ?? "—"}</td>
-                <td className="px-4 py-2">{p.recommendedVisit ? <Badge tone="green">recommended</Badge> : <span className="text-slate-300">—</span>}</td>
+            {shown.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">No screenings{onlyRecommended ? " recommended for a visit" : " yet"}.</td></tr>}
+            {shown.map((p) => (
+              <tr key={p.id} className="border-t border-slate-100 dark:border-slate-700">
+                <td className="px-4 py-2">{p.contactName}</td><td className="px-4 py-2 text-slate-600 dark:text-slate-300">{p.phone ?? "—"}</td>
+                <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{p.complaint ?? "—"}</td>
+                <td className="px-4 py-2">{p.recommendedVisit ? <Badge tone="green">recommended</Badge> : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
               </tr>
             ))}
           </tbody>
