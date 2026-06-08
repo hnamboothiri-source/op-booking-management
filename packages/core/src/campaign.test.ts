@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { costPer, roiPct, campaignKpis, riskFromRetention, monthsBetween, costPerThousandReach, reachToLeadRate, withinHours, quoteForReach } from "./campaign";
+import { costPer, roiPct, campaignKpis, riskFromRetention, monthsBetween, costPerThousandReach, reachToLeadRate, withinHours, quoteForReach, campaignPlanTotals } from "./campaign";
 
 describe("campaign cost metrics", () => {
   it("computes cost per unit in paise", () => {
@@ -49,6 +49,26 @@ describe("quoteForReach", () => {
     const q = quoteForReach({ pricingModel: "cpm", baseRate: 50000, reach: 40000, discountPct: 10, bonusReachPct: 15 });
     expect(q.cost).toBe(1800000); // 10% off ₹20000
     expect(q.effectiveReach).toBe(46000); // +15%
+  });
+});
+
+describe("campaignPlanTotals", () => {
+  it("returns zeros for an empty plan", () => {
+    expect(campaignPlanTotals([], 0)).toEqual({ promisedReach: 0, quotedCost: 0, budgetUsedPct: null, overBudget: false });
+  });
+  it("sums reach + cost and computes budget usage", () => {
+    const t = campaignPlanTotals([{ promisedReach: 40000, quotedCost: 2000000 }, { promisedReach: 25000, quotedCost: 1500000 }], 5000000);
+    expect(t.promisedReach).toBe(65000);
+    expect(t.quotedCost).toBe(3500000);
+    expect(t.budgetUsedPct).toBe(70);
+    expect(t.overBudget).toBe(false);
+  });
+  it("flags over-budget plans and tolerates null fields", () => {
+    const t = campaignPlanTotals([{ promisedReach: null, quotedCost: 6000000 }], 5000000);
+    expect(t.promisedReach).toBe(0);
+    expect(t.quotedCost).toBe(6000000);
+    expect(t.budgetUsedPct).toBe(120);
+    expect(t.overBudget).toBe(true);
   });
 });
 

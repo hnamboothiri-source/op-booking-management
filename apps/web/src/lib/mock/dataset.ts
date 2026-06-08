@@ -322,6 +322,7 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
   const campaigns: Row[] = [
     { id: "camp-1", name: "Cataract Awareness June", type: "facebook_ads", budget: 5000000, sourceId: leadSources[2].id, targetLocation: "Kochi", targetDistrict: "Ernakulam", targetDisease: "Cataract", targetAgeMin: 45, targetAgeMax: 75, targetGender: "all", targetAudience: "Seniors with blurred vision / cataract symptoms", status: "running", launchedAt: day(-3), active: true, createdAt: day(-30) },
     { id: "camp-2", name: "Diabetic Eye Camp", type: "camp", budget: 2000000, targetLocation: "Thrissur", targetDistrict: "Thrissur", targetDisease: "Diabetic retinopathy", targetAgeMin: 35, targetAgeMax: 70, targetGender: "all", targetAudience: "Known diabetics, retinopathy screening", status: "running", launchedAt: day(-1), active: true, createdAt: day(-15) },
+    { id: "camp-3", name: "Glaucoma Screening Drive (planning)", type: "google_ads", budget: 3000000, sourceId: leadSources[2].id, targetLocation: "Kozhikode", targetDistrict: "Kozhikode", targetDisease: "Glaucoma", targetAgeMin: 50, targetAgeMax: 80, targetGender: "all", targetAudience: "Seniors with family history of glaucoma", status: "planned", launchedAt: null, active: true, createdAt: day(-2) },
   ];
   // Marketing-channel master (rate cards) + seasonal offers.
   const marketingChannels: Row[] = [
@@ -342,6 +343,7 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     { id: "cc-3", campaignId: "camp-1", channel: "google_ads", channelMasterId: "mch-google", promisedReach: 30000, achievedReach: 26000, quotedCost: 1500000, createdAt: day(-5) },
     { id: "cc-4", campaignId: "camp-2", channel: "whatsapp", channelMasterId: "mch-wa", promisedReach: 15000, achievedReach: 14200, quotedCost: 800000, createdAt: day(-3) },
     { id: "cc-5", campaignId: "camp-2", channel: "facebook", channelMasterId: "mch-fb", promisedReach: 20000, achievedReach: null, quotedCost: 1200000, createdAt: day(-3) },
+    { id: "cc-6", campaignId: "camp-3", channel: "Google Ads", channelMasterId: "mch-google", promisedReach: 22000, achievedReach: null, quotedCost: 2376000, createdAt: day(-2) },
   ];
 
   // --- Organizations / Camps / Mobile clinics ---

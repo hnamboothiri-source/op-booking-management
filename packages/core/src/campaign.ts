@@ -62,6 +62,22 @@ export function quoteForReach(args: {
   return { cost: Math.max(0, cost), effectiveReach };
 }
 
+/**
+ * Pre-launch plan totals across a campaign's channels (FRS §4-5). Sums the
+ * promised reach and quoted cost, and compares the spend to the budget so the
+ * planner can sanity-check before launch. All money in paise.
+ */
+export function campaignPlanTotals(
+  channels: { promisedReach?: number | null; quotedCost?: number | null }[],
+  budget: number,
+): { promisedReach: number; quotedCost: number; budgetUsedPct: number | null; overBudget: boolean } {
+  const promisedReach = channels.reduce((s, c) => s + (c.promisedReach ?? 0), 0);
+  const quotedCost = channels.reduce((s, c) => s + (c.quotedCost ?? 0), 0);
+  const budgetUsedPct = budget > 0 ? Math.round((quotedCost / budget) * 100) : null;
+  const overBudget = budget > 0 && quotedCost > budget;
+  return { promisedReach, quotedCost, budgetUsedPct, overBudget };
+}
+
 export interface CampaignMetrics {
   leads: number;
   leads24h: number;

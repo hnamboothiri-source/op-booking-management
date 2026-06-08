@@ -83,6 +83,39 @@ export async function addCampaignChannel(campaignId: string, fd: FormData): Prom
   revalidatePath(`/campaigns/${campaignId}`);
 }
 
+/** Revise a campaign's pre-launch plan (area, audience, budget, dates) — FRS §1-2. */
+export async function updateCampaignPlan(campaignId: string, fd: FormData): Promise<void> {
+  const user = await requireCan("campaigns", "edit");
+  const budgetRupees = str(fd, "budget");
+  const start = str(fd, "startDate");
+  const end = str(fd, "endDate");
+  await prisma.campaign.update({
+    where: { id: campaignId },
+    data: {
+      budget: budgetRupees ? Math.round(parseFloat(budgetRupees) * 100) : 0,
+      startDate: start ? new Date(start) : null,
+      endDate: end ? new Date(end) : null,
+      targetLocation: str(fd, "targetLocation"),
+      targetDistrict: str(fd, "targetDistrict"),
+      targetDisease: str(fd, "targetDisease"),
+      targetAgeMin: num(fd, "targetAgeMin"),
+      targetAgeMax: num(fd, "targetAgeMax"),
+      targetGender: str(fd, "targetGender"),
+      targetAudience: str(fd, "targetAudience"),
+    },
+  });
+  await writeAudit({ actorId: user.id, action: "campaign.update_plan", entity: "campaign", entityId: campaignId });
+  revalidatePath(`/campaigns/${campaignId}`);
+}
+
+/** Drop a channel line-item from a campaign plan. */
+export async function removeCampaignChannel(channelId: string, campaignId: string): Promise<void> {
+  const user = await requireCan("campaigns", "edit");
+  await prisma.campaignChannel.delete({ where: { id: channelId } });
+  await writeAudit({ actorId: user.id, action: "campaign.remove_channel", entity: "campaign_channel", entityId: channelId });
+  revalidatePath(`/campaigns/${campaignId}`);
+}
+
 /** Record a channel's achieved reach (FRS §5). */
 export async function setAchievedReach(channelId: string, campaignId: string, fd: FormData): Promise<void> {
   const user = await requireCan("campaigns", "edit");
