@@ -1,20 +1,30 @@
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui";
+import { DrillCount } from "@/components/drill/DrillCount";
+import type { DrillEntity, DrillFilters } from "@prm/core";
 
 export const dynamic = "force-dynamic";
 
-function Table({ title, rows }: { title: string; rows: { label: string; value: number | string }[] }) {
+interface ReportRow {
+  label: string;
+  value: number | string;
+  drill?: { entity: DrillEntity; filters: DrillFilters };
+}
+
+function Table({ title, rows }: { title: string; rows: ReportRow[] }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white">
-      <div className="border-b border-slate-100 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase text-slate-500">{title}</div>
+    <div className="rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+      <div className="border-b border-slate-100 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">{title}</div>
       <table className="w-full text-sm">
         <tbody>
           {rows.length === 0 && <tr><td className="px-4 py-3 text-slate-400">No data.</td></tr>}
           {rows.map((r) => (
-            <tr key={r.label} className="border-t border-slate-100">
+            <tr key={r.label} className="border-t border-slate-100 dark:border-slate-700">
               <td className="px-4 py-2">{r.label}</td>
-              <td className="px-4 py-2 text-right font-medium">{r.value}</td>
+              <td className="px-4 py-2 text-right font-medium">
+                {r.drill ? <DrillCount value={r.value} entity={r.drill.entity} filters={r.drill.filters} label={`${title} · ${r.label}`} /> : r.value}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -54,12 +64,12 @@ export default async function Reports() {
         <a className={csvLink} href="/api/reports/export?type=admission-funnel">Admission funnel</a>
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
-        <Table title="Consultations by doctor" rows={byDoctor.map((r) => ({ label: dName(r.doctorId), value: r._count._all }))} />
-        <Table title="Consultation outcomes" rows={byOutcome.map((r) => ({ label: r.outcome.replace(/_/g, " "), value: r._count._all }))} />
-        <Table title="Patients by diagnosis category" rows={byDisease.map((r) => ({ label: disName(r.diseaseId), value: r._count._all }))} />
-        <Table title="Admission funnel" rows={admissionByStatus.map((r) => ({ label: r.status, value: r._count._all }))} />
-        <Table title="Appointments by status" rows={apptByStatus.map((r) => ({ label: r.status.replace(/_/g, " "), value: r._count._all }))} />
-        <Table title="Leads by source" rows={leadBySource.map((r) => ({ label: sName(r.sourceId), value: r._count._all }))} />
+        <Table title="Consultations by doctor" rows={byDoctor.map((r) => ({ label: dName(r.doctorId), value: r._count._all, drill: { entity: "consultations", filters: { doctorId: r.doctorId } } }))} />
+        <Table title="Consultation outcomes" rows={byOutcome.map((r) => ({ label: r.outcome.replace(/_/g, " "), value: r._count._all, drill: { entity: "consultations", filters: { outcome: r.outcome } } }))} />
+        <Table title="Patients by diagnosis category" rows={byDisease.map((r) => ({ label: disName(r.diseaseId), value: r._count._all, ...(r.diseaseId ? { drill: { entity: "consultations", filters: { diseaseId: r.diseaseId } } } : {}) }))} />
+        <Table title="Admission funnel" rows={admissionByStatus.map((r) => ({ label: r.status, value: r._count._all, drill: { entity: "admissions", filters: { status: r.status } } }))} />
+        <Table title="Appointments by status" rows={apptByStatus.map((r) => ({ label: r.status.replace(/_/g, " "), value: r._count._all, drill: { entity: "appointments", filters: { status: r.status } } }))} />
+        <Table title="Leads by source" rows={leadBySource.map((r) => ({ label: sName(r.sourceId), value: r._count._all, ...(r.sourceId ? { drill: { entity: "leads", filters: { sourceId: r.sourceId } } } : {}) }))} />
       </div>
     </div>
   );

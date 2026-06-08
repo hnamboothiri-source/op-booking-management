@@ -3,7 +3,10 @@ import { prisma } from "@/lib/db";
 import { recomputeKpis } from "@/lib/analytics/actions";
 import { computeCampaignKpis } from "@/lib/campaigns/metrics";
 import { conversionRate } from "@prm/core";
-import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
+import { PageHeader, Badge, SubmitButton } from "@/components/ui";
+import { DrillStat } from "@/components/drill/DrillStat";
+import { DrillCount } from "@/components/drill/DrillCount";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 const money = (p: number | null) => (p === null ? "—" : `₹${(p / 100).toLocaleString("en-IN")}`);
@@ -25,10 +28,11 @@ export default async function Analytics() {
       prisma.opBooking.count({ where: { branchId: b.id } }),
       prisma.consultation.count({ where: { branchId: b.id } }),
     ]);
-    return { name: b.name, leads, appointments, consultations, conv: conversionRate(consultations, leads) };
+    return { id: b.id, name: b.name, leads, appointments, consultations, conv: conversionRate(consultations, leads) };
   }));
 
-  const today = new Date(new Date().toISOString().slice(0, 10));
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const today = new Date(todayStr);
   const doctorRows = await Promise.all(doctors.map(async (d) => {
     const [consultations, admissionsRec, noShows, completedToday] = await Promise.all([
       prisma.consultation.count({ where: { doctorId: d.id } }),
@@ -38,10 +42,10 @@ export default async function Analytics() {
     ]);
     const target = d.dailyTarget ?? null;
     const targetCell = target === null ? "—" : `${completedToday}/${target}${completedToday >= target ? " ✓" : ""}`;
-    return { name: d.name, consultations, admissionsRec, noShows, targetCell };
+    return { id: d.id, name: d.name, consultations, admissionsRec, noShows, targetCell };
   }));
 
-  const campaignRows = (await Promise.all(campaigns.map(async (c) => ({ name: c.name, k: await computeCampaignKpis(c.id, c.budget) }))))
+  const campaignRows = (await Promise.all(campaigns.map(async (c) => ({ id: c.id, name: c.name, k: await computeCampaignKpis(c.id, c.budget) }))))
     .sort((a, b) => (b.k.roi ?? -Infinity) - (a.k.roi ?? -Infinity));
 
   const retentionCount = (c: string) => retention.find((r) => r.category === c)?._count._all ?? 0;
@@ -57,24 +61,47 @@ export default async function Analytics() {
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
         {["active", "at_risk", "dormant", "lost", "reactivated"].map((c) => (
-          <Card key={c}><div className="text-2xl font-bold">{retentionCount(c)}</div><div className="text-xs text-slate-500">{c.replace(/_/g, " ")}</div></Card>
+          <DrillStat key={c} label={c.replace(/_/g, " ")} value={retentionCount(c)} entity="retention" filters={{ category: c }} />
         ))}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title="Branch performance" head={["Branch", "Leads", "Appts", "Consults", "Conv"]} rows={branchRows.map((r) => [r.name, r.leads, r.appointments, r.consultations, `${r.conv}%`])} />
-        <Panel title="Doctor performance (Today vs target)" head={["Doctor", "Today/target", "Consults", "Adm. rec", "No-shows"]} rows={doctorRows.map((r) => [r.name, r.targetCell, r.consultations, r.admissionsRec, r.noShows])} />
+        <Panel
+          title="Branch performance"
+          head={["Branch", "Leads", "Appts", "Consults", "Conv"]}
+          rows={branchRows.map((r) => [
+            r.name,
+            <DrillCount value={r.leads} entity="leads" filters={{ branchId: r.id }} label={`${r.name} · leads`} />,
+            <DrillCount value={r.appointments} entity="appointments" filters={{ branchId: r.id }} label={`${r.name} · appointments`} />,
+            <DrillCount value={r.consultations} entity="consultations" filters={{ branchId: r.id }} label={`${r.name} · consultations`} />,
+            `${r.conv}%`,
+          ])}
+        />
+        <Panel
+          title="Doctor performance (Today vs target)"
+          head={["Doctor", "Today/target", "Consults", "Adm. rec", "No-shows"]}
+          rows={doctorRows.map((r) => [
+            r.name,
+            <DrillCount value={r.targetCell} entity="appointments" filters={{ doctorId: r.id, date: todayStr, status: "completed" }} label={`${r.name} · completed today`} />,
+            <DrillCount value={r.consultations} entity="consultations" filters={{ doctorId: r.id }} label={`${r.name} · consultations`} />,
+            <DrillCount value={r.admissionsRec} entity="admissions" filters={{ doctorId: r.id }} label={`${r.name} · admission recs`} />,
+            <DrillCount value={r.noShows} entity="appointments" filters={{ doctorId: r.id, status: "no_show" }} label={`${r.name} · no-shows`} />,
+          ])}
+        />
       </div>
 
-      <h2 className="mb-2 mt-6 text-sm font-semibold uppercase tracking-wide text-slate-500">Campaign ROI</h2>
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <h2 className="mb-2 mt-6 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Campaign ROI</h2>
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="px-4 py-2">Campaign</th><th className="px-4 py-2">Spend</th><th className="px-4 py-2">Leads</th><th className="px-4 py-2">Admits</th><th className="px-4 py-2">Revenue</th><th className="px-4 py-2">ROI</th></tr></thead>
+          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 dark:bg-slate-900 dark:text-slate-400"><tr><th className="px-4 py-2">Campaign</th><th className="px-4 py-2">Spend</th><th className="px-4 py-2">Leads</th><th className="px-4 py-2">Admits</th><th className="px-4 py-2">Revenue</th><th className="px-4 py-2">ROI</th></tr></thead>
           <tbody>
             {campaignRows.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">No campaigns.</td></tr>}
             {campaignRows.map((r) => (
-              <tr key={r.name} className="border-t border-slate-100">
-                <td className="px-4 py-2">{r.name}</td><td className="px-4 py-2">{money(r.k.spend)}</td><td className="px-4 py-2">{r.k.leads}</td><td className="px-4 py-2">{r.k.admissions}</td><td className="px-4 py-2">{money(r.k.revenue)}</td>
+              <tr key={r.id} className="border-t border-slate-100 dark:border-slate-700">
+                <td className="px-4 py-2"><Link href={`/campaigns/${r.id}`} className="font-medium text-emerald-700 hover:underline dark:text-emerald-400">{r.name}</Link></td>
+                <td className="px-4 py-2">{money(r.k.spend)}</td>
+                <td className="px-4 py-2"><DrillCount value={r.k.leads} entity="leads" filters={{ campaignId: r.id }} label={`${r.name} · leads`} /></td>
+                <td className="px-4 py-2">{r.k.admissions}</td><td className="px-4 py-2">{money(r.k.revenue)}</td>
                 <td className="px-4 py-2">{r.k.roi === null ? "—" : <Badge tone={r.k.roi >= 0 ? "green" : "red"}>{r.k.roi}%</Badge>}</td>
               </tr>
             ))}
@@ -85,16 +112,16 @@ export default async function Analytics() {
   );
 }
 
-function Panel({ title, head, rows }: { title: string; head: string[]; rows: (string | number)[][] }) {
+function Panel({ title, head, rows }: { title: string; head: string[]; rows: React.ReactNode[][] }) {
   return (
     <div>
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">{title}</h2>
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</h2>
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr>{head.map((h) => <th key={h} className="px-4 py-2">{h}</th>)}</tr></thead>
+          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 dark:bg-slate-900 dark:text-slate-400"><tr>{head.map((h) => <th key={h} className="px-4 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {rows.length === 0 && <tr><td colSpan={head.length} className="px-4 py-6 text-center text-slate-400">No data.</td></tr>}
-            {rows.map((r, i) => <tr key={i} className="border-t border-slate-100">{r.map((c, j) => <td key={j} className="px-4 py-2">{c}</td>)}</tr>)}
+            {rows.map((r, i) => <tr key={i} className="border-t border-slate-100 dark:border-slate-700">{r.map((c, j) => <td key={j} className="px-4 py-2">{c}</td>)}</tr>)}
           </tbody>
         </table>
       </div>

@@ -5,6 +5,7 @@ import { createCampaign } from "@/lib/campaigns/actions";
 import { computeCampaignKpis } from "@/lib/campaigns/metrics";
 import { can } from "@prm/core";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
+import { DrillCount } from "@/components/drill/DrillCount";
 
 export const dynamic = "force-dynamic";
 const input = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm";
@@ -49,9 +50,9 @@ export default async function Campaigns() {
             {rows.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">No campaigns yet.</td></tr>}
             {rows.map(({ c, k }) => (
               <tr key={c.id} className="border-t border-slate-100">
-                <td className="px-4 py-2"><Link href={`/campaigns/${c.id}`} className="font-medium text-emerald-700 hover:underline">{c.name}</Link><div className="text-xs text-slate-400">{c.type.replace(/_/g, " ")}</div></td>
+                <td className="px-4 py-2"><Link href={`/campaigns/${c.id}`} className="font-medium text-emerald-700 hover:underline dark:text-emerald-400">{c.name}</Link><div className="text-xs text-slate-400">{c.type.replace(/_/g, " ")}</div></td>
                 <td className="px-4 py-2">{money(k.spend)}</td>
-                <td className="px-4 py-2">{k.leads}</td>
+                <td className="px-4 py-2"><DrillCount value={k.leads} entity="leads" filters={{ campaignId: c.id }} label={`${c.name} · leads`} /></td>
                 <td className="px-4 py-2">{k.consultations}</td>
                 <td className="px-4 py-2">{k.admissions}</td>
                 <td className="px-4 py-2">{money(k.costPerLead)}</td>

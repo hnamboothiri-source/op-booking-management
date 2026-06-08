@@ -4,40 +4,54 @@ import { prisma } from "@/lib/db";
 import { transitionAdmission } from "@/lib/admissions/actions";
 import { nextAdmissionStatuses, admissionNeedsReason, admissionConversionRate, can, type AdmissionStatus } from "@prm/core";
 import { PageHeader, Badge, Card } from "@/components/ui";
+import { DRILL, listFilters } from "@/lib/drill/registry";
+import { DrillStat } from "@/components/drill/DrillStat";
+import { ActiveFilters } from "@/components/drill/ActiveFilters";
 
 export const dynamic = "force-dynamic";
 
 const REJECTION_REASONS = ["cost_concern", "family_decision_pending", "seeking_second_opinion", "travel_difficulty", "fear_of_admission", "treatment_postponed", "chose_another_hospital"];
+const PENDING_STATUSES = "recommended,counselled,interested,postponed,accepted";
 const TONE: Record<string, "slate" | "green" | "amber" | "red" | "blue"> = {
   recommended: "blue", counselled: "amber", interested: "amber", postponed: "slate",
   accepted: "green", admitted: "green", rejected: "red", lost: "red",
 };
 
-export default async function Admissions() {
+export default async function Admissions({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireCan("admissions", "view");
   const canEdit = can(user.role, "admissions", "edit");
+  const filters = listFilters("admissions", await searchParams);
 
-  const recs = await prisma.admissionRecommendation.findMany({
-    include: { patient: true, package: true },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  });
-  const admitted = recs.filter((r) => r.status === "admitted").length;
-  const lost = recs.filter((r) => r.status === "rejected" || r.status === "lost").length;
-  const pending = recs.filter((r) => !["admitted", "rejected", "lost"].includes(r.status)).length;
+  const [recs, groups] = await Promise.all([
+    prisma.admissionRecommendation.findMany({
+      where: DRILL.admissions.buildWhere(filters),
+      include: { patient: true, package: true },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    }),
+    // Unfiltered status totals for the drill tiles.
+    prisma.admissionRecommendation.groupBy({ by: ["status"], _count: { _all: true } }),
+  ]);
+  const cnt = (s: string) => groups.find((g) => g.status === s)?._count._all ?? 0;
+  const total = groups.reduce((a, g) => a + g._count._all, 0);
+  const admitted = cnt("admitted");
+  const lost = cnt("rejected") + cnt("lost");
+  const pending = total - admitted - lost;
 
   return (
     <div>
       <PageHeader title="Admission conversion" subtitle="Track advised admissions and improve conversion (Module 10)" />
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Card><div className="text-2xl font-bold">{recs.length}</div><div className="text-xs text-slate-500">Recommended</div></Card>
-        <Card><div className="text-2xl font-bold">{pending}</div><div className="text-xs text-slate-500">In funnel</div></Card>
-        <Card><div className="text-2xl font-bold">{admitted}</div><div className="text-xs text-slate-500">Admitted</div></Card>
-        <Card><div className="text-2xl font-bold">{admissionConversionRate(admitted, recs.length)}%</div><div className="text-xs text-slate-500">Conversion ({lost} lost)</div></Card>
+        <DrillStat label="Recommended" value={total} entity="admissions" filters={{}} />
+        <DrillStat label="In funnel" value={pending} entity="admissions" filters={{ status: PENDING_STATUSES }} />
+        <DrillStat label="Admitted" value={admitted} entity="admissions" filters={{ status: "admitted" }} />
+        <Card><div className="text-2xl font-bold">{admissionConversionRate(admitted, total)}%</div><div className="text-xs text-slate-500 dark:text-slate-400">Conversion ({lost} lost)</div></Card>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <ActiveFilters filters={filters} basePath="/admissions" />
+
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
             <tr><th className="px-4 py-2">Patient</th><th className="px-4 py-2">Package</th><th className="px-4 py-2">Est. cost</th><th className="px-4 py-2">Status</th>{canEdit && <th className="px-4 py-2">Actions</th>}</tr>

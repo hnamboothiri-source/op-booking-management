@@ -4,6 +4,9 @@ import { prisma } from "@/lib/db";
 import { createReferral, updateReferralStatus } from "@/lib/referrals/actions";
 import { can } from "@prm/core";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
+import { DRILL, listFilters } from "@/lib/drill/registry";
+import { DrillStat } from "@/components/drill/DrillStat";
+import { ActiveFilters } from "@/components/drill/ActiveFilters";
 
 export const dynamic = "force-dynamic";
 
@@ -11,29 +14,36 @@ const TYPES = ["patient_to_patient", "doctor", "hospital", "branch", "camp", "co
 const STATUSES = ["pending", "consulted", "admitted", "lost"];
 const input = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm";
 
-export default async function Referrals() {
+export default async function Referrals({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireCan("referrals", "view");
   const canEdit = can(user.role, "referrals", "edit");
+  const filters = listFilters("referrals", await searchParams);
 
-  const [refs, orgs, topReferrers] = await Promise.all([
-    prisma.referral.findMany({ include: { referrerPatient: true, referredPatient: true, organization: true }, orderBy: { createdAt: "desc" }, take: 200 }),
+  const [refs, orgs, topReferrers, statusGroups, revAgg] = await Promise.all([
+    prisma.referral.findMany({ where: DRILL.referrals.buildWhere(filters), include: { referrerPatient: true, referredPatient: true, organization: true }, orderBy: { createdAt: "desc" }, take: 200 }),
     prisma.organization.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.referral.groupBy({ by: ["referrerPatientMrd"], _count: { _all: true }, where: { referrerPatientMrd: { not: null } } }),
+    prisma.referral.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.referral.aggregate({ _sum: { revenue: true } }),
   ]);
-  const consulted = refs.filter((r) => r.status === "consulted" || r.status === "admitted").length;
-  const admitted = refs.filter((r) => r.status === "admitted").length;
-  const revenue = refs.reduce((s, r) => s + r.revenue, 0);
+  const cnt = (s: string) => statusGroups.find((g) => g.status === s)?._count._all ?? 0;
+  const total = statusGroups.reduce((a, g) => a + g._count._all, 0);
+  const consulted = cnt("consulted") + cnt("admitted");
+  const admitted = cnt("admitted");
+  const revenue = revAgg._sum.revenue ?? 0;
 
   return (
     <div>
       <PageHeader title="Referral management" subtitle="Track patient & doctor referrals and conversion (Module 6)" />
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Card><div className="text-2xl font-bold">{refs.length}</div><div className="text-xs text-slate-500">Referrals</div></Card>
-        <Card><div className="text-2xl font-bold">{consulted}</div><div className="text-xs text-slate-500">Consulted</div></Card>
-        <Card><div className="text-2xl font-bold">{admitted}</div><div className="text-xs text-slate-500">Admitted</div></Card>
-        <Card><div className="text-2xl font-bold">₹{(revenue / 100).toLocaleString("en-IN")}</div><div className="text-xs text-slate-500">Attributed revenue</div></Card>
+        <DrillStat label="Referrals" value={total} entity="referrals" filters={{}} />
+        <DrillStat label="Consulted" value={consulted} entity="referrals" filters={{ status: "consulted,admitted" }} />
+        <DrillStat label="Admitted" value={admitted} entity="referrals" filters={{ status: "admitted" }} />
+        <Card><div className="text-2xl font-bold">₹{(revenue / 100).toLocaleString("en-IN")}</div><div className="text-xs text-slate-500 dark:text-slate-400">Attributed revenue</div></Card>
       </div>
+
+      <ActiveFilters filters={filters} basePath="/referrals" />
 
       {can(user.role, "referrals", "create") && (
         <Card>

@@ -2,8 +2,8 @@ import Link from "next/link";
 import { MODULES, PHASES, type BuildStatus } from "@/lib/blueprint";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { can, conversionRate, branchScopeWhere } from "@prm/core";
-import { Card } from "@/components/ui";
+import { can, conversionRate, branchScopeWhere, type DrillEntity, type DrillFilters } from "@prm/core";
+import { DrillStat } from "@/components/drill/DrillStat";
 
 const STATUS_STYLE: Record<BuildStatus, string> = {
   done: "bg-green-100 text-green-800",
@@ -14,7 +14,8 @@ const STATUS_LABEL: Record<BuildStatus, string> = { done: "Done", in_progress: "
 
 async function ManagementKpis({ role, branchId }: { role: Parameters<typeof branchScopeWhere>[0]; branchId: string | null }) {
   const scope = branchScopeWhere(role, branchId);
-  const today = new Date(new Date().toISOString().slice(0, 10));
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const today = new Date(todayStr);
   const [totalLeads, converted, apptToday, completed, admissionsRec, pendingFu, dormant] = await Promise.all([
     prisma.lead.count({ where: scope }),
     prisma.lead.count({ where: { ...scope, stage: { in: ["appointment_booked", "converted_to_patient"] } } }),
@@ -24,21 +25,21 @@ async function ManagementKpis({ role, branchId }: { role: Parameters<typeof bran
     prisma.followUp.count({ where: { status: { in: ["pending", "booked"] } } }),
     prisma.patient.count({ where: { category: "dormant" } }),
   ]);
-  const tiles = [
-    { label: "Total leads", value: totalLeads },
-    { label: "Lead conversion", value: `${conversionRate(converted, totalLeads)}%` },
-    { label: "Appointments today", value: apptToday },
-    { label: "Consultations completed", value: completed },
-    { label: "Admissions recommended", value: admissionsRec },
-    { label: "Pending follow-ups", value: pendingFu },
-    { label: "Dormant patients", value: dormant },
+  const tiles: { label: string; value: React.ReactNode; entity: DrillEntity; filters: DrillFilters }[] = [
+    { label: "Total leads", value: totalLeads, entity: "leads", filters: {} },
+    { label: "Lead conversion", value: `${conversionRate(converted, totalLeads)}%`, entity: "leads", filters: { stage: "appointment_booked,converted_to_patient" } },
+    { label: "Appointments today", value: apptToday, entity: "appointments", filters: { date: todayStr } },
+    { label: "Consultations completed", value: completed, entity: "appointments", filters: { status: "completed" } },
+    { label: "Admissions recommended", value: admissionsRec, entity: "admissions", filters: {} },
+    { label: "Pending follow-ups", value: pendingFu, entity: "followups", filters: { status: "pending,booked" } },
+    { label: "Dormant patients", value: dormant, entity: "patients", filters: { category: "dormant" } },
   ];
   return (
     <section className="mb-10">
       <h2 className="mb-3 text-lg font-semibold">Management overview</h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         {tiles.map((t) => (
-          <Card key={t.label}><div className="text-2xl font-bold">{t.value}</div><div className="mt-1 text-xs text-slate-500">{t.label}</div></Card>
+          <DrillStat key={t.label} label={t.label} value={t.value} entity={t.entity} filters={t.filters} />
         ))}
       </div>
     </section>

@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { transitionBooking } from "@/lib/appointments/actions";
 import { nextBookingStatuses, branchScopeWhere, can, type BookingStatus } from "@prm/core";
 import { PageHeader, LinkButton, Badge } from "@/components/ui";
+import { DRILL, listFilters } from "@/lib/drill/registry";
+import { ActiveFilters } from "@/components/drill/ActiveFilters";
 
 export const dynamic = "force-dynamic";
 
@@ -12,32 +14,39 @@ const TONE: Record<string, "slate" | "green" | "amber" | "red" | "blue"> = {
   in_consultation: "blue", completed: "green", cancelled: "slate", no_show: "red", rescheduled: "slate",
 };
 
-export default async function Appointments({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
+export default async function Appointments({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireCan("appointments", "view");
-  const { date } = await searchParams;
-  const day = date ?? new Date().toISOString().slice(0, 10);
+  const filters = listFilters("appointments", await searchParams);
   const canEdit = can(user.role, "appointments", "edit");
 
+  // The plain worklist defaults to today; a drill-down with other filters
+  // (status, doctor, …) and no explicit date spans all dates instead.
+  const today = new Date().toISOString().slice(0, 10);
+  const hasOtherFilters = Object.keys(filters).some((k) => k !== "date");
+  const day = filters.date ?? (hasOtherFilters ? undefined : today);
+  const effective = day ? { ...filters, date: day } : filters;
+
   const bookings = await prisma.opBooking.findMany({
-    where: { appointmentDate: new Date(day), ...branchScopeWhere(user.role, user.branchId) },
+    where: { ...branchScopeWhere(user.role, user.branchId), ...DRILL.appointments.buildWhere(effective) },
     include: { patient: true, doctor: true, department: true, room: true },
-    orderBy: { startTime: "asc" },
+    orderBy: [{ appointmentDate: "asc" }, { startTime: "asc" }],
   });
 
   return (
     <div>
       <PageHeader
         title="Appointments"
-        subtitle={`${bookings.length} on ${day}`}
+        subtitle={`${bookings.length} appointment${bookings.length === 1 ? "" : "s"}${day ? ` on ${day}` : ""}`}
         action={<div className="flex gap-2"><LinkButton href="/appointments/schedules" tone="ghost">Schedules</LinkButton><LinkButton href="/appointments/walk-in" tone="ghost">Walk-in</LinkButton><LinkButton href="/appointments/book">+ Book</LinkButton></div>}
       />
+      <ActiveFilters filters={filters} basePath="/appointments" />
       <form className="mb-4 flex items-center gap-2 text-sm" action="/appointments">
         <label className="text-slate-500">Date</label>
-        <input type="date" name="date" defaultValue={day} className="rounded-md border border-slate-300 px-2 py-1.5" />
+        <input type="date" name="date" defaultValue={day ?? today} className="rounded-md border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-800" />
         <button className="rounded-md bg-slate-700 px-3 py-1.5 font-medium text-white">Go</button>
       </form>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
             <tr>

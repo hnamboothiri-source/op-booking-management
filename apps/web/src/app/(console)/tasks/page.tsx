@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { createTask, transitionTask } from "@/lib/tasks/actions";
 import { canTransition, effectiveStatus, can, type TaskStatus } from "@prm/core";
 import { PageHeader, Badge, SubmitButton } from "@/components/ui";
+import { DRILL, listFilters } from "@/lib/drill/registry";
+import { ActiveFilters } from "@/components/drill/ActiveFilters";
 
 export const dynamic = "force-dynamic";
 
@@ -16,13 +18,14 @@ const TASK_TYPES = [
 ];
 const NEXT_STATES: TaskStatus[] = ["in_progress", "completed", "escalated", "cancelled"];
 
-export default async function TasksPage() {
+export default async function TasksPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireCan("tasks", "view");
   const canEdit = can(user.role, "tasks", "edit");
   const canCreate = can(user.role, "tasks", "create");
+  const filters = listFilters("tasks", await searchParams);
 
   const [tasks, staff] = await Promise.all([
-    prisma.task.findMany({ include: { assignee: true }, orderBy: { createdAt: "desc" }, take: 100 }),
+    prisma.task.findMany({ where: DRILL.tasks.buildWhere(filters), include: { assignee: true }, orderBy: { createdAt: "desc" }, take: 100 }),
     prisma.staffUser.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
   const now = new Date();
@@ -30,6 +33,7 @@ export default async function TasksPage() {
   return (
     <div>
       <PageHeader title="Tasks" subtitle="Module 15 — accountability across teams" />
+      <ActiveFilters filters={filters} basePath="/tasks" />
 
       {canCreate && (
         <form action={createTask} className="mb-6 grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-5">

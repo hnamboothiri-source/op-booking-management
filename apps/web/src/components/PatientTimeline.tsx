@@ -71,13 +71,13 @@ const chipOn = "bg-emerald-600 text-white";
 const chipOff =
   "border border-slate-300 text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800";
 
-export function PatientTimeline({ events }: { events: TimelineEvent[] }) {
+export function PatientTimeline({ events, initialKind }: { events: TimelineEvent[]; initialKind?: TimelineKind }) {
   const presentKinds = useMemo(() => {
     const have = new Set(events.map((e) => e.kind));
     return KIND_ORDER.filter((k) => have.has(k));
   }, [events]);
 
-  const [active, setActive] = useState<Set<TimelineKind>>(new Set());
+  const [active, setActive] = useState<Set<TimelineKind>>(() => (initialKind ? new Set([initialKind]) : new Set()));
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 

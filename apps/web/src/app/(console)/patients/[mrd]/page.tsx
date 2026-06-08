@@ -2,17 +2,22 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { can } from "@prm/core";
+import { can, type DrillEntity } from "@prm/core";
 import { setConsent } from "@/lib/communication/actions";
 import { addPatientDocument, deletePatientDocument } from "@/lib/patients/actions";
 import { PageHeader, Badge, Card, LinkButton, SubmitButton } from "@/components/ui";
+import { DrillHeader } from "@/components/drill/DrillHeader";
 
 export const dynamic = "force-dynamic";
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, drill }: { title: string; children: React.ReactNode; drill?: { entity: DrillEntity; mrd: string } }) {
   return (
     <div className="mb-6">
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">{title}</h2>
+      {drill ? (
+        <DrillHeader title={title} entity={drill.entity} filters={{ patientMrd: drill.mrd }} />
+      ) : (
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{title}</h2>
+      )}
       {children}
     </div>
   );
@@ -68,7 +73,7 @@ export default async function PatientDetail({ params }: { params: Promise<{ mrd:
         </Section>
       )}
 
-      <Section title={`Appointments (${patient.bookings.length})`}>
+      <Section title={`Appointments (${patient.bookings.length})`} drill={{ entity: "appointments", mrd: patient.mrd }}>
         <div className="space-y-1">
           {patient.bookings.length === 0 && <p className="text-sm text-slate-400">None.</p>}
           {patient.bookings.map((b) => (
@@ -80,13 +85,13 @@ export default async function PatientDetail({ params }: { params: Promise<{ mrd:
         </div>
       </Section>
 
-      <Section title={`Leads (${patient.leads.length})`}>
+      <Section title={`Leads (${patient.leads.length})`} drill={{ entity: "leads", mrd: patient.mrd }}>
         {patient.leads.length === 0 ? <p className="text-sm text-slate-400">None.</p> : patient.leads.map((l) => (
           <div key={l.id} className="rounded border border-slate-100 bg-white px-3 py-2 text-sm">{l.contactName} · {l.stage.replace(/_/g, " ")}</div>
         ))}
       </Section>
 
-      <Section title={`Follow-ups (${patient.followUps.length})`}>
+      <Section title={`Follow-ups (${patient.followUps.length})`} drill={{ entity: "followups", mrd: patient.mrd }}>
         {patient.followUps.length === 0 ? <p className="text-sm text-slate-400">None.</p> : patient.followUps.map((f) => (
           <div key={f.id} className="flex items-center justify-between rounded border border-slate-100 bg-white px-3 py-2 text-sm">
             <span>{f.type.replace(/_/g, " ")} · due {f.dueDate.toISOString().slice(0, 10)}</span><Badge>{f.status}</Badge>
@@ -94,7 +99,7 @@ export default async function PatientDetail({ params }: { params: Promise<{ mrd:
         ))}
       </Section>
 
-      <Section title={`Admission recommendations (${patient.admissionRecs.length})`}>
+      <Section title={`Admission recommendations (${patient.admissionRecs.length})`} drill={{ entity: "admissions", mrd: patient.mrd }}>
         {patient.admissionRecs.length === 0 ? <p className="text-sm text-slate-400">None.</p> : patient.admissionRecs.map((a) => (
           <div key={a.id} className="flex items-center justify-between rounded border border-slate-100 bg-white px-3 py-2 text-sm">
             <span>{a.package?.name ?? "Admission"}{a.estimatedCost ? ` · ₹${(a.estimatedCost / 100).toLocaleString("en-IN")}` : ""}</span><Badge tone={a.status === "admitted" ? "green" : a.status === "rejected" || a.status === "lost" ? "red" : "blue"}>{a.status}</Badge>
@@ -102,7 +107,7 @@ export default async function PatientDetail({ params }: { params: Promise<{ mrd:
         ))}
       </Section>
 
-      <Section title={`Referrals (given ${patient.referralsGiven.length} · received ${patient.referralsGot.length})`}>
+      <Section title={`Referrals (given ${patient.referralsGiven.length} · received ${patient.referralsGot.length})`} drill={{ entity: "referrals", mrd: patient.mrd }}>
         {patient.referralsGiven.length === 0 && patient.referralsGot.length === 0 ? <p className="text-sm text-slate-400">None.</p> : (
           <>
             {patient.referralsGiven.map((r) => <div key={r.id} className="rounded border border-slate-100 bg-white px-3 py-2 text-sm">Gave a {r.type.replace(/_/g, " ")} referral · {r.status}</div>)}
@@ -111,7 +116,7 @@ export default async function PatientDetail({ params }: { params: Promise<{ mrd:
         )}
       </Section>
 
-      <Section title={`Communication (${patient.communications.length})`}>
+      <Section title={`Communication (${patient.communications.length})`} drill={{ entity: "communications", mrd: patient.mrd }}>
         {patient.communications.length === 0 ? <p className="text-sm text-slate-400">None.</p> : patient.communications.map((c) => (
           <div key={c.id} className="rounded border border-slate-100 bg-white px-3 py-2 text-sm">{c.channel} → {c.toAddress} · {c.status}</div>
         ))}

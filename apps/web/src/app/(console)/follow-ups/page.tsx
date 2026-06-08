@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { createFollowUp, transitionFollowUp } from "@/lib/followups/actions";
 import { can } from "@prm/core";
 import { PageHeader, Card, Badge, SubmitButton, LinkButton } from "@/components/ui";
+import { DRILL, listFilters } from "@/lib/drill/registry";
+import { ActiveFilters } from "@/components/drill/ActiveFilters";
 
 export const dynamic = "force-dynamic";
 
@@ -31,13 +33,17 @@ function Row({ f, canEdit }: { f: { id: string; type: string; dueDate: Date; sta
   );
 }
 
-export default async function FollowUps() {
+export default async function FollowUps({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireCan("follow_ups", "view");
   const canEdit = can(user.role, "follow_ups", "edit");
   const today = new Date(new Date().toISOString().slice(0, 10));
+  const filters = listFilters("followups", await searchParams);
+  const filtered = Object.keys(filters).length > 0;
 
+  // Default view = the open worklist grouped by urgency. A drill-down filter
+  // (e.g. status, type) switches to a flat filtered list.
   const open = await prisma.followUp.findMany({
-    where: { status: { in: ["pending", "booked"] } },
+    where: filtered ? DRILL.followups.buildWhere(filters) : { status: { in: ["pending", "booked"] } },
     include: { patient: true },
     orderBy: { dueDate: "asc" },
     take: 300,
@@ -68,20 +74,28 @@ export default async function FollowUps() {
         </Card>
       )}
 
-      <div className="mt-6 space-y-6">
-        <section>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-red-600">Overdue ({overdue.length})</h2>
-          <div className="space-y-1">{overdue.length === 0 ? <p className="text-sm text-slate-400">None.</p> : overdue.map((f) => <Row key={f.id} f={f} canEdit={canEdit} />)}</div>
-        </section>
-        <section>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-amber-600">Due today ({dueToday.length})</h2>
-          <div className="space-y-1">{dueToday.length === 0 ? <p className="text-sm text-slate-400">None.</p> : dueToday.map((f) => <Row key={f.id} f={f} canEdit={canEdit} />)}</div>
-        </section>
-        <section>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Upcoming ({upcoming.length})</h2>
-          <div className="space-y-1">{upcoming.length === 0 ? <p className="text-sm text-slate-400">None.</p> : upcoming.slice(0, 50).map((f) => <Row key={f.id} f={f} canEdit={canEdit} />)}</div>
-        </section>
-      </div>
+      <div className="mt-6"><ActiveFilters filters={filters} basePath="/follow-ups" /></div>
+
+      {filtered ? (
+        <div className="space-y-1">
+          {open.length === 0 ? <p className="text-sm text-slate-400">No matching follow-ups.</p> : open.map((f) => <Row key={f.id} f={f} canEdit={canEdit} />)}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <section>
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-red-600">Overdue ({overdue.length})</h2>
+            <div className="space-y-1">{overdue.length === 0 ? <p className="text-sm text-slate-400">None.</p> : overdue.map((f) => <Row key={f.id} f={f} canEdit={canEdit} />)}</div>
+          </section>
+          <section>
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-amber-600">Due today ({dueToday.length})</h2>
+            <div className="space-y-1">{dueToday.length === 0 ? <p className="text-sm text-slate-400">None.</p> : dueToday.map((f) => <Row key={f.id} f={f} canEdit={canEdit} />)}</div>
+          </section>
+          <section>
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Upcoming ({upcoming.length})</h2>
+            <div className="space-y-1">{upcoming.length === 0 ? <p className="text-sm text-slate-400">None.</p> : upcoming.slice(0, 50).map((f) => <Row key={f.id} f={f} canEdit={canEdit} />)}</div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

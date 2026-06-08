@@ -3,17 +3,20 @@ import { prisma } from "@/lib/db";
 import { sendBulk } from "@/lib/communication/actions";
 import MessageComposer from "@/components/MessageComposer";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
+import { DRILL, listFilters } from "@/lib/drill/registry";
+import { ActiveFilters } from "@/components/drill/ActiveFilters";
 
 export const dynamic = "force-dynamic";
 const input = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm";
 const CHANNELS = ["whatsapp", "sms", "email"];
 const CATEGORIES = ["new_patient", "repeat_patient", "high_value", "dormant", "at_risk", "vip"];
 
-export default async function Communication() {
+export default async function Communication({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   await requireCan("communication", "view");
+  const filters = listFilters("communications", await searchParams);
   const [templates, logs] = await Promise.all([
     prisma.communicationTemplate.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
-    prisma.communicationLog.findMany({ include: { patient: true, template: true }, orderBy: { createdAt: "desc" }, take: 100 }),
+    prisma.communicationLog.findMany({ where: DRILL.communications.buildWhere(filters), include: { patient: true, template: true }, orderBy: { createdAt: "desc" }, take: 100 }),
   ]);
 
   return (
@@ -41,7 +44,8 @@ export default async function Communication() {
       </div>
 
       <h2 className="mb-2 mt-8 text-sm font-semibold uppercase tracking-wide text-slate-500">Recent messages ({logs.length})</h2>
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <ActiveFilters filters={filters} basePath="/communication" />
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="px-4 py-2">When</th><th className="px-4 py-2">Channel</th><th className="px-4 py-2">To</th><th className="px-4 py-2">Patient</th><th className="px-4 py-2">Status</th></tr></thead>
           <tbody>

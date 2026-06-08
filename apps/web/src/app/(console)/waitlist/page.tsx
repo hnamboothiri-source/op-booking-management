@@ -4,16 +4,20 @@ import { prisma } from "@/lib/db";
 import { addToWaitlist, promoteWaitlist, cancelWaitlist } from "@/lib/waitlist/actions";
 import { sortWaitlist, can } from "@prm/core";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
+import { DRILL, listFilters } from "@/lib/drill/registry";
+import { ActiveFilters } from "@/components/drill/ActiveFilters";
 
 export const dynamic = "force-dynamic";
 const input = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm";
 
-export default async function Waitlist() {
+export default async function Waitlist({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireCan("appointments", "view");
   const canEdit = can(user.role, "appointments", "edit");
+  const filters = listFilters("waitlist", await searchParams);
+  const hasFilter = Object.keys(filters).length > 0;
 
   const [waiting, departments, doctors] = await Promise.all([
-    prisma.waitlistEntry.findMany({ where: { status: "waiting" }, include: { patient: true, doctor: true } }),
+    prisma.waitlistEntry.findMany({ where: hasFilter ? DRILL.waitlist.buildWhere(filters) : { status: "waiting" }, include: { patient: true, doctor: true } }),
     prisma.department.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.doctor.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
@@ -23,6 +27,7 @@ export default async function Waitlist() {
   return (
     <div>
       <PageHeader title="Waitlist" subtitle="Promote in priority then FIFO order (Module 3)" />
+      <ActiveFilters filters={filters} basePath="/waitlist" />
 
       {can(user.role, "appointments", "create") && (
         <Card>

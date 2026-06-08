@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/session";
 import { logout } from "@/lib/auth-actions";
 import { can, type Resource } from "@prm/core";
+import { DrillProvider } from "@/components/drill/DrillProvider";
 
 // Nav items with an implemented route, shown when the role can view the resource.
 const NAV: { href: string; label: string; resource: Resource }[] = [
@@ -12,6 +13,7 @@ const NAV: { href: string; label: string; resource: Resource }[] = [
   { href: "/appointments", label: "Appointments", resource: "appointments" },
   { href: "/waitlist", label: "Waitlist", resource: "appointments" },
   { href: "/queue", label: "Queue", resource: "consultations" },
+  { href: "/consultations", label: "Consultations", resource: "consultations" },
   { href: "/admissions", label: "Admissions", resource: "admissions" },
   { href: "/patients", label: "Patients", resource: "patients" },
   { href: "/follow-ups", label: "Follow-ups", resource: "follow_ups" },
@@ -60,7 +62,9 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
           </div>
         </div>
       </header>
-      <div className="mx-auto max-w-6xl px-6 py-8">{children}</div>
+      <div className="mx-auto max-w-6xl px-6 py-8">
+        <DrillProvider>{children}</DrillProvider>
+      </div>
     </div>
   );
 }

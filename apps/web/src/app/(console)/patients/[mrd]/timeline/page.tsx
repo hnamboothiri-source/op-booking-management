@@ -4,12 +4,16 @@ import { prisma } from "@/lib/db";
 import { PageHeader, LinkButton } from "@/components/ui";
 import { PatientTimeline } from "@/components/PatientTimeline";
 import { mockPatientTimeline } from "@/lib/patients/timeline-mock";
+import type { TimelineKind } from "@prm/core";
 
 export const dynamic = "force-dynamic";
 
-export default async function PatientTimelinePage({ params }: { params: Promise<{ mrd: string }> }) {
+const KINDS = ["booking", "consultation", "call", "lead", "follow_up", "communication", "admission", "referral", "waitlist", "document"];
+
+export default async function PatientTimelinePage({ params, searchParams }: { params: Promise<{ mrd: string }>; searchParams: Promise<{ kind?: string }> }) {
   const { mrd: raw } = await params;
   const mrd = decodeURIComponent(raw);
+  const { kind } = await searchParams;
   await requireCan("patients", "view");
 
   // Best-effort name for the header; the timeline feed itself is still mock
@@ -17,6 +21,7 @@ export default async function PatientTimelinePage({ params }: { params: Promise<
   const patient = await prisma.patient.findUnique({ where: { mrd }, select: { name: true } });
 
   const events = mockPatientTimeline();
+  const initialKind = kind && KINDS.includes(kind) ? (kind as TimelineKind) : undefined;
 
   return (
     <div>
@@ -33,7 +38,7 @@ export default async function PatientTimelinePage({ params }: { params: Promise<
         Showing sample data — the timeline is not yet wired to the database.
       </p>
 
-      <PatientTimeline events={events} />
+      <PatientTimeline events={events} initialKind={initialKind} />
     </div>
   );
 }

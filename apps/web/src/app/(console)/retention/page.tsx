@@ -4,15 +4,20 @@ import { prisma } from "@/lib/db";
 import { recomputeRetention, assignSuccessOwner, markReactivated } from "@/lib/retention/actions";
 import { can } from "@prm/core";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
+import { DRILL, listFilters } from "@/lib/drill/registry";
+import { DrillStat } from "@/components/drill/DrillStat";
+import { ActiveFilters } from "@/components/drill/ActiveFilters";
 
 export const dynamic = "force-dynamic";
 
-export default async function Retention() {
+export default async function Retention({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireCan("retention", "view");
   const canEdit = can(user.role, "retention", "edit");
+  const filters = listFilters("retention", await searchParams);
+  const activeCat = filters.category;
 
   const [statuses, staff, counts] = await Promise.all([
-    prisma.retentionStatus.findMany({ include: { patient: true }, orderBy: { riskScore: "desc" }, take: 300 }),
+    prisma.retentionStatus.findMany({ where: activeCat ? DRILL.retention.buildWhere(filters) : {}, include: { patient: true }, orderBy: { riskScore: "desc" }, take: 300 }),
     prisma.staffUser.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.retentionStatus.groupBy({ by: ["category"], _count: { _all: true } }),
   ]);
@@ -30,20 +35,24 @@ export default async function Retention() {
       />
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <Card><div className="text-2xl font-bold">{countOf("active")}</div><div className="text-xs text-slate-500">Active</div></Card>
-        <Card><div className="text-2xl font-bold text-amber-600">{countOf("at_risk")}</div><div className="text-xs text-slate-500">At risk</div></Card>
-        <Card><div className="text-2xl font-bold text-red-600">{countOf("dormant")}</div><div className="text-xs text-slate-500">Dormant</div></Card>
-        <Card><div className="text-2xl font-bold text-red-700">{countOf("lost")}</div><div className="text-xs text-slate-500">Lost</div></Card>
-        <Card><div className="text-2xl font-bold text-emerald-600">{countOf("reactivated")}</div><div className="text-xs text-slate-500">Reactivated</div></Card>
+        <DrillStat label="Active" value={countOf("active")} entity="retention" filters={{ category: "active" }} />
+        <DrillStat label="At risk" value={countOf("at_risk")} entity="retention" filters={{ category: "at_risk" }} />
+        <DrillStat label="Dormant" value={countOf("dormant")} entity="retention" filters={{ category: "dormant" }} />
+        <DrillStat label="Lost" value={countOf("lost")} entity="retention" filters={{ category: "lost" }} />
+        <DrillStat label="Reactivated" value={countOf("reactivated")} entity="retention" filters={{ category: "reactivated" }} />
       </div>
 
-      {statuses.length === 0 && <p className="text-sm text-slate-400">No retention data yet. Click <strong>Recompute scores</strong> to evaluate all patients.</p>}
+      <ActiveFilters filters={filters} basePath="/retention" />
 
-      {dormant.length > 0 && (
-        <Section title={`Dormant / lost (${dormant.length})`} rows={dormant} staff={staff} canEdit={canEdit} owners={owners} />
-      )}
-      {atRisk.length > 0 && (
-        <Section title={`At risk (${atRisk.length})`} rows={atRisk} staff={staff} canEdit={canEdit} owners={owners} />
+      {statuses.length === 0 && <p className="text-sm text-slate-400">No retention data {activeCat ? "in this category" : "yet"}. {!activeCat && <>Click <strong>Recompute scores</strong> to evaluate all patients.</>}</p>}
+
+      {activeCat ? (
+        statuses.length > 0 && <Section title={`${activeCat.replace(/_/g, " ")} (${statuses.length})`} rows={statuses} staff={staff} canEdit={canEdit} owners={owners} />
+      ) : (
+        <>
+          {dormant.length > 0 && <Section title={`Dormant / lost (${dormant.length})`} rows={dormant} staff={staff} canEdit={canEdit} owners={owners} />}
+          {atRisk.length > 0 && <Section title={`At risk (${atRisk.length})`} rows={atRisk} staff={staff} canEdit={canEdit} owners={owners} />}
+        </>
       )}
     </div>
   );

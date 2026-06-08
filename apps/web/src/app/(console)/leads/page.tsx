@@ -3,19 +3,20 @@ import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { branchScopeWhere, can, LEAD_STAGES } from "@prm/core";
 import { PageHeader, LinkButton, Badge } from "@/components/ui";
+import { DRILL, listFilters } from "@/lib/drill/registry";
+import { ActiveFilters } from "@/components/drill/ActiveFilters";
 
 export const dynamic = "force-dynamic";
 
-export default async function LeadsPage({ searchParams }: { searchParams: Promise<{ stage?: string }> }) {
+export default async function LeadsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireCan("leads", "view");
-  const { stage } = await searchParams;
+  const filters = listFilters("leads", await searchParams);
+  const stage = filters.stage;
 
   const leads = await prisma.lead.findMany({
     where: {
       ...branchScopeWhere(user.role, user.branchId),
-      mergedIntoId: null, // hide leads merged into another
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ...(stage ? { stage: stage as any } : {}),
+      ...DRILL.leads.buildWhere(filters),
     },
     include: { source: true, owner: true, branch: true },
     orderBy: { createdAt: "desc" },
@@ -30,16 +31,18 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         action={can(user.role, "leads", "create") ? <LinkButton href="/leads/new">+ New lead</LinkButton> : undefined}
       />
 
+      <ActiveFilters filters={filters} basePath="/leads" />
+
       <div className="mb-4 flex flex-wrap gap-2 text-sm">
-        <Link href="/leads" className={`rounded-full px-3 py-1 ${!stage ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}>All</Link>
+        <Link href="/leads" className={`rounded-full px-3 py-1 ${!stage ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>All</Link>
         {LEAD_STAGES.map((s) => (
-          <Link key={s} href={`/leads?stage=${s}`} className={`rounded-full px-3 py-1 ${stage === s ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}>
+          <Link key={s} href={`/leads?stage=${s}`} className={`rounded-full px-3 py-1 ${stage === s ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>
             {s.replace(/_/g, " ")}
           </Link>
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
             <tr>
