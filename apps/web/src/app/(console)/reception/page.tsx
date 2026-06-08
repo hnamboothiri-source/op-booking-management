@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { branchScopeWhere } from "@prm/core";
 import { PageHeader, Card, SubmitButton } from "@/components/ui";
 import { LeadQueue } from "@/components/callcenter/queues";
-import { createLead } from "@/lib/leads/actions";
+import { createLead, logMissedCall } from "@/lib/leads/actions";
 
 export const dynamic = "force-dynamic";
 const OPEN_STAGES = ["new_lead", "contacted", "interested", "not_reachable", "appointment_suggested"];
@@ -42,6 +42,18 @@ export default async function ReceptionDesk() {
           <div className="flex items-end"><SubmitButton>Log enquiry</SubmitButton></div>
         </form>
       </Card>
+
+      <div className="mt-6">
+        <Card>
+          <h2 className="mb-1 font-semibold">Log a missed call</h2>
+          <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">Creates a lead flagged as a missed enquiry and a callback task.</p>
+          <form action={logMissedCall} className="flex flex-wrap items-end gap-3">
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Phone<input name="phone" required className={input} /></label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Name (optional)<input name="contactName" className={input} /></label>
+            <SubmitButton tone="ghost">Log missed call</SubmitButton>
+          </form>
+        </Card>
+      </div>
 
       <div className="mt-6">
         <LeadQueue title="Reception enquiries" where={{ ...deskWhere, stage: { in: OPEN_STAGES } }} />

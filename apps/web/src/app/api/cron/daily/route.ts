@@ -3,9 +3,7 @@ import { sendMessage } from "@prm/integrations";
 import { prisma } from "@/lib/db";
 import { runRetentionRecompute } from "@/lib/retention/engine";
 import { runAutomation } from "@/lib/automation";
-
-// A new lead left untouched (never called, still new_lead) for this long breaches SLA.
-const SLA_UNCONTACTED_HOURS = 24;
+import { leadTier } from "@/lib/leads/tier";
 
 /**
  * Daily automation job (Phase 5 — advanced automation). Intended to be invoked
@@ -81,22 +79,23 @@ async function handle(req: NextRequest) {
     }
   }
 
-  // SLA: escalate leads that are still 'new_lead' and have never been called,
-  // older than the threshold. Idempotent — skip leads already escalated.
-  const cutoff = new Date(Date.now() - SLA_UNCONTACTED_HOURS * 3600_000);
-  const stale = await prisma.lead.findMany({
-    where: { mergedIntoId: null, stage: "new_lead", createdAt: { lt: cutoff }, calls: { none: {} } },
-    select: { id: true },
-    take: 1000,
+  // SLA: escalate open, uncontacted leads whose first-response SLA is breached
+  // for their priority tier (hot 15m · warm 2h · cold 24h). Idempotent — skip
+  // leads that already have an escalated task.
+  const now = new Date();
+  const openLeads = await prisma.lead.findMany({
+    where: { mergedIntoId: null, stage: { in: ["new_lead", "contacted", "interested", "not_reachable", "appointment_suggested"] }, calls: { none: {} } },
+    take: 2000,
   });
+  const breached = openLeads.filter((l) => leadTier(l, now).sla === "breached");
   let slaEscalations = 0;
-  if (stale.length > 0) {
-    const ids = stale.map((l) => l.id);
+  if (breached.length > 0) {
+    const ids = breached.map((l) => l.id);
     const alreadyEscalated = new Set(
       (await prisma.task.findMany({ where: { leadId: { in: ids }, status: "escalated" }, select: { leadId: true } }))
         .map((t) => t.leadId),
     );
-    for (const l of stale) {
+    for (const l of breached) {
       if (alreadyEscalated.has(l.id)) continue;
       await runAutomation("lead_uncontacted_sla_breached", { leadId: l.id });
       slaEscalations++;

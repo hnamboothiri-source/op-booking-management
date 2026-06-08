@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { branchScopeWhere, nextBookingStatuses, overdueAgeDays, overdueBucket, escalationLevel, ESCALATION_LABEL, CALL_DESKS, type BookingStatus, type OverdueBucket } from "@prm/core";
+import { leadTier } from "@/lib/leads/tier";
 import { PageHeader, Card, Badge, LinkButton } from "@/components/ui";
 import { DrillStat } from "@/components/drill/DrillStat";
 import { logCall, escalateLead, updateLeadStage } from "@/lib/leads/actions";
@@ -60,9 +61,24 @@ export default async function CallCenter({ searchParams }: { searchParams: Promi
   ]);
   const deskCounts: Record<string, number> = { reception: receptionOpen, front_office: frontOfficeOpen, back_office: backOfficeOpen };
 
+  // Uncontacted leads past their tier SLA (FRS §6 / §12).
+  const openForSla = await prisma.lead.findMany({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    where: { ...scope, mergedIntoId: null, stage: { in: ["new_lead", ...workable] as any }, calls: { none: {} } } as any,
+    take: 1000,
+  });
+  const slaBreached = openForSla.filter((l) => leadTier(l, new Date()).sla === "breached").length;
+
   return (
     <div>
       <PageHeader title="Call Center · Overview" subtitle="Three desks — Reception (inbound) · Front Office (reviews) · Back Office (leads)" />
+
+      {slaBreached > 0 && (
+        <Link href="/leads?callback=pending" className="mb-4 flex items-center justify-between rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm hover:bg-red-100 dark:border-red-700/60 dark:bg-red-950/30 dark:hover:bg-red-950/50">
+          <span className="font-medium text-red-800 dark:text-red-200">⚠ {slaBreached} uncontacted lead{slaBreached === 1 ? "" : "s"} past first-response SLA</span>
+          <span className="text-xs text-red-600 dark:text-red-300">Work the queue →</span>
+        </Link>
+      )}
 
       {/* Desk overview — jump to each room's work queue */}
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">

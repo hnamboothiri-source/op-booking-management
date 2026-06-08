@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { updateLeadStage, logCall, transferLead, mergeLead } from "@/lib/leads/actions";
 import { LEAD_STAGES, isClosedStage, can } from "@prm/core";
 import { PageHeader, Badge, Card, SubmitButton, LinkButton } from "@/components/ui";
+import { LeadTierBadge } from "@/components/leads/TierBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ const input = "mt-1 w-full rounded-md border border-slate-300 px-3 py-1.5 text-s
 export default async function LeadDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireCan("leads", "view");
-  const [lead, staff, activities, branches, communications, bookings] = await Promise.all([
+  const [lead, staff, activities, branches, communications, bookings, assignments] = await Promise.all([
     prisma.lead.findUnique({
       where: { id },
       include: { source: true, campaign: true, disease: true, branch: true, owner: true, calls: { orderBy: { createdAt: "desc" } } },
@@ -28,6 +29,7 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
     prisma.branch.findMany({ where: { active: true }, orderBy: { name: "asc" } }).catch(() => []),
     prisma.communicationLog.findMany({ where: { leadId: id }, orderBy: { createdAt: "desc" }, take: 100 }),
     prisma.opBooking.findMany({ where: { leadId: id }, orderBy: { bookedAt: "desc" }, take: 50 }),
+    prisma.leadAssignment.findMany({ where: { leadId: id }, orderBy: { createdAt: "desc" }, take: 50 }),
   ]);
   if (!lead) notFound();
 
@@ -59,7 +61,7 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Card><div className="text-xs text-slate-500">Stage</div><div><Badge tone="blue">{lead.stage.replace(/_/g, " ")}</Badge></div></Card>
-        <Card><div className="text-xs text-slate-500">Priority</div><div className="font-medium capitalize">{lead.priorityTier ?? lead.priority}</div></Card>
+        <Card><div className="text-xs text-slate-500">Priority / SLA</div><div className="mt-1"><LeadTierBadge lead={lead} now={new Date()} /></div></Card>
         <Card><div className="text-xs text-slate-500">Owner</div><div className="font-medium">{lead.owner?.name ?? "—"}</div></Card>
         <Card><div className="text-xs text-slate-500">Follow-up</div><div className="font-medium">{lead.followUpDate ? lead.followUpDate.toISOString().slice(0, 10) : "—"}</div></Card>
       </div>
@@ -132,6 +134,23 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
             </form>
             <p className="mt-2 text-xs text-slate-400">This lead&apos;s calls move to the target; this one is hidden as merged.</p>
           </Card>
+        </div>
+      )}
+
+      {assignments.length > 0 && (
+        <div className="mt-6">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Assignment history ({assignments.length})</h2>
+          <div className="space-y-1 text-sm">
+            {assignments.map((a) => {
+              const name = (id: string | null) => (id ? staff.find((s) => s.id === id)?.name ?? id : "Unassigned");
+              return (
+                <div key={a.id} className="flex items-center justify-between rounded border border-slate-100 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                  <span className="text-slate-700 dark:text-slate-200">{name(a.fromOwnerId)} → <span className="font-medium">{name(a.toOwnerId)}</span>{a.reason ? <span className="text-slate-400"> · {a.reason}</span> : null}</span>
+                  <span className="text-xs text-slate-400">{(a.createdAt as Date).toISOString().slice(0, 10)}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

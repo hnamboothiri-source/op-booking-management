@@ -78,3 +78,46 @@ export function deskForFollowUp(): CallDesk {
 export function deskLabel(key?: string | null): string {
   return CALL_DESKS.find((d) => d.key === key)?.label ?? "—";
 }
+
+// --- Lead priority tiers + response SLA (FRS §6) -------------------------
+
+export type LeadTier = "hot" | "warm" | "cold";
+export const LEAD_TIERS: LeadTier[] = ["hot", "warm", "cold"];
+
+function isTier(v: unknown): v is LeadTier {
+  return v === "hot" || v === "warm" || v === "cold";
+}
+
+/**
+ * The tier to act on: a manual override wins, otherwise fall back to a derived
+ * rank (e.g. from leadPropensityScore) or "cold" when nothing is known.
+ */
+export function effectiveTier(override?: string | null, derived?: LeadTier | null): LeadTier {
+  if (isTier(override)) return override;
+  return derived ?? "cold";
+}
+
+/** First-response SLA target in minutes per tier (hot 15m · warm 2h · cold 24h). */
+export function slaTargetMinutes(tier: LeadTier): number {
+  return tier === "hot" ? 15 : tier === "warm" ? 120 : 1440;
+}
+
+export type SlaState = "on_track" | "at_risk" | "breached";
+
+/**
+ * SLA state for first contact: minutes elapsed since `since` (lastContactAt or
+ * createdAt) vs the tier target. breached at/over target; at_risk past 75%.
+ */
+export function slaState(tier: LeadTier, since: Date, now: Date): SlaState {
+  const target = slaTargetMinutes(tier);
+  const elapsedMin = Math.max(0, (now.getTime() - since.getTime()) / 60_000);
+  if (elapsedMin >= target) return "breached";
+  if (elapsedMin >= target * 0.75) return "at_risk";
+  return "on_track";
+}
+
+export const SLA_LABEL: Record<SlaState, string> = {
+  on_track: "On track",
+  at_risk: "At risk",
+  breached: "SLA breached",
+};

@@ -5,6 +5,7 @@ import { branchScopeWhere, can, LEAD_STAGES } from "@prm/core";
 import { PageHeader, LinkButton, Badge } from "@/components/ui";
 import { DRILL, listFilters } from "@/lib/drill/registry";
 import { ActiveFilters } from "@/components/drill/ActiveFilters";
+import { LeadTierBadge } from "@/components/leads/TierBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const user = await requireCan("leads", "view");
   const filters = listFilters("leads", await searchParams);
   const stage = filters.stage;
+  const now = new Date();
 
   const leads = await prisma.lead.findMany({
     where: {
@@ -48,17 +50,19 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             <tr>
               <th className="px-4 py-2 font-medium">Name</th><th className="px-4 py-2 font-medium">Phone</th>
               <th className="px-4 py-2 font-medium">Source</th><th className="px-4 py-2 font-medium">Stage</th>
+              <th className="px-4 py-2 font-medium">Priority / SLA</th>
               <th className="px-4 py-2 font-medium">Owner</th><th className="px-4 py-2 font-medium">Follow-up</th>
             </tr>
           </thead>
           <tbody>
-            {leads.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">No leads.</td></tr>}
+            {leads.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">No leads.</td></tr>}
             {leads.map((l) => (
               <tr key={l.id} className="border-t border-slate-100 hover:bg-slate-50">
                 <td className="px-4 py-2"><Link href={`/leads/${l.id}`} className="font-medium text-rose-700 hover:underline dark:text-rose-300">{l.contactName}</Link></td>
                 <td className="px-4 py-2 text-slate-600">{l.phone}</td>
                 <td className="px-4 py-2 text-slate-600">{l.source?.name?.replace(/_/g, " ") ?? "—"}</td>
                 <td className="px-4 py-2"><Badge tone="blue">{l.stage.replace(/_/g, " ")}</Badge></td>
+                <td className="px-4 py-2"><LeadTierBadge lead={l} now={now} /></td>
                 <td className="px-4 py-2 text-slate-600">{l.owner?.name ?? "—"}</td>
                 <td className="px-4 py-2 text-slate-600">{l.followUpDate ? l.followUpDate.toISOString().slice(0, 10) : "—"}</td>
               </tr>

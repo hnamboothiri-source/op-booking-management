@@ -2,11 +2,12 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { isClosedStage, deskForSource, nextLeadNumber, type LeadStage, type CallDesk, type LeadActivityKind } from "@prm/core";
+import { isClosedStage, deskForSource, nextLeadNumber, routeLeadOwner, type LeadStage, type CallDesk, type LeadActivityKind } from "@prm/core";
 import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
 import { runAutomation } from "../automation";
+import { ASSIGNMENT_RULES, ASSIGNMENT_FALLBACK } from "./assignment-rules";
 
 const str = (fd: FormData, k: string) => {
   const v = fd.get(k)?.toString().trim();
@@ -66,7 +67,15 @@ export async function createLead(fd: FormData): Promise<void> {
   const sourceId = str(fd, "sourceId");
   const source = sourceId ? await prisma.leadSourceMaster.findUnique({ where: { id: sourceId } }) : null;
   const desk = str(fd, "desk") ?? deskForSource(source?.name ?? null);
-  const ownerId = str(fd, "ownerId") ?? user.id;
+
+  // Owner: explicit choice wins; otherwise run the auto-assignment engine
+  // (FRS §5) over branch / disease / source-group signals.
+  const branchId = str(fd, "branchId");
+  const diseaseId = str(fd, "diseaseId");
+  const explicitOwner = str(fd, "ownerId");
+  const routed = routeLeadOwner({ branchId, diseaseId, sourceGroup: source?.group ?? null }, ASSIGNMENT_RULES, ASSIGNMENT_FALLBACK);
+  const ownerId = explicitOwner ?? routed.ownerId ?? user.id;
+  const assignReason = explicitOwner ? "manual selection" : routed.reason;
 
   // Human-facing lead number derived from the current row count (mock-safe).
   const seq = (await prisma.lead.count()) + 1;
@@ -103,7 +112,12 @@ export async function createLead(fd: FormData): Promise<void> {
   });
 
   await writeLeadActivity({ leadId: created.id, kind: "created", summary: `Lead created${source ? " from " + source.name.replace(/_/g, " ") : ""}`, actorId: user.id });
-  if (ownerId) await writeLeadActivity({ leadId: created.id, kind: "assigned", summary: "Assigned to owner", actorId: user.id });
+  if (ownerId) {
+    await writeLeadActivity({ leadId: created.id, kind: "assigned", summary: `Assigned (${assignReason})`, actorId: user.id });
+    try {
+      await prisma.leadAssignment.create({ data: { leadId: created.id, fromOwnerId: null, toOwnerId: ownerId, toBranchId: branchId, reason: assignReason, actorId: user.id } });
+    } catch { /* history is non-critical */ }
+  }
 
   // Automation: duplicate-mobile detection (master doc §10). Skipped when the
   // user already acknowledged duplicates and chose "continue as new" (force).
@@ -115,6 +129,33 @@ export async function createLead(fd: FormData): Promise<void> {
   await writeAudit({ actorId: user.id, action: "lead.create", entity: "lead", entityId: created.id, after: { contactName, phone, leadNumber } });
   revalidatePath("/leads");
   redirect(`/leads/${created.id}`);
+}
+
+/**
+ * Log a missed call as a lead (FRS §12). Creates a reception lead flagged
+ * missedEnquiry and fires the missed_call_logged automation (callback task).
+ */
+export async function logMissedCall(fd: FormData): Promise<void> {
+  const user = await requireCan("leads", "create");
+  const phone = str(fd, "phone");
+  if (!phone) throw new Error("Phone is required");
+  const seq = (await prisma.lead.count()) + 1;
+  const created = await prisma.lead.create({
+    data: {
+      leadNumber: nextLeadNumber(seq, new Date().getFullYear()),
+      contactName: str(fd, "contactName") ?? "Missed call",
+      phone,
+      missedEnquiry: true,
+      desk: "reception",
+      ownerId: user.id,
+      assignedAt: new Date(),
+    },
+  });
+  await writeLeadActivity({ leadId: created.id, kind: "created", summary: "Missed call logged", actorId: user.id });
+  await runAutomation("missed_call_logged", { leadId: created.id });
+  await writeAudit({ actorId: user.id, action: "lead.missed_call", entity: "lead", entityId: created.id, after: { phone } });
+  revalidatePath("/reception");
+  revalidatePath("/leads");
 }
 
 export async function updateLeadStage(id: string, fd: FormData): Promise<void> {

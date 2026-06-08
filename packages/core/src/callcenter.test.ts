@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { overdueAgeDays, overdueBucket, escalationLevel, funnelRate, deskForSource, deskForFollowUp, deskLabel, CALL_DESKS } from "./callcenter";
+import { overdueAgeDays, overdueBucket, escalationLevel, funnelRate, deskForSource, deskForFollowUp, deskLabel, CALL_DESKS, effectiveTier, slaTargetMinutes, slaState } from "./callcenter";
 
 const D = (iso: string) => new Date(iso);
 
@@ -64,5 +64,28 @@ describe("call-centre desks", () => {
     expect(deskLabel("front_office")).toBe("Front Office");
     expect(deskLabel(undefined)).toBe("—");
     expect(CALL_DESKS).toHaveLength(3);
+  });
+});
+
+describe("lead tiers + SLA", () => {
+  it("prefers a valid manual override, else derived, else cold", () => {
+    expect(effectiveTier("hot", "cold")).toBe("hot");
+    expect(effectiveTier(null, "warm")).toBe("warm");
+    expect(effectiveTier("garbage", "warm")).toBe("warm");
+    expect(effectiveTier(undefined, null)).toBe("cold");
+  });
+  it("maps tier to SLA minutes", () => {
+    expect(slaTargetMinutes("hot")).toBe(15);
+    expect(slaTargetMinutes("warm")).toBe(120);
+    expect(slaTargetMinutes("cold")).toBe(1440);
+  });
+  it("computes SLA state at the boundaries", () => {
+    const now = new Date("2026-06-10T12:00:00Z");
+    const ago = (min: number) => new Date(now.getTime() - min * 60_000);
+    expect(slaState("hot", ago(5), now)).toBe("on_track");   // 5 of 15
+    expect(slaState("hot", ago(12), now)).toBe("at_risk");   // >75% of 15
+    expect(slaState("hot", ago(20), now)).toBe("breached");  // over 15
+    expect(slaState("warm", ago(30), now)).toBe("on_track"); // 30 of 120
+    expect(slaState("cold", ago(2000), now)).toBe("breached");
   });
 });

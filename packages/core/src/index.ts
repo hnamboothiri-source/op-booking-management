@@ -12,3 +12,4 @@ export * from "./template";
 export * from "./timeline";
 export * from "./drill";
 export * from "./callcenter";
+export * from "./assignment";

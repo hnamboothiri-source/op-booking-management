@@ -7,6 +7,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { overdueAgeDays, overdueBucket, escalationLevel, ESCALATION_LABEL, deskLabel, CALL_DESKS, type OverdueBucket, type CallDesk } from "@prm/core";
 import { Badge } from "@/components/ui";
+import { LeadTierBadge } from "@/components/leads/TierBadge";
 import { logCall, escalateLead, updateLeadStage, routeLeadToDesk } from "@/lib/leads/actions";
 import { transitionFollowUp, routeFollowUpToDesk } from "@/lib/followups/actions";
 
@@ -50,12 +51,14 @@ export async function LeadQueue({ where, title }: { where: Record<string, unknow
     prisma.lead.findMany({ where: where as any, include: { owner: true, source: true }, orderBy: { createdAt: "desc" }, take: 100 }),
     prisma.reasonMaster.findMany({ where: { category: "lost_lead" } }),
   ]);
+  const now = new Date();
   return (
-    <Queue title={title} count={leads.length} cols={["Name", "Phone", "Source", "Owner", "Actions"]}>
+    <Queue title={title} count={leads.length} cols={["Name", "Phone", "Priority / SLA", "Source", "Owner", "Actions"]}>
       {leads.map((l) => (
         <tr key={l.id} className="border-t border-slate-100 align-middle dark:border-slate-700">
           <td className={cell}><Link href={`/leads/${l.id}`} className="font-medium text-rose-700 hover:underline dark:text-rose-300">{l.contactName}</Link></td>
           <td className={`${cell} text-slate-600 dark:text-slate-300`}>{l.phone}</td>
+          <td className={cell}><LeadTierBadge lead={l} now={now} /></td>
           <td className={`${cell} text-slate-600 dark:text-slate-300`}>{l.source?.name?.replace(/_/g, " ") ?? "—"}</td>
           <td className={`${cell} text-slate-600 dark:text-slate-300`}>{l.owner?.name ?? <span className="text-amber-600">unassigned</span>}</td>
           <td className={cell}>
