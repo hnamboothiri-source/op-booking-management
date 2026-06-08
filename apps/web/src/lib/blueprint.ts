@@ -22,7 +22,7 @@ export const MODULES: ModuleInfo[] = [
   { id: "M6", name: "Referral Management", phase: 3, status: "done", summary: "Patient/doctor/org referrals, conversion, revenue, top referrers." },
   { id: "M7", name: "Camp Management", phase: 3, status: "done", summary: "Camps, screening → auto-leads, conversion & revenue." },
   { id: "M8", name: "Mobile Clinic", phase: 3, status: "done", summary: "Route screening → branch referral → auto-leads." },
-  { id: "M9", name: "Follow-up Management", phase: 1, status: "planned", summary: "Auto tasks, reminders, escalation, no drop-off." },
+  { id: "M9", name: "Follow-up Management", phase: 1, status: "done", summary: "Auto tasks, reminders, escalation, no drop-off." },
   { id: "M10", name: "Admission Conversion", phase: 2, status: "done", summary: "Recommendation funnel, counselling, packages, rejection reasons." },
   { id: "M11", name: "Engagement & Communication", phase: 3, status: "done", summary: "WhatsApp/SMS/email, templates, bulk/campaign, consent, delivery log." },
   { id: "M12", name: "Retention & Reactivation", phase: 4, status: "done", summary: "Recompute engine: categories, risk scores, reactivation tasks, success owners." },

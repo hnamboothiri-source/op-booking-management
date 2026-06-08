@@ -104,6 +104,7 @@ export function AppShell({ items, user, todayLabel, children }: { items: NavItem
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
+          <span className="rounded-full bg-gold-100 px-2 py-0.5 text-[11px] font-medium text-gold-700 dark:bg-gold-700/30 dark:text-gold-300" title="Prototype — data is sample data and resets on restart">Prototype · mock data</span>
           <div className="ml-auto flex items-center gap-3 text-sm">
             <span className="hidden text-slate-400 sm:inline dark:text-slate-500">Today: {todayLabel}</span>
             <span className="text-slate-600 dark:text-slate-300">{user.name}</span>

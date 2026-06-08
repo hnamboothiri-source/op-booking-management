@@ -69,6 +69,30 @@ export async function createPatient(fd: FormData): Promise<void> {
   redirect(`/patients/${encodeURIComponent(mrd)}`);
 }
 
+export async function updatePatient(mrd: string, fd: FormData): Promise<void> {
+  const user = await requireCan("patients", "edit");
+  const str = (k: string) => {
+    const v = fd.get(k)?.toString().trim();
+    return v ? v : null;
+  };
+  await prisma.patient.update({
+    where: { mrd },
+    data: {
+      name: fd.get("name")?.toString().trim() || undefined,
+      phone: str("phone"),
+      whatsapp: str("whatsapp"),
+      email: str("email"),
+      place: str("place"),
+      address: str("address"),
+      occupation: str("occupation"),
+      languagePref: str("languagePref"),
+    },
+  });
+  await writeAudit({ actorId: user.id, action: "patient.update", entity: "patient", entityId: mrd });
+  revalidatePath(`/patients/${encodeURIComponent(mrd)}`);
+  redirect(`/patients/${encodeURIComponent(mrd)}`);
+}
+
 export async function addPatientDocument(patientMrd: string, fd: FormData): Promise<void> {
   const user = await requireCan("patients", "edit");
   const label = fd.get("label")?.toString().trim();

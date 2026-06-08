@@ -48,6 +48,7 @@ export default async function PatientDetail({ params }: { params: Promise<{ mrd:
         subtitle={`${patient.mrd} · ${patient.category.replace(/_/g, " ")}`}
         action={
           <div className="flex gap-2">
+            <LinkButton href={`/patients/${encodeURIComponent(patient.mrd)}/edit`} tone="ghost">Edit</LinkButton>
             <LinkButton href={`/patients/${encodeURIComponent(patient.mrd)}/timeline`} tone="ghost">Timeline</LinkButton>
             <LinkButton href={`/appointments/book?mrd=${encodeURIComponent(patient.mrd)}`}>Book appointment</LinkButton>
           </div>

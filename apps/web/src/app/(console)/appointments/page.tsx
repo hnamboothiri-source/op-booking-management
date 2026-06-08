@@ -65,7 +65,7 @@ export default async function Appointments({ searchParams }: { searchParams: Pro
                 <td className="px-4 py-2 text-slate-600">{b.doctor.name}</td>
                 <td className="px-4 py-2 text-slate-600">{b.department.name}</td>
                 <td className="px-4 py-2 text-slate-600">{b.room?.name ?? "—"}</td>
-                <td className="px-4 py-2 font-mono text-xs text-slate-400">{b.bookingRef}</td>
+                <td className="px-4 py-2 font-mono text-xs"><Link href={`/appointments/${b.id}`} className="text-rose-700 hover:underline dark:text-rose-300">{b.bookingRef}</Link></td>
                 <td className="px-4 py-2"><Badge tone={TONE[b.status]}>{b.status.replace(/_/g, " ")}</Badge></td>
                 {canEdit && (
                   <td className="px-4 py-2">

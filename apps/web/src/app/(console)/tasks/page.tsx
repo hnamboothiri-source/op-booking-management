@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { createTask, transitionTask } from "@/lib/tasks/actions";
@@ -72,7 +73,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
               const eff = effectiveStatus(t.status as TaskStatus, t.dueDate, now);
               return (
                 <tr key={t.id} className="border-t border-slate-100">
-                  <td className="px-4 py-2 font-medium">{t.subject}</td>
+                  <td className="px-4 py-2 font-medium"><Link href={`/tasks/${t.id}`} className="text-rose-700 hover:underline dark:text-rose-300">{t.subject}</Link></td>
                   <td className="px-4 py-2 text-slate-600">{t.type.replace(/_/g, " ")}</td>
                   <td className="px-4 py-2 text-slate-600">{t.assignee?.name ?? "—"}</td>
                   <td className="px-4 py-2 text-slate-600">{t.dueDate ? t.dueDate.toISOString().slice(0, 10) : "—"}</td>
