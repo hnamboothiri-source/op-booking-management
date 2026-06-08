@@ -229,6 +229,23 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     }
   }
 
+  // Book a few patients into today's open slots so the agenda/calendar show real consultations.
+  const demoPatients = ["MRD-1001", "MRD-1002", "MRD-1003", "MRD-1004", "MRD-1005"];
+  const bookableToday = timeSlots.filter((s) => s.status === "open").slice(0, 6);
+  bookableToday.forEach((slot, i) => {
+    slot.bookedCount = 1;
+    slot.status = "full";
+    const opStatus = i === 0 ? "completed" : i === 1 ? "in_consultation" : i === 2 ? "arrived" : i < 4 ? "confirmed" : "booked";
+    bookings.push({
+      id: `bk-slot-${i}`, bookingRef: `OP-1${String(i).padStart(3, "0")}`, patientMrd: demoPatients[i % demoPatients.length],
+      doctorId: slot.doctorId, departmentId: oph, branchId: branches[0].id, roomId: slot.roomId, timeSlotId: slot.id,
+      appointmentDate: today, startTime: slot.startTime, endTime: slot.endTime, status: opStatus, source: "call_centre",
+      appointmentType: "regular", queueToken: 10 + i, bookedBy: "stf-callexec", bookedAt: day(-1),
+      checkedInAt: ["arrived", "in_consultation", "completed"].includes(opStatus) ? day(0) : null,
+      completedAt: opStatus === "completed" ? day(0) : null,
+    });
+  });
+
   const appointmentStatusHistory: Row[] = [
     { id: "ash-1", bookingId: "bk-1", fromStatus: "booked", toStatus: "confirmed", actorId: "stf-callexec", createdAt: day(-1) },
     { id: "ash-2", bookingId: "bk-1", fromStatus: "confirmed", toStatus: "arrived", actorId: "stf-front", createdAt: day(0) },

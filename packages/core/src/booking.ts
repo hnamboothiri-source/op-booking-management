@@ -126,6 +126,18 @@ export function splitSessionSlots(start: string, end: string, count: number): { 
   return Array.from({ length: n }, (_, i) => ({ start: toStr(s + i * step), end: toStr(i === n - 1 ? e : s + (i + 1) * step) }));
 }
 
+/** Minutes between two "HH:MM" times (0 if end ≤ start). */
+export function minutesBetween(start: string, end: string): number {
+  const m = (t: string) => { const [h, mm] = t.split(":").map(Number); return (h || 0) * 60 + (mm || 0); };
+  return Math.max(0, m(end) - m(start));
+}
+
+/** Slot utilisation % = used / allotted, clamped 0–100, 0 when allotted is 0. */
+export function slotUtilisation(used: number, allotted: number): number {
+  if (allotted <= 0) return 0;
+  return Math.min(100, Math.round((used / allotted) * 100));
+}
+
 /** Human label for a week-of-month rotation tag, e.g. "1,3" → "1st & 3rd Sun/Sat". */
 export function weekOfMonthLabel(weekOfMonth?: string | null): string {
   if (!weekOfMonth) return "";

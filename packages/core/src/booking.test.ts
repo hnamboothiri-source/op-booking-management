@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   canTransitionBooking, nextBookingStatuses, occupiesSlot, releasesSlot,
   slotStatusFor, hasCapacity, generateSlotTimes, nextQueueToken, roomConflict, dueReminders,
-  splitSessionSlots, weekOfMonthLabel,
+  splitSessionSlots, weekOfMonthLabel, minutesBetween, slotUtilisation,
 } from "./booking";
 import { conversionRate, isConverted, isClosedStage } from "./leads";
 
@@ -79,6 +79,19 @@ describe("splitSessionSlots", () => {
   it("returns one slot for count <= 1 or bad window", () => {
     expect(splitSessionSlots("09:00", "12:00", 1)).toEqual([{ start: "09:00", end: "12:00" }]);
     expect(splitSessionSlots("12:00", "09:00", 3)).toEqual([{ start: "12:00", end: "09:00" }]);
+  });
+});
+
+describe("minutesBetween / slotUtilisation", () => {
+  it("computes minutes and guards order", () => {
+    expect(minutesBetween("09:00", "12:30")).toBe(210);
+    expect(minutesBetween("14:00", "18:00")).toBe(240);
+    expect(minutesBetween("12:00", "09:00")).toBe(0);
+  });
+  it("computes clamped utilisation", () => {
+    expect(slotUtilisation(2, 4)).toBe(50);
+    expect(slotUtilisation(5, 4)).toBe(100);
+    expect(slotUtilisation(3, 0)).toBe(0);
   });
 });
 
