@@ -64,11 +64,12 @@ export default async function FollowUps({ searchParams }: { searchParams: Promis
       {can(user.role, "follow_ups", "create") && (
         <Card>
           <h2 className="mb-3 font-semibold">New follow-up</h2>
-          <form action={createFollowUp} className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <form action={createFollowUp} className="grid grid-cols-2 gap-3 sm:grid-cols-6">
             <input name="patientMrd" placeholder="Patient MRD" required className={input} />
             <select name="type" className={input}>{FU_TYPES.map((t) => <option key={t} value={t}>{t.replace(/_/g, " ")}</option>)}</select>
             <input type="date" name="dueDate" required className={input} />
             <select name="ownerId" className={input}><option value="">Owner: me</option>{staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+            <input name="notes" placeholder="Instructions / notes" className={`${input} sm:col-span-1`} />
             <SubmitButton>Add</SubmitButton>
           </form>
         </Card>

@@ -14,3 +14,4 @@ export * from "./drill";
 export * from "./callcenter";
 export * from "./assignment";
 export * from "./calendar";
+export * from "./capture";

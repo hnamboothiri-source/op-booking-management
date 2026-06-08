@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { canTransition, type TaskStatus } from "@prm/core";
+import { canTransition, requiredMissing, type TaskStatus } from "@prm/core";
 import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
@@ -32,7 +32,7 @@ export async function createTask(fd: FormData): Promise<void> {
   redirect("/tasks");
 }
 
-export async function transitionTask(id: string, to: TaskStatus): Promise<void> {
+export async function transitionTask(id: string, to: TaskStatus, fd?: FormData): Promise<void> {
   const user = await requireCan("tasks", "edit");
   const task = await prisma.task.findUnique({ where: { id } });
   if (!task) throw new Error("Task not found");
@@ -40,15 +40,30 @@ export async function transitionTask(id: string, to: TaskStatus): Promise<void> 
   if (!canTransition(from, to)) {
     throw new Error(`Illegal transition ${from} → ${to}`);
   }
+
+  // Closing a task records an outcome + note for the consolidated reports.
+  const closing = to === "completed" || to === "escalated";
+  const outcome = fd?.get("outcome")?.toString().trim() || null;
+  const note = fd?.get("remarks")?.toString().trim() || null;
+  if (closing) {
+    const missing = requiredMissing({
+      outcome: { value: outcome, label: "Outcome" },
+      note: { value: note, label: "Outcome note" },
+    });
+    if (missing.length) throw new Error(`Required to ${to.replace(/_/g, " ")} a task: ${missing.join(", ")}`);
+  }
+
   await prisma.task.update({
     where: { id },
     data: {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       status: to as any,
       completedAt: to === "completed" ? new Date() : task.completedAt,
-      escalatedToId: to === "escalated" ? task.escalatedToId : task.escalatedToId,
+      outcome: closing ? outcome : task.outcome,
+      remarks: closing ? note : task.remarks,
     },
   });
-  await writeAudit({ actorId: user.id, action: "task.transition", entity: "task", entityId: id, before: { status: from }, after: { status: to } });
+  await writeAudit({ actorId: user.id, action: "task.transition", entity: "task", entityId: id, before: { status: from }, after: { status: to, outcome } });
   revalidatePath("/tasks");
+  revalidatePath(`/tasks/${id}`);
 }

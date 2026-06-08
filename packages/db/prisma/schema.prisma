@@ -1098,6 +1098,7 @@ model Task {
   priority      TaskPriority @default(medium)
   status        TaskStatus   @default(open)
   remarks       String?
+  outcome       String?      // outcome code captured on completion / escalation
   escalatedToId String?      @map("escalated_to_id")
   completedAt   DateTime?    @map("completed_at")
   createdAt     DateTime     @default(now()) @map("created_at")
