@@ -47,7 +47,7 @@ export default async function Schedules({ searchParams }: { searchParams: Promis
             <label className="text-xs font-medium text-slate-600">Date<input type="date" name="date" required className={input} /></label>
             <SubmitButton>Generate</SubmitButton>
           </form>
-          {generated !== undefined && <p className="mt-2 text-sm text-emerald-700">Generated {generated} slot(s) for {date}.</p>}
+          {generated !== undefined && <p className="mt-2 text-sm text-rose-700">Generated {generated} slot(s) for {date}.</p>}
           <form className="mt-4 flex items-end gap-2" action="/appointments/schedules">
             <label className="text-xs font-medium text-slate-600">View slots on<input type="date" name="date" defaultValue={date ?? ""} className={input} /></label>
             <button className="rounded-md bg-slate-700 px-3 py-1.5 text-sm font-medium text-white">View</button>

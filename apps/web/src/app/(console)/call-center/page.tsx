@@ -84,10 +84,10 @@ export default async function CallCenter() {
             {recentCalls.map((c) => (
               <tr key={c.id} className="border-t border-slate-100">
                 <td className="px-4 py-2 text-slate-500">{c.createdAt.toISOString().slice(0, 16).replace("T", " ")}</td>
-                <td className="px-4 py-2">{c.lead ? <Link href={`/leads/${c.lead.id}`} className="text-emerald-700 hover:underline">{c.lead.contactName}</Link> : "—"}</td>
+                <td className="px-4 py-2">{c.lead ? <Link href={`/leads/${c.lead.id}`} className="text-rose-700 hover:underline">{c.lead.contactName}</Link> : "—"}</td>
                 <td className="px-4 py-2 text-slate-600">{c.outcome.replace(/_/g, " ")}</td>
                 <td className="px-4 py-2 text-slate-500">{c.notes ?? "—"}</td>
-                <td className="px-4 py-2">{c.recordingUrl ? <a href={c.recordingUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-700 hover:underline">play</a> : "—"}</td>
+                <td className="px-4 py-2">{c.recordingUrl ? <a href={c.recordingUrl} target="_blank" rel="noopener noreferrer" className="text-rose-700 hover:underline">play</a> : "—"}</td>
               </tr>
             ))}
           </tbody>

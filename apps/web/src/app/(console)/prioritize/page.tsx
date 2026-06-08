@@ -58,7 +58,7 @@ export default async function Prioritize() {
                 {ranked.slice(0, 30).map(({ l, p }) => (
                   <tr key={l.id} className="border-t border-slate-100">
                     <td className="px-4 py-2"><Badge tone={RANK_TONE[p.rank]}>{p.score} · {p.rank}</Badge></td>
-                    <td className="px-4 py-2"><Link href={`/leads/${l.id}`} className="font-medium text-emerald-700 hover:underline">{l.contactName}</Link><div className="text-xs text-slate-400">{l.phone}</div></td>
+                    <td className="px-4 py-2"><Link href={`/leads/${l.id}`} className="font-medium text-rose-700 hover:underline">{l.contactName}</Link><div className="text-xs text-slate-400">{l.phone}</div></td>
                     <td className="px-4 py-2 text-slate-600">{l.stage.replace(/_/g, " ")}</td>
                     <td className="px-4 py-2 text-slate-600">{l.source?.name?.replace(/_/g, " ") ?? "—"}</td>
                     <td className="px-4 py-2 text-slate-600">{l.owner?.name ?? "—"}</td>
@@ -75,7 +75,7 @@ export default async function Prioritize() {
             <ul className="space-y-1 text-sm">
               {highRisk.map((s) => (
                 <li key={s.patientMrd} className="flex items-center justify-between">
-                  <Link href={`/patients/${encodeURIComponent(s.patientMrd)}`} className="text-emerald-700 hover:underline">{s.patient.name}</Link>
+                  <Link href={`/patients/${encodeURIComponent(s.patientMrd)}`} className="text-rose-700 hover:underline">{s.patient.name}</Link>
                   <Badge tone={s.riskScore >= 60 ? "red" : "amber"}>{s.riskScore}</Badge>
                 </li>
               ))}

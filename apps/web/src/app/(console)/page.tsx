@@ -74,7 +74,7 @@ export default async function Dashboard() {
   return (
     <main>
       <header className="mb-8">
-        <p className="text-sm font-medium text-emerald-700">Welcome, {user.name} · {user.role.replace(/_/g, " ")}</p>
+        <p className="text-sm font-medium text-rose-700">Welcome, {user.name} · {user.role.replace(/_/g, " ")}</p>
         <h1 className="text-3xl font-bold tracking-tight">Patient Relationship Management</h1>
         <p className="mt-2 max-w-3xl text-slate-600">
           Lead → Appointment → Consultation → Referral/Test → Treatment/Admission → Follow-up → Retention → Referral → Lifetime relationship.
@@ -89,7 +89,7 @@ export default async function Dashboard() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {PHASES.map((p) => (
             <div key={p.n} className="rounded-lg border border-slate-200 bg-white p-3">
-              <div className="text-xs font-semibold text-emerald-700">Phase {p.n}</div>
+              <div className="text-xs font-semibold text-rose-700">Phase {p.n}</div>
               <div className="text-sm font-medium">{p.name}</div>
               <div className="text-xs text-slate-500">{p.duration}</div>
             </div>

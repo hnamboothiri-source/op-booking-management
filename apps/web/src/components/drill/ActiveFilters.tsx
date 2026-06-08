@@ -11,14 +11,14 @@ export function ActiveFilters({ filters, basePath }: { filters: DrillFilters; ba
   const entries = Object.entries(filters).filter(([, v]) => v?.trim().length > 0);
   if (entries.length === 0) return null;
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm dark:border-emerald-900 dark:bg-emerald-950/40">
-      <span className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">Filtered</span>
+    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm dark:border-rose-900 dark:bg-rose-950/40">
+      <span className="text-xs font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-400">Filtered</span>
       {entries.map(([k, v]) => (
         <span key={k} className="rounded-full bg-white px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
           {humanize(k)}: <span className="font-medium">{humanize(v)}</span>
         </span>
       ))}
-      <Link href={basePath} className="ml-auto text-xs font-medium text-emerald-700 hover:underline dark:text-emerald-400">
+      <Link href={basePath} className="ml-auto text-xs font-medium text-rose-700 hover:underline dark:text-rose-400">
         Clear ✕
       </Link>
     </div>

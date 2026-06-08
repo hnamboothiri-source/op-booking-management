@@ -45,7 +45,7 @@ export default async function OrgDetail({ params }: { params: Promise<{ id: stri
         <Card>
           <h3 className="mb-2 text-sm font-semibold">Camps</h3>
           {org.camps.length === 0 ? <p className="text-sm text-slate-400">None.</p> : (
-            <ul className="space-y-1 text-sm">{org.camps.map((c) => <li key={c.id} className="flex justify-between"><Link href={`/camps/${c.id}`} className="text-emerald-700 hover:underline">{c.name}</Link><Badge tone="slate">{c.patientsScreened} screened</Badge></li>)}</ul>
+            <ul className="space-y-1 text-sm">{org.camps.map((c) => <li key={c.id} className="flex justify-between"><Link href={`/camps/${c.id}`} className="text-rose-700 hover:underline">{c.name}</Link><Badge tone="slate">{c.patientsScreened} screened</Badge></li>)}</ul>
           )}
         </Card>
       </div>

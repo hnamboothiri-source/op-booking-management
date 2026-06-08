@@ -135,7 +135,7 @@ export function DrillProvider({ children }: { children: React.ReactNode }) {
                 <Link
                   href={result.listHref}
                   onClick={close}
-                  className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 hover:underline dark:text-emerald-400"
+                  className="inline-flex items-center gap-1 text-sm font-medium text-rose-700 hover:underline dark:text-rose-400"
                 >
                   View full list →
                 </Link>

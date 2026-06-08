@@ -61,7 +61,7 @@ export default async function Appointments({ searchParams }: { searchParams: Pro
             {bookings.map((b) => (
               <tr key={b.id} className="border-t border-slate-100">
                 <td className="px-4 py-2 font-medium">{b.startTime}</td>
-                <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(b.patientMrd)}`} className="text-emerald-700 hover:underline">{b.patient.name}</Link></td>
+                <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(b.patientMrd)}`} className="text-rose-700 hover:underline">{b.patient.name}</Link></td>
                 <td className="px-4 py-2 text-slate-600">{b.doctor.name}</td>
                 <td className="px-4 py-2 text-slate-600">{b.department.name}</td>
                 <td className="px-4 py-2 text-slate-600">{b.room?.name ?? "—"}</td>
@@ -71,7 +71,7 @@ export default async function Appointments({ searchParams }: { searchParams: Pro
                   <td className="px-4 py-2">
                     <div className="flex flex-wrap items-center justify-end gap-1">
                       {["arrived", "waiting", "in_consultation"].includes(b.status) && (
-                        <Link href={`/consultations/${b.id}`} className="rounded bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-emerald-700">Consult</Link>
+                        <Link href={`/consultations/${b.id}`} className="rounded bg-rose-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-rose-700">Consult</Link>
                       )}
                       {["booked", "confirmed"].includes(b.status) && (
                         <Link href={`/appointments/book?rescheduleFrom=${b.id}`} className="rounded border border-slate-300 px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-50">Reschedule</Link>

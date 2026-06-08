@@ -32,9 +32,9 @@ export default async function ConsultationsPage({ searchParams }: { searchParams
       <ActiveFilters filters={filters} basePath="/consultations" />
 
       <div className="mb-4 flex flex-wrap gap-2 text-sm">
-        <Link href="/consultations" className={`rounded-full px-3 py-1 ${!outcome ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>All</Link>
+        <Link href="/consultations" className={`rounded-full px-3 py-1 ${!outcome ? "bg-rose-600 text-white" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>All</Link>
         {OUTCOMES.map((o) => (
-          <Link key={o} href={`/consultations?outcome=${o}`} className={`rounded-full px-3 py-1 ${outcome === o ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>
+          <Link key={o} href={`/consultations?outcome=${o}`} className={`rounded-full px-3 py-1 ${outcome === o ? "bg-rose-600 text-white" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>
             {o.replace(/_/g, " ")}
           </Link>
         ))}
@@ -54,7 +54,7 @@ export default async function ConsultationsPage({ searchParams }: { searchParams
             {consultations.map((c) => (
               <tr key={c.id} className="border-t border-slate-100 dark:border-slate-700">
                 <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{c.createdAt.toISOString().slice(0, 10)}</td>
-                <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(c.patientMrd)}`} className="font-medium text-emerald-700 hover:underline dark:text-emerald-400">{c.patient.name}</Link></td>
+                <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(c.patientMrd)}`} className="font-medium text-rose-700 hover:underline dark:text-rose-400">{c.patient.name}</Link></td>
                 <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{c.doctor.name}</td>
                 <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{c.department.name}</td>
                 <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{c.diagnosis ?? c.disease?.name ?? "—"}</td>

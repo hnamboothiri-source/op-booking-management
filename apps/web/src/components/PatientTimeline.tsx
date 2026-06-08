@@ -67,7 +67,7 @@ const timeLabel = (at: Date) =>
   at.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
 const chipBase = "rounded-full px-3 py-1 text-xs font-medium transition-colors";
-const chipOn = "bg-emerald-600 text-white";
+const chipOn = "bg-rose-600 text-white";
 const chipOff =
   "border border-slate-300 text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800";
 
@@ -122,7 +122,7 @@ export function PatientTimeline({ events, initialKind }: { events: TimelineEvent
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search activity…"
-          className="w-full max-w-xs rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          className="w-full max-w-xs rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-rose-500 focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
         />
         {days.length > 0 && (
           <button onClick={() => setAll(!allCollapsed)} className={`${chipBase} ${chipOff}`}>

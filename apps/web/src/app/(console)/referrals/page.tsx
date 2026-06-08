@@ -91,7 +91,7 @@ export default async function Referrals({ searchParams }: { searchParams: Promis
           {topReferrers.length === 0 ? <p className="text-sm text-slate-400">None yet.</p> : (
             <ul className="space-y-1 text-sm">
               {topReferrers.sort((a, b) => b._count._all - a._count._all).slice(0, 8).map((t) => (
-                <li key={t.referrerPatientMrd} className="flex justify-between"><Link href={`/patients/${encodeURIComponent(t.referrerPatientMrd!)}`} className="text-emerald-700 hover:underline">{t.referrerPatientMrd}</Link><span className="font-medium">{t._count._all}</span></li>
+                <li key={t.referrerPatientMrd} className="flex justify-between"><Link href={`/patients/${encodeURIComponent(t.referrerPatientMrd!)}`} className="text-rose-700 hover:underline">{t.referrerPatientMrd}</Link><span className="font-medium">{t._count._all}</span></li>
               ))}
             </ul>
           )}

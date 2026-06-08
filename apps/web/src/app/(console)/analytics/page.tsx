@@ -98,7 +98,7 @@ export default async function Analytics() {
             {campaignRows.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">No campaigns.</td></tr>}
             {campaignRows.map((r) => (
               <tr key={r.id} className="border-t border-slate-100 dark:border-slate-700">
-                <td className="px-4 py-2"><Link href={`/campaigns/${r.id}`} className="font-medium text-emerald-700 hover:underline dark:text-emerald-400">{r.name}</Link></td>
+                <td className="px-4 py-2"><Link href={`/campaigns/${r.id}`} className="font-medium text-rose-700 hover:underline dark:text-rose-400">{r.name}</Link></td>
                 <td className="px-4 py-2">{money(r.k.spend)}</td>
                 <td className="px-4 py-2"><DrillCount value={r.k.leads} entity="leads" filters={{ campaignId: r.id }} label={`${r.name} · leads`} /></td>
                 <td className="px-4 py-2">{r.k.admissions}</td><td className="px-4 py-2">{money(r.k.revenue)}</td>

@@ -30,7 +30,7 @@ export default async function Queue({ searchParams }: { searchParams: Promise<{ 
       </form>
 
       <div className="space-y-2">
-        {queue.length === 0 && <p className="text-sm text-slate-400">No patients waiting. Check them in from <a href="/appointments" className="text-emerald-700 underline">Appointments</a>.</p>}
+        {queue.length === 0 && <p className="text-sm text-slate-400">No patients waiting. Check them in from <a href="/appointments" className="text-rose-700 underline">Appointments</a>.</p>}
         {queue.map((b) => (
           <div key={b.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3">
             <div>

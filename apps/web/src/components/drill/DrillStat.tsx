@@ -24,7 +24,7 @@ export function DrillStat({
     <button
       type="button"
       onClick={() => openDrill({ entity, filters, label })}
-      className="group block rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-colors hover:border-emerald-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-emerald-700"
+      className="group block rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-colors hover:border-rose-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-rose-700"
     >
       <div className="flex items-baseline justify-between">
         <span className="text-2xl font-bold">{value}</span>

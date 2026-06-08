@@ -31,7 +31,7 @@ export default async function Organizations() {
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {orgs.length === 0 && <p className="text-sm text-slate-400">No organizations yet.</p>}
         {orgs.map((o) => (
-          <Link key={o.id} href={`/organizations/${o.id}`} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300">
+          <Link key={o.id} href={`/organizations/${o.id}`} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-rose-300">
             <div className="flex items-center justify-between"><span className="font-semibold">{o.name}</span><Badge tone="blue">{o.type.replace(/_/g, " ")}</Badge></div>
             <div className="mt-2 text-sm text-slate-600">{o._count.camps} camps · {o._count.referrals} referrals</div>
             {o.nextEngagement && <div className="mt-1 text-xs text-amber-600">Next: {o.nextEngagement.toISOString().slice(0, 10)}</div>}

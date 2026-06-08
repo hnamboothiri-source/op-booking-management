@@ -26,7 +26,7 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
 export function LinkButton({ href, children, tone = "primary" }: { href: string; children: React.ReactNode; tone?: "primary" | "ghost" }) {
   const cls =
     tone === "primary"
-      ? "bg-emerald-600 text-white hover:bg-emerald-700"
+      ? "bg-rose-600 text-white hover:bg-rose-700"
       : "border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800";
   return (
     <Link href={href} className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium ${cls}`}>
@@ -41,7 +41,7 @@ export function SubmitButton({ children, tone = "primary" }: { children: React.R
       ? "border border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/40"
       : tone === "ghost"
       ? "border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-      : "bg-emerald-600 text-white hover:bg-emerald-700";
+      : "bg-rose-600 text-white hover:bg-rose-700";
   return (
     <button type="submit" className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium ${cls}`}>
       {children}

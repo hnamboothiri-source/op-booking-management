@@ -53,7 +53,7 @@ export default async function Waitlist({ searchParams }: { searchParams: Promise
             {ordered.map((w, i) => (
               <tr key={w.id} className="border-t border-slate-100">
                 <td className="px-4 py-2 text-slate-400">{i + 1}</td>
-                <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(w.patientMrd)}`} className="font-medium text-emerald-700 hover:underline">{w.patient.name}</Link></td>
+                <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(w.patientMrd)}`} className="font-medium text-rose-700 hover:underline">{w.patient.name}</Link></td>
                 <td className="px-4 py-2 text-slate-600">{deptName(w.departmentId)}</td>
                 <td className="px-4 py-2 text-slate-600">{w.doctor?.name ?? "Any"}</td>
                 <td className="px-4 py-2 text-slate-600">{w.requestedDate.toISOString().slice(0, 10)}</td>
@@ -64,7 +64,7 @@ export default async function Waitlist({ searchParams }: { searchParams: Promise
                       <form action={promoteWaitlist.bind(null, w.id)} className="flex items-center gap-1">
                         {!w.doctorId && <select name="doctorId" required className="rounded border border-slate-300 px-1 py-0.5 text-xs">{doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>}
                         <input name="startTime" type="time" defaultValue="10:00" className="rounded border border-slate-300 px-1 py-0.5 text-xs" />
-                        <button className="rounded bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-emerald-700">Promote</button>
+                        <button className="rounded bg-rose-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-rose-700">Promote</button>
                       </form>
                       <form action={cancelWaitlist.bind(null, w.id)}><button className="rounded border border-slate-300 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50">Cancel</button></form>
                     </div>

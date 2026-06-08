@@ -18,7 +18,7 @@ export default async function MastersIndex() {
               <p className="mt-1 text-xs text-slate-500">{m.managedInModule}</p>
             </div>
           ) : (
-            <Link key={m.key} href={`/masters/${m.key}`} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300">
+            <Link key={m.key} href={`/masters/${m.key}`} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-rose-300">
               <div className="flex items-center justify-between">
                 <span className="font-semibold">{m.label}</span>
                 <Badge tone="blue">{m.fields.length} fields</Badge>

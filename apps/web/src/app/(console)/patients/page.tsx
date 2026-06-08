@@ -30,12 +30,12 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
       />
       <form className="mb-3 flex gap-2" action="/patients">
         <input name="q" defaultValue={q ?? ""} placeholder="Search MRD / name / phone…" className="w-80 rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
-        <button type="submit" className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700">Search</button>
+        <button type="submit" className="rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700">Search</button>
       </form>
       <div className="mb-4 flex flex-wrap gap-2 text-sm">
-        <Link href="/patients" className={`rounded-full px-3 py-1 ${!category && !q ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}>Recent</Link>
+        <Link href="/patients" className={`rounded-full px-3 py-1 ${!category && !q ? "bg-rose-600 text-white" : "bg-slate-100 text-slate-600"}`}>Recent</Link>
         {CATEGORIES.map((c) => (
-          <Link key={c} href={`/patients?category=${c}`} className={`rounded-full px-3 py-1 ${category === c ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}>{c.replace(/_/g, " ")}</Link>
+          <Link key={c} href={`/patients?category=${c}`} className={`rounded-full px-3 py-1 ${category === c ? "bg-rose-600 text-white" : "bg-slate-100 text-slate-600"}`}>{c.replace(/_/g, " ")}</Link>
         ))}
       </div>
 
@@ -50,7 +50,7 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
               {results.map((p) => (
                 <tr key={p.mrd} className="border-t border-slate-100 hover:bg-slate-50">
                   <td className="px-4 py-2 font-mono text-xs">{p.mrd}</td>
-                  <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(p.mrd)}`} className="font-medium text-emerald-700 hover:underline">{p.name}</Link></td>
+                  <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(p.mrd)}`} className="font-medium text-rose-700 hover:underline">{p.name}</Link></td>
                   <td className="px-4 py-2 text-slate-600">{p.phone ?? "—"}</td>
                   <td className="px-4 py-2 text-slate-600">{p.place ?? "—"}</td>
                 </tr>

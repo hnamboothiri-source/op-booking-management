@@ -22,7 +22,7 @@ export function DrillHeader({
     <button
       type="button"
       onClick={() => openDrill({ entity, filters, label: title })}
-      className="group mb-2 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500 transition-colors hover:text-emerald-700 dark:text-slate-400 dark:hover:text-emerald-400"
+      className="group mb-2 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500 transition-colors hover:text-rose-700 dark:text-slate-400 dark:hover:text-rose-400"
     >
       {title}
       <span className="text-xs opacity-0 transition-opacity group-hover:opacity-100" aria-hidden>⤢</span>

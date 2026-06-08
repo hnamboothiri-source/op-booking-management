@@ -41,7 +41,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
       <header className="border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-3">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <span className="font-bold text-emerald-700 dark:text-emerald-400">Sreedhareeyam PRM</span>
+            <span className="font-bold text-rose-700 dark:text-rose-400">Sreedhareeyam PRM</span>
             <nav className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
               {items.map((n) => (
                 <Link key={n.href} href={n.href} className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">

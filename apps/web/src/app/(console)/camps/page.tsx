@@ -34,7 +34,7 @@ export default async function Camps() {
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {camps.length === 0 && <p className="text-sm text-slate-400">No camps yet.</p>}
         {camps.map((c) => (
-          <Link key={c.id} href={`/camps/${c.id}`} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300">
+          <Link key={c.id} href={`/camps/${c.id}`} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-rose-300">
             <div className="flex items-center justify-between"><span className="font-semibold">{c.name}</span><Badge tone={c.status === "completed" ? "green" : "slate"}>{c.status}</Badge></div>
             <div className="mt-1 text-xs text-slate-500">{c.location ?? "—"}{c.organizer ? ` · ${c.organizer.name}` : ""}</div>
             <div className="mt-2 text-sm">{c._count.campPatients} screened · ₹{(c.revenue / 100).toLocaleString("en-IN")}</div>

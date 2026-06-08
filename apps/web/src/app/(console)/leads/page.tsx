@@ -34,9 +34,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       <ActiveFilters filters={filters} basePath="/leads" />
 
       <div className="mb-4 flex flex-wrap gap-2 text-sm">
-        <Link href="/leads" className={`rounded-full px-3 py-1 ${!stage ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>All</Link>
+        <Link href="/leads" className={`rounded-full px-3 py-1 ${!stage ? "bg-rose-600 text-white" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>All</Link>
         {LEAD_STAGES.map((s) => (
-          <Link key={s} href={`/leads?stage=${s}`} className={`rounded-full px-3 py-1 ${stage === s ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>
+          <Link key={s} href={`/leads?stage=${s}`} className={`rounded-full px-3 py-1 ${stage === s ? "bg-rose-600 text-white" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>
             {s.replace(/_/g, " ")}
           </Link>
         ))}
@@ -55,7 +55,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             {leads.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">No leads.</td></tr>}
             {leads.map((l) => (
               <tr key={l.id} className="border-t border-slate-100 hover:bg-slate-50">
-                <td className="px-4 py-2"><Link href={`/leads/${l.id}`} className="font-medium text-emerald-700 hover:underline">{l.contactName}</Link></td>
+                <td className="px-4 py-2"><Link href={`/leads/${l.id}`} className="font-medium text-rose-700 hover:underline">{l.contactName}</Link></td>
                 <td className="px-4 py-2 text-slate-600">{l.phone}</td>
                 <td className="px-4 py-2 text-slate-600">{l.source?.name?.replace(/_/g, " ") ?? "—"}</td>
                 <td className="px-4 py-2"><Badge tone="blue">{l.stage.replace(/_/g, " ")}</Badge></td>

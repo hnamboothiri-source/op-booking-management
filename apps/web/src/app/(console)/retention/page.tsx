@@ -74,7 +74,7 @@ function Section({ title, rows, staff, canEdit, owners }: {
           <tbody>
             {rows.map((s) => (
               <tr key={s.patientMrd} className="border-t border-slate-100">
-                <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(s.patientMrd)}`} className="font-medium text-emerald-700 hover:underline">{s.patient.name}</Link></td>
+                <td className="px-4 py-2"><Link href={`/patients/${encodeURIComponent(s.patientMrd)}`} className="font-medium text-rose-700 hover:underline">{s.patient.name}</Link></td>
                 <td className="px-4 py-2"><Badge tone={s.riskScore >= 60 ? "red" : s.riskScore >= 30 ? "amber" : "green"}>{s.riskScore}</Badge></td>
                 <td className="px-4 py-2 text-slate-600">{owners(s.successOwnerId)}</td>
                 {canEdit && (
@@ -84,7 +84,7 @@ function Section({ title, rows, staff, canEdit, owners }: {
                         <select name="ownerId" defaultValue={s.successOwnerId ?? ""} className="rounded border border-slate-300 px-1 py-0.5 text-xs"><option value="">unassigned</option>{staff.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}</select>
                         <button className="rounded border border-slate-300 px-2 py-0.5 text-xs hover:bg-slate-50">Assign</button>
                       </form>
-                      <form action={markReactivated.bind(null, s.patientMrd)}><button className="rounded border border-emerald-200 px-2 py-0.5 text-xs text-emerald-700 hover:bg-emerald-50">Reactivated</button></form>
+                      <form action={markReactivated.bind(null, s.patientMrd)}><button className="rounded border border-rose-200 px-2 py-0.5 text-xs text-rose-700 hover:bg-rose-50">Reactivated</button></form>
                     </div>
                   </td>
                 )}
