@@ -36,6 +36,7 @@ export default async function LeadHub() {
   ];
 
   const allCards: { title: string; desc: string; href: string; resource: Resource; action?: "view" | "create" }[] = [
+    { title: "Outreach campaigns", desc: "Area → audience → channels & reach → 24h leads", href: "/campaigns", resource: "campaigns" },
     { title: "Leads", desc: "Full lead list, stages, filters & priority/SLA", href: "/leads", resource: "leads" },
     { title: "New lead", desc: "Capture an enquiry with duplicate detection", href: "/leads/new", resource: "leads", action: "create" },
     { title: "Prioritize", desc: "Hot / warm / cold work queue by propensity", href: "/prioritize", resource: "calls" },

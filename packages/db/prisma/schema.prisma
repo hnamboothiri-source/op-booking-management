@@ -649,6 +649,7 @@ model Lead {
   patientMrd      String?      @map("patient_mrd") // set when converted/known
   sourceId        String?      @map("source_id")
   secondarySource String?      @map("secondary_source")
+  responseChannel String?      @map("response_channel") // call | whatsapp | email | walk_in
   campaignId      String?      @map("campaign_id")
   diseaseId       String?      @map("disease_id")
   branchId        String?      @map("branch_id")
@@ -1132,15 +1133,41 @@ model Campaign {
   sourceId       String?      @map("source_id")
   startDate      DateTime?    @map("start_date") @db.Date
   endDate        DateTime?    @map("end_date") @db.Date
-  targetLocation String?      @map("target_location")
+  targetLocation String?      @map("target_location") // outreach area
+  targetDistrict String?      @map("target_district")
   targetDisease  String?      @map("target_disease")
+  targetAgeMin   Int?         @map("target_age_min")
+  targetAgeMax   Int?         @map("target_age_max")
+  targetGender   String?      @map("target_gender") // male | female | all
+  targetAudience String?      @map("target_audience") // traits / description
+  status         String       @default("planned") // planned | running | completed
+  launchedAt     DateTime?    @map("launched_at")
   active         Boolean      @default(true)
   createdAt      DateTime     @default(now()) @map("created_at")
 
+  channels       CampaignChannel[]
   leads          Lead[]
   communications CommunicationLog[]
 
   @@map("campaigns")
+}
+
+// A social/media channel line-item within a campaign, with the agency's assured
+// reach quote (FRS §3-5): promised vs achieved reach + quoted cost.
+model CampaignChannel {
+  id            String   @id @default(uuid())
+  campaignId    String   @map("campaign_id")
+  channel       String   // youtube | instagram | google_ads | facebook | whatsapp | newspaper | tv | radio | other
+  promisedReach Int      @default(0) @map("promised_reach")
+  achievedReach Int?     @map("achieved_reach")
+  quotedCost    Int      @default(0) @map("quoted_cost") // paise
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+
+  @@index([campaignId])
+  @@map("campaign_channels")
 }
 
 // ===========================================================================

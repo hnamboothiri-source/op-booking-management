@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { costPer, roiPct, campaignKpis, riskFromRetention, monthsBetween } from "./campaign";
+import { costPer, roiPct, campaignKpis, riskFromRetention, monthsBetween, costPerThousandReach, reachToLeadRate, withinHours } from "./campaign";
 
 describe("campaign cost metrics", () => {
   it("computes cost per unit in paise", () => {
@@ -12,10 +12,29 @@ describe("campaign cost metrics", () => {
     expect(roiPct(100, 0)).toBeNull();
   });
   it("assembles full KPI object", () => {
-    const k = campaignKpis({ leads: 10, consultations: 5, admissions: 2, revenue: 7500000, spend: 5000000 });
+    const k = campaignKpis({ leads: 10, leads24h: 6, consultations: 5, admissions: 2, revenue: 7500000, spend: 5000000, promisedReach: 50000, achievedReach: 40000 });
     expect(k.costPerLead).toBe(500000);
     expect(k.costPerAdmission).toBe(2500000);
     expect(k.roi).toBe(50);
+    expect(k.costPerReach).toBe(125000); // ₹50000 / 40000 × 1000 = ₹1250 CPM (paise)
+    expect(k.reachToLead).toBe(0.03); // 10/40000 × 100
+  });
+});
+
+describe("campaign reach metrics", () => {
+  it("computes CPM and guards zero reach", () => {
+    expect(costPerThousandReach(5000000, 40000)).toBe(125000);
+    expect(costPerThousandReach(5000000, 0)).toBeNull();
+  });
+  it("computes reach→lead rate", () => {
+    expect(reachToLeadRate(40, 40000)).toBe(0.1);
+    expect(reachToLeadRate(5, 0)).toBe(0);
+  });
+  it("flags the 24h response window", () => {
+    const launch = new Date("2026-06-08T09:00:00Z");
+    expect(withinHours(new Date("2026-06-08T20:00:00Z"), launch, 24)).toBe(true);
+    expect(withinHours(new Date("2026-06-09T10:00:00Z"), launch, 24)).toBe(false);
+    expect(withinHours(new Date("2026-06-08T08:00:00Z"), launch, 24)).toBe(false); // before launch
   });
 });
 

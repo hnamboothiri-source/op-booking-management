@@ -98,6 +98,7 @@ export async function createLead(fd: FormData): Promise<void> {
       existingPatient: bool(fd, "existingPatient"),
       sourceId,
       secondarySource: str(fd, "secondarySource") ?? source?.name ?? null,
+      responseChannel: str(fd, "responseChannel"),
       campaignId: str(fd, "campaignId"),
       diseaseId: str(fd, "diseaseId"),
       branchId: str(fd, "branchId"),

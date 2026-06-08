@@ -124,13 +124,15 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
 
   // --- Leads ---
   const leads: Row[] = [
-    { id: "lead-1", leadNumber: "LEAD-2026-000001", contactName: "Lakshmi Nair", phone: "9847012345", whatsapp: "9847012345", gender: "female", age: 58, city: "Kochi", district: "Ernakulam", chiefComplaint: "Blurred vision, cataract suspected", diseaseId: diseases[0].id, previousTreatment: false, existingPatient: false, stage: "new_lead", sourceId: leadSources[2].id, secondarySource: "website", priorityTier: "hot", ownerId: staffUsers[1].id, assignedAt: day(-3), branchId: branches[0].id, preferredDoctor: "Dr. Menon", followUpDate: day(-2), mergedIntoId: null, patientMrd: null, campaignId: "camp-1", desk: "back_office", createdAt: day(-3) },
+    { id: "lead-1", leadNumber: "LEAD-2026-000001", contactName: "Lakshmi Nair", phone: "9847012345", whatsapp: "9847012345", gender: "female", age: 58, city: "Kochi", district: "Ernakulam", chiefComplaint: "Blurred vision, cataract suspected", diseaseId: diseases[0].id, previousTreatment: false, existingPatient: false, stage: "new_lead", sourceId: leadSources[2].id, secondarySource: "website", priorityTier: "hot", ownerId: staffUsers[1].id, assignedAt: day(-3), branchId: branches[0].id, preferredDoctor: "Dr. Menon", followUpDate: day(-2), mergedIntoId: null, patientMrd: null, campaignId: "camp-1", responseChannel: "whatsapp", desk: "back_office", createdAt: day(-3) },
     { id: "lead-2", leadNumber: "LEAD-2026-000002", contactName: "Joseph Mathew", phone: "9847062345", gender: "male", age: 45, city: "Thrissur", district: "Thrissur", chiefComplaint: "Dry eyes, irritation", diseaseId: diseases[2].id, previousTreatment: true, existingPatient: false, stage: "contacted", sourceId: leadSources[1].id, secondarySource: "google_ads", priorityTier: "warm", ownerId: staffUsers[1].id, assignedAt: day(-6), branchId: branches[0].id, followUpDate: day(1), lastContactAt: day(-1), mergedIntoId: null, desk: "back_office", createdAt: day(-6) },
     { id: "lead-3", leadNumber: "LEAD-2026-000003", contactName: "Meera Das", phone: "9847072345", gender: "female", age: 62, city: "Kottayam", district: "Kottayam", chiefComplaint: "Glaucoma follow-up enquiry", diseaseId: diseases[1].id, previousTreatment: true, existingPatient: false, stage: "interested", sourceId: leadSources[0].id, secondarySource: "facebook", priorityTier: "warm", ownerId: staffUsers[1].id, assignedAt: day(-8), branchId: branches[0].id, followUpDate: day(-1), lastContactAt: day(-2), mergedIntoId: null, desk: "back_office", createdAt: day(-8) },
     { id: "lead-4", leadNumber: "LEAD-2026-000004", contactName: "Anita George", phone: "9847032345", gender: "female", age: 50, city: "Kochi", district: "Ernakulam", chiefComplaint: "Cataract surgery enquiry", diseaseId: diseases[0].id, previousTreatment: false, existingPatient: true, stage: "appointment_booked", sourceId: leadSources[2].id, ownerId: staffUsers[1].id, assignedAt: day(-30), branchId: branches[0].id, patientMrd: "MRD-1003", lastContactAt: day(-28), mergedIntoId: null, desk: "back_office", createdAt: day(-30) },
     { id: "lead-5", leadNumber: "LEAD-2026-000005", contactName: "Vinod P", phone: "9847082345", gender: "male", age: 39, city: "Aluva", district: "Ernakulam", chiefComplaint: "General eye checkup", previousTreatment: false, existingPatient: false, stage: "not_reachable", sourceId: leadSources[3].id, priorityTier: "cold", ownerId: staffUsers[1].id, assignedAt: day(-10), branchId: branches[0].id, followUpDate: day(-4), lastContactAt: day(-7), mergedIntoId: null, desk: "reception", createdAt: day(-10) },
     { id: "lead-6", leadNumber: "LEAD-2026-000006", contactName: "Ann Mathai", phone: "9847060001", gender: "female", age: 47, city: "Perumbavoor", district: "Ernakulam", chiefComplaint: "Watering eyes", stage: "new_lead", sourceId: leadSources[3].id, priorityTier: "hot", ownerId: null, branchId: branches[0].id, mergedIntoId: null, desk: "reception", createdAt: day(0) },
     { id: "lead-7", leadNumber: "LEAD-2026-000007", contactName: "Bilal K", phone: "9847060002", whatsapp: "9847060002", gender: "male", age: 33, city: "Calicut", district: "Kozhikode", chiefComplaint: "Diabetic retinopathy screening", diseaseId: diseases[4].id, stage: "new_lead", sourceId: leadSources[4].id, secondarySource: "whatsapp", priorityTier: "warm", ownerId: staffUsers[1].id, assignedAt: day(0), branchId: branches[0].id, mergedIntoId: null, desk: "back_office", createdAt: day(0) },
+    { id: "lead-8", leadNumber: "LEAD-2026-000008", contactName: "Ramesh Kurup", phone: "9847060008", gender: "male", age: 61, city: "Kochi", district: "Ernakulam", chiefComplaint: "Cataract — saw the reel", diseaseId: diseases[0].id, stage: "new_lead", sourceId: leadSources[1].id, secondarySource: "google_ads", priorityTier: "hot", ownerId: staffUsers[1].id, assignedAt: day(-3), branchId: branches[0].id, mergedIntoId: null, campaignId: "camp-1", responseChannel: "call", desk: "back_office", createdAt: day(-3) },
+    { id: "lead-9", leadNumber: "LEAD-2026-000009", contactName: "Sania P", phone: "9847060009", gender: "female", age: 52, city: "Kochi", district: "Ernakulam", chiefComplaint: "Cataract enquiry from Insta", diseaseId: diseases[0].id, stage: "contacted", sourceId: leadSources[2].id, secondarySource: "instagram", priorityTier: "warm", ownerId: staffUsers[1].id, assignedAt: day(-3), branchId: branches[0].id, mergedIntoId: null, campaignId: "camp-1", responseChannel: "email", lastContactAt: day(-2), desk: "back_office", createdAt: day(-3) },
   ];
 
   // --- Bookings ---
@@ -318,8 +320,15 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
 
   // --- Campaigns ---
   const campaigns: Row[] = [
-    { id: "camp-1", name: "Cataract Awareness June", type: "facebook_ads", budget: 5000000, sourceId: leadSources[2].id, targetDisease: "Cataract", active: true, createdAt: day(-30) },
-    { id: "camp-2", name: "Diabetic Eye Camp", type: "camp", budget: 2000000, targetDisease: "Diabetic retinopathy", active: true, createdAt: day(-15) },
+    { id: "camp-1", name: "Cataract Awareness June", type: "facebook_ads", budget: 5000000, sourceId: leadSources[2].id, targetLocation: "Kochi", targetDistrict: "Ernakulam", targetDisease: "Cataract", targetAgeMin: 45, targetAgeMax: 75, targetGender: "all", targetAudience: "Seniors with blurred vision / cataract symptoms", status: "running", launchedAt: day(-3), active: true, createdAt: day(-30) },
+    { id: "camp-2", name: "Diabetic Eye Camp", type: "camp", budget: 2000000, targetLocation: "Thrissur", targetDistrict: "Thrissur", targetDisease: "Diabetic retinopathy", targetAgeMin: 35, targetAgeMax: 70, targetGender: "all", targetAudience: "Known diabetics, retinopathy screening", status: "running", launchedAt: day(-1), active: true, createdAt: day(-15) },
+  ];
+  const campaignChannels: Row[] = [
+    { id: "cc-1", campaignId: "camp-1", channel: "youtube", promisedReach: 40000, achievedReach: 38500, quotedCost: 2000000, createdAt: day(-5) },
+    { id: "cc-2", campaignId: "camp-1", channel: "instagram", promisedReach: 25000, achievedReach: 27200, quotedCost: 1500000, createdAt: day(-5) },
+    { id: "cc-3", campaignId: "camp-1", channel: "google_ads", promisedReach: 30000, achievedReach: 26000, quotedCost: 1500000, createdAt: day(-5) },
+    { id: "cc-4", campaignId: "camp-2", channel: "whatsapp", promisedReach: 15000, achievedReach: 14200, quotedCost: 800000, createdAt: day(-3) },
+    { id: "cc-5", campaignId: "camp-2", channel: "facebook", promisedReach: 20000, achievedReach: null, quotedCost: 1200000, createdAt: day(-3) },
   ];
 
   // --- Organizations / Camps / Mobile clinics ---
@@ -394,6 +403,8 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
   appointmentStatusHistory.forEach((h) => { h.booking = byId(bookings, h.bookingId) ?? null; });
   appointmentReminders.forEach((r) => { r.booking = byId(bookings, r.bookingId) ?? null; });
   doctorLeaves.forEach((l) => { l.doctor = byId(doctors, l.doctorId) ?? null; });
+  campaigns.forEach((c) => { c.channels = campaignChannels.filter((ch) => ch.campaignId === c.id); });
+  campaignChannels.forEach((ch) => { ch.campaign = byId(campaigns, ch.campaignId) ?? null; });
   consultations.forEach((c) => {
     c.patient = byId(patients, c.patientMrd, "mrd");
     c.doctor = byId(doctors, c.doctorId);
@@ -444,7 +455,7 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     communicationLog: communications, waitlistEntry: waitlist, retentionStatus, campaign: campaigns,
     organization: organizations, camp: camps, campPatient: campPatients, mobileClinic: mobileClinics,
     mobileClinicPatient: mobileClinicPatients, auditLog,
-    leadActivity: leadActivities, leadAssignment: leadAssignments,
+    leadActivity: leadActivities, leadAssignment: leadAssignments, campaignChannel: campaignChannels,
     appointmentStatusHistory, appointmentReminder: appointmentReminders, doctorLeave: doctorLeaves,
     doctorSchedule: doctorSchedules, timeSlot: timeSlots,
   };

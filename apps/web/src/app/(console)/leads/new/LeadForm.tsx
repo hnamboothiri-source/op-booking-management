@@ -102,6 +102,9 @@ export function LeadForm({ sources, campaigns, diseases, branches, staff }: { so
         <label className={label}>Campaign
           <select name="campaignId" className={input}><option value="">—</option>{campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
         </label>
+        <label className={label}>Response channel
+          <select name="responseChannel" className={input}><option value="">—</option><option value="call">call</option><option value="whatsapp">whatsapp</option><option value="email">email</option><option value="walk_in">walk-in</option></select>
+        </label>
         <label className={label}>Preferred branch
           <select name="branchId" className={input}><option value="">—</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
         </label>
