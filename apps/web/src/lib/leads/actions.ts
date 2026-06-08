@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { isClosedStage, deskForSource, type LeadStage, type CallDesk } from "@prm/core";
+import { isClosedStage, deskForSource, nextLeadNumber, type LeadStage, type CallDesk, type LeadActivityKind } from "@prm/core";
 import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
@@ -12,6 +12,49 @@ const str = (fd: FormData, k: string) => {
   const v = fd.get(k)?.toString().trim();
   return v ? v : null;
 };
+const num = (fd: FormData, k: string) => {
+  const v = str(fd, k);
+  const n = v ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : null;
+};
+const bool = (fd: FormData, k: string) => {
+  const v = fd.get(k)?.toString();
+  return v === "yes" || v === "true" || v === "on" ? true : v === "no" || v === "false" ? false : null;
+};
+
+/** Append an entry to a lead's activity timeline (best-effort). */
+export async function writeLeadActivity(a: { leadId: string; kind: LeadActivityKind; summary: string; detail?: string | null; actorId?: string | null }): Promise<void> {
+  try {
+    await prisma.leadActivity.create({ data: { leadId: a.leadId, kind: a.kind, summary: a.summary, detail: a.detail ?? null, actorId: a.actorId ?? null } });
+  } catch {
+    // timeline is non-critical; never block the primary action
+  }
+}
+
+export interface DuplicateMatch { type: "lead" | "patient"; id: string; name: string; sub: string; href: string }
+
+/** Find possible existing records by phone / whatsapp / email (FRS §7). */
+export async function findDuplicates(phone?: string | null, whatsapp?: string | null, email?: string | null): Promise<DuplicateMatch[]> {
+  await requireCan("leads", "view");
+  const phones = [phone, whatsapp].map((p) => p?.trim()).filter(Boolean) as string[];
+  const mail = email?.trim() || null;
+  const out: DuplicateMatch[] = [];
+
+  if (phones.length || mail) {
+    const or: Record<string, unknown>[] = [];
+    if (phones.length) { or.push({ phone: { in: phones } }, { whatsapp: { in: phones } }); }
+    if (mail) or.push({ email: mail });
+    const leads = await prisma.lead.findMany({ where: { OR: or, mergedIntoId: null } as never, include: { source: true }, take: 5 });
+    for (const l of leads) out.push({ type: "lead", id: l.id, name: l.contactName, sub: `${l.leadNumber ?? "lead"} · ${l.stage.replace(/_/g, " ")}`, href: `/leads/${l.id}` });
+
+    const pOr: Record<string, unknown>[] = [];
+    if (phones.length) pOr.push({ phone: { in: phones } }, { whatsapp: { in: phones } });
+    if (mail) pOr.push({ email: mail });
+    const patients = await prisma.patient.findMany({ where: { OR: pOr } as never, take: 5 });
+    for (const p of patients) out.push({ type: "patient", id: p.mrd, name: p.name, sub: `MRD ${p.mrd}${p.lastVisitDate ? " · last visit " + new Date(p.lastVisitDate).toISOString().slice(0, 10) : ""}`, href: `/patients/${encodeURIComponent(p.mrd)}` });
+  }
+  return out;
+}
 
 export async function createLead(fd: FormData): Promise<void> {
   const user = await requireCan("leads", "create");
@@ -21,31 +64,55 @@ export async function createLead(fd: FormData): Promise<void> {
 
   // Auto-route to a call-centre desk by the lead's source (Reception vs Back Office).
   const sourceId = str(fd, "sourceId");
-  const desk = str(fd, "desk") ?? deskForSource(sourceId ? (await prisma.leadSourceMaster.findUnique({ where: { id: sourceId } }))?.name : null);
+  const source = sourceId ? await prisma.leadSourceMaster.findUnique({ where: { id: sourceId } }) : null;
+  const desk = str(fd, "desk") ?? deskForSource(source?.name ?? null);
+  const ownerId = str(fd, "ownerId") ?? user.id;
+
+  // Human-facing lead number derived from the current row count (mock-safe).
+  const seq = (await prisma.lead.count()) + 1;
+  const leadNumber = nextLeadNumber(seq, new Date().getFullYear());
 
   const created = await prisma.lead.create({
     data: {
+      leadNumber,
       contactName,
       phone,
       whatsapp: str(fd, "whatsapp"),
       email: str(fd, "email"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      gender: (str(fd, "gender") as any) ?? null,
+      age: num(fd, "age"),
+      city: str(fd, "city"),
+      district: str(fd, "district"),
+      chiefComplaint: str(fd, "chiefComplaint"),
+      previousTreatment: bool(fd, "previousTreatment"),
+      existingPatient: bool(fd, "existingPatient"),
       sourceId,
+      secondarySource: str(fd, "secondarySource") ?? source?.name ?? null,
       campaignId: str(fd, "campaignId"),
       diseaseId: str(fd, "diseaseId"),
       branchId: str(fd, "branchId"),
       preferredDoctor: str(fd, "preferredDoctor"),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       priority: (str(fd, "priority") as any) ?? "medium",
-      ownerId: str(fd, "ownerId") ?? user.id,
+      priorityTier: str(fd, "priorityTier"),
+      ownerId,
+      assignedAt: ownerId ? new Date() : null,
       desk,
     },
   });
 
-  // Automation: duplicate-mobile detection (master doc §10).
-  const dup = await prisma.lead.findFirst({ where: { phone, id: { not: created.id } } });
-  if (dup) await runAutomation("duplicate_mobile_detected", { leadId: created.id });
+  await writeLeadActivity({ leadId: created.id, kind: "created", summary: `Lead created${source ? " from " + source.name.replace(/_/g, " ") : ""}`, actorId: user.id });
+  if (ownerId) await writeLeadActivity({ leadId: created.id, kind: "assigned", summary: "Assigned to owner", actorId: user.id });
 
-  await writeAudit({ actorId: user.id, action: "lead.create", entity: "lead", entityId: created.id, after: { contactName, phone } });
+  // Automation: duplicate-mobile detection (master doc §10). Skipped when the
+  // user already acknowledged duplicates and chose "continue as new" (force).
+  if (str(fd, "force") !== "true") {
+    const dup = await prisma.lead.findFirst({ where: { phone, id: { not: created.id } } });
+    if (dup) await runAutomation("duplicate_mobile_detected", { leadId: created.id });
+  }
+
+  await writeAudit({ actorId: user.id, action: "lead.create", entity: "lead", entityId: created.id, after: { contactName, phone, leadNumber } });
   revalidatePath("/leads");
   redirect(`/leads/${created.id}`);
 }
@@ -62,6 +129,7 @@ export async function updateLeadStage(id: string, fd: FormData): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: { stage: stage as any, closureReason: isClosedStage(stage) ? closureReason : null },
   });
+  await writeLeadActivity({ leadId: id, kind: "stage_change", summary: `Stage → ${stage.replace(/_/g, " ")}`, detail: closureReason, actorId: user.id });
   await writeAudit({ actorId: user.id, action: "lead.stage", entity: "lead", entityId: id, before: { stage: before?.stage }, after: { stage } });
   revalidatePath(`/leads/${id}`);
 }
@@ -69,9 +137,23 @@ export async function updateLeadStage(id: string, fd: FormData): Promise<void> {
 export async function transferLead(id: string, fd: FormData): Promise<void> {
   const user = await requireCan("leads", "edit");
   const ownerId = fd.get("ownerId")?.toString() || null;
+  const branchId = fd.get("branchId")?.toString() || undefined; // optional branch transfer
+  const reason = str(fd, "reason");
   const before = await prisma.lead.findUnique({ where: { id } });
-  await prisma.lead.update({ where: { id }, data: { ownerId } });
-  await writeAudit({ actorId: user.id, action: "lead.transfer", entity: "lead", entityId: id, before: { ownerId: before?.ownerId }, after: { ownerId } });
+  const data: Record<string, unknown> = { ownerId, assignedAt: new Date() };
+  if (branchId !== undefined && branchId !== "") data.branchId = branchId;
+  await prisma.lead.update({ where: { id }, data });
+
+  // Record the assignment/transfer in history.
+  await prisma.leadAssignment.create({
+    data: {
+      leadId: id, fromOwnerId: before?.ownerId ?? null, toOwnerId: ownerId,
+      fromBranchId: before?.branchId ?? null, toBranchId: (data.branchId as string) ?? before?.branchId ?? null,
+      reason: reason ?? "manual transfer", actorId: user.id,
+    },
+  });
+  await writeLeadActivity({ leadId: id, kind: "transfer", summary: "Lead transferred", detail: reason, actorId: user.id });
+  await writeAudit({ actorId: user.id, action: "lead.transfer", entity: "lead", entityId: id, before: { ownerId: before?.ownerId }, after: { ownerId, branchId: data.branchId } });
   revalidatePath(`/leads/${id}`);
 }
 
@@ -87,6 +169,7 @@ export async function mergeLead(id: string, fd: FormData): Promise<void> {
     prisma.callLog.updateMany({ where: { leadId: id }, data: { leadId: targetId } }),
     prisma.lead.update({ where: { id }, data: { mergedIntoId: targetId, closureReason: "merged" } }),
   ]);
+  await writeLeadActivity({ leadId: targetId, kind: "merge", summary: `Merged in lead ${id}`, actorId: user.id });
   await writeAudit({ actorId: user.id, action: "lead.merge", entity: "lead", entityId: id, after: { mergedIntoId: targetId } });
   revalidatePath("/leads");
   redirect(`/leads/${targetId}`);
@@ -114,6 +197,7 @@ export async function logCall(leadId: string, fd: FormData): Promise<void> {
     data: {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       lastCallOutcome: outcome as any,
+      lastContactAt: new Date(),
       stage: lead?.stage === "new_lead" ? "contacted" : lead?.stage,
       followUpDate: followUpDate ? new Date(followUpDate) : lead?.followUpDate,
     },

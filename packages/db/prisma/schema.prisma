@@ -401,6 +401,7 @@ model StaffUser {
 model LeadSourceMaster {
   id     String  @id @default(uuid())
   name   String  @unique // e.g. social_media, google_ads, website, walk_in, camp ...
+  group  String? // primary source group: digital | referral | camp | mobile_clinic | branch | walk_in
   active Boolean @default(true)
 
   leads Lead[]
@@ -621,21 +622,33 @@ model PatientDocument {
 
 model Lead {
   id              String       @id @default(uuid())
+  leadNumber      String?      @map("lead_number") // display id e.g. LEAD-2026-000123
   contactName     String       @map("contact_name")
   phone           String
   whatsapp        String?
   email           String?
+  gender          Gender?
+  age             Int?
+  city            String?
+  district        String?
+  chiefComplaint  String?      @map("chief_complaint")
+  previousTreatment Boolean?   @map("previous_treatment")
+  existingPatient Boolean?     @map("existing_patient")
   patientMrd      String?      @map("patient_mrd") // set when converted/known
   sourceId        String?      @map("source_id")
+  secondarySource String?      @map("secondary_source")
   campaignId      String?      @map("campaign_id")
   diseaseId       String?      @map("disease_id")
   branchId        String?      @map("branch_id")
   preferredDoctor String?      @map("preferred_doctor")
   priority        LeadPriority @default(medium)
+  priorityTier    String?      @map("priority_tier") // manual override: hot | warm | cold
   ownerId         String?      @map("owner_id")
+  assignedAt      DateTime?    @map("assigned_at")
   stage           LeadStage    @default(new_lead)
   followUpDate    DateTime?    @map("follow_up_date") @db.Date
   lastCallOutcome CallOutcome? @map("last_call_outcome")
+  lastContactAt   DateTime?    @map("last_contact_at")
   closureReason   String?      @map("closure_reason")
   mergedIntoId    String?      @map("merged_into_id")
   missedEnquiry   Boolean      @default(false) @map("missed_enquiry")
@@ -643,23 +656,60 @@ model Lead {
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
 
-  source     LeadSourceMaster? @relation(fields: [sourceId], references: [id])
-  campaign   Campaign?         @relation(fields: [campaignId], references: [id])
-  disease    DiseaseMaster?    @relation(fields: [diseaseId], references: [id])
-  branch     Branch?           @relation(fields: [branchId], references: [id])
-  owner      StaffUser?        @relation("LeadOwner", fields: [ownerId], references: [id])
-  patient    Patient?          @relation(fields: [patientMrd], references: [mrd])
-  mergedInto Lead?             @relation("LeadMerge", fields: [mergedIntoId], references: [id])
-  mergedFrom Lead[]            @relation("LeadMerge")
-  calls      CallLog[]
-  bookings   OpBooking[]
-  tasks      Task[]
+  source      LeadSourceMaster?  @relation(fields: [sourceId], references: [id])
+  campaign    Campaign?          @relation(fields: [campaignId], references: [id])
+  disease     DiseaseMaster?     @relation(fields: [diseaseId], references: [id])
+  branch      Branch?            @relation(fields: [branchId], references: [id])
+  owner       StaffUser?         @relation("LeadOwner", fields: [ownerId], references: [id])
+  patient     Patient?           @relation(fields: [patientMrd], references: [mrd])
+  mergedInto  Lead?              @relation("LeadMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom  Lead[]             @relation("LeadMerge")
+  calls       CallLog[]
+  bookings    OpBooking[]
+  tasks       Task[]
+  activities  LeadActivity[]
+  assignments LeadAssignment[]
+  communications CommunicationLog[]
 
   @@index([stage])
   @@index([phone])
   @@index([sourceId])
   @@index([ownerId])
   @@map("leads")
+}
+
+// Unified per-lead activity timeline (calls, messages, stage changes, notes, …)
+model LeadActivity {
+  id        String   @id @default(uuid())
+  leadId    String   @map("lead_id")
+  kind      String   // created | assigned | call | message | stage_change | note | follow_up | transfer | merge
+  summary   String
+  detail    String?
+  actorId   String?  @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  lead Lead @relation(fields: [leadId], references: [id])
+
+  @@index([leadId, createdAt])
+  @@map("lead_activities")
+}
+
+// Assignment / transfer history for a lead (owner and/or branch changes)
+model LeadAssignment {
+  id          String   @id @default(uuid())
+  leadId      String   @map("lead_id")
+  fromOwnerId String?  @map("from_owner_id")
+  toOwnerId   String?  @map("to_owner_id")
+  fromBranchId String? @map("from_branch_id")
+  toBranchId  String?  @map("to_branch_id")
+  reason      String?
+  actorId     String?  @map("actor_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  lead Lead @relation(fields: [leadId], references: [id])
+
+  @@index([leadId, createdAt])
+  @@map("lead_assignments")
 }
 
 model CallLog {
@@ -979,6 +1029,7 @@ model Task {
 model CommunicationLog {
   id          String               @id @default(uuid())
   patientMrd  String?              @map("patient_mrd")
+  leadId      String?              @map("lead_id")
   channel     CommunicationChannel
   templateId  String?              @map("template_id")
   campaignId  String?              @map("campaign_id")
@@ -990,6 +1041,7 @@ model CommunicationLog {
   createdAt   DateTime             @default(now()) @map("created_at")
 
   patient  Patient?               @relation(fields: [patientMrd], references: [mrd])
+  lead     Lead?                  @relation(fields: [leadId], references: [id])
   template CommunicationTemplate? @relation(fields: [templateId], references: [id])
   campaign Campaign?              @relation(fields: [campaignId], references: [id])
 

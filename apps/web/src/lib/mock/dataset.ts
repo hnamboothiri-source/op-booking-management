@@ -33,7 +33,8 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     { id: "doc-thomas", name: "Dr. Thomas", designation: "Medical Officer", registrationNo: "KMC-1003", dailyTarget: 25, active: true },
   ];
   const consultationRooms: Row[] = ["Room 1", "Room 2", "Room 3"].map((name, i) => ({ id: `room-${i}`, name, departmentId: departments[1].id, branchId: branches[0].id, active: true }));
-  const leadSources: Row[] = ["social_media", "google_ads", "website", "phone", "whatsapp", "email", "doctor_referral", "patient_referral", "camp", "walk_in"].map((name, i) => ({ id: `src-${i}`, name, active: true }));
+  const sourceGroups: Record<string, string> = { social_media: "digital", google_ads: "digital", website: "digital", phone: "branch", whatsapp: "digital", email: "digital", doctor_referral: "referral", patient_referral: "referral", camp: "camp", walk_in: "walk_in" };
+  const leadSources: Row[] = ["social_media", "google_ads", "website", "phone", "whatsapp", "email", "doctor_referral", "patient_referral", "camp", "walk_in"].map((name, i) => ({ id: `src-${i}`, name, group: sourceGroups[name] ?? "digital", active: true }));
   const diseases: Row[] = ["Cataract", "Glaucoma", "Dry eye", "Allergic conjunctivitis", "Diabetic retinopathy"].map((name, i) => ({ id: `dis-${i}`, name, active: true }));
   const services: Row[] = [{ id: "svc-0", name: "OP Consultation", price: 30000, active: true }];
   const referralSources: Row[] = [{ id: "rs-0", name: "Existing patient", active: true }];
@@ -69,13 +70,13 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
 
   // --- Leads ---
   const leads: Row[] = [
-    { id: "lead-1", contactName: "Lakshmi Nair", phone: "9847012345", whatsapp: "9847012345", stage: "new_lead", sourceId: leadSources[2].id, ownerId: staffUsers[1].id, branchId: branches[0].id, preferredDoctor: "Dr. Menon", followUpDate: day(-2), mergedIntoId: null, patientMrd: null, campaignId: "camp-1", desk: "back_office", createdAt: day(-3) },
-    { id: "lead-2", contactName: "Joseph Mathew", phone: "9847062345", stage: "contacted", sourceId: leadSources[1].id, ownerId: staffUsers[1].id, branchId: branches[0].id, followUpDate: day(1), mergedIntoId: null, desk: "back_office", createdAt: day(-6) },
-    { id: "lead-3", contactName: "Meera Das", phone: "9847072345", stage: "interested", sourceId: leadSources[0].id, ownerId: staffUsers[1].id, branchId: branches[0].id, followUpDate: day(-1), mergedIntoId: null, desk: "back_office", createdAt: day(-8) },
-    { id: "lead-4", contactName: "Anita George", phone: "9847032345", stage: "appointment_booked", sourceId: leadSources[2].id, ownerId: staffUsers[1].id, branchId: branches[0].id, patientMrd: "MRD-1003", mergedIntoId: null, desk: "back_office", createdAt: day(-30) },
-    { id: "lead-5", contactName: "Vinod P", phone: "9847082345", stage: "not_reachable", sourceId: leadSources[3].id, ownerId: staffUsers[1].id, branchId: branches[0].id, followUpDate: day(-4), mergedIntoId: null, desk: "reception", createdAt: day(-10) },
-    { id: "lead-6", contactName: "Ann Mathai", phone: "9847060001", stage: "new_lead", sourceId: leadSources[3].id, ownerId: null, branchId: branches[0].id, mergedIntoId: null, desk: "reception", createdAt: day(0) },
-    { id: "lead-7", contactName: "Bilal K", phone: "9847060002", stage: "new_lead", sourceId: leadSources[4].id, ownerId: staffUsers[1].id, branchId: branches[0].id, mergedIntoId: null, desk: "back_office", createdAt: day(0) },
+    { id: "lead-1", leadNumber: "LEAD-2026-000001", contactName: "Lakshmi Nair", phone: "9847012345", whatsapp: "9847012345", gender: "female", age: 58, city: "Kochi", district: "Ernakulam", chiefComplaint: "Blurred vision, cataract suspected", diseaseId: diseases[0].id, previousTreatment: false, existingPatient: false, stage: "new_lead", sourceId: leadSources[2].id, secondarySource: "website", priorityTier: "hot", ownerId: staffUsers[1].id, assignedAt: day(-3), branchId: branches[0].id, preferredDoctor: "Dr. Menon", followUpDate: day(-2), mergedIntoId: null, patientMrd: null, campaignId: "camp-1", desk: "back_office", createdAt: day(-3) },
+    { id: "lead-2", leadNumber: "LEAD-2026-000002", contactName: "Joseph Mathew", phone: "9847062345", gender: "male", age: 45, city: "Thrissur", district: "Thrissur", chiefComplaint: "Dry eyes, irritation", diseaseId: diseases[2].id, previousTreatment: true, existingPatient: false, stage: "contacted", sourceId: leadSources[1].id, secondarySource: "google_ads", priorityTier: "warm", ownerId: staffUsers[1].id, assignedAt: day(-6), branchId: branches[0].id, followUpDate: day(1), lastContactAt: day(-1), mergedIntoId: null, desk: "back_office", createdAt: day(-6) },
+    { id: "lead-3", leadNumber: "LEAD-2026-000003", contactName: "Meera Das", phone: "9847072345", gender: "female", age: 62, city: "Kottayam", district: "Kottayam", chiefComplaint: "Glaucoma follow-up enquiry", diseaseId: diseases[1].id, previousTreatment: true, existingPatient: false, stage: "interested", sourceId: leadSources[0].id, secondarySource: "facebook", priorityTier: "warm", ownerId: staffUsers[1].id, assignedAt: day(-8), branchId: branches[0].id, followUpDate: day(-1), lastContactAt: day(-2), mergedIntoId: null, desk: "back_office", createdAt: day(-8) },
+    { id: "lead-4", leadNumber: "LEAD-2026-000004", contactName: "Anita George", phone: "9847032345", gender: "female", age: 50, city: "Kochi", district: "Ernakulam", chiefComplaint: "Cataract surgery enquiry", diseaseId: diseases[0].id, previousTreatment: false, existingPatient: true, stage: "appointment_booked", sourceId: leadSources[2].id, ownerId: staffUsers[1].id, assignedAt: day(-30), branchId: branches[0].id, patientMrd: "MRD-1003", lastContactAt: day(-28), mergedIntoId: null, desk: "back_office", createdAt: day(-30) },
+    { id: "lead-5", leadNumber: "LEAD-2026-000005", contactName: "Vinod P", phone: "9847082345", gender: "male", age: 39, city: "Aluva", district: "Ernakulam", chiefComplaint: "General eye checkup", previousTreatment: false, existingPatient: false, stage: "not_reachable", sourceId: leadSources[3].id, priorityTier: "cold", ownerId: staffUsers[1].id, assignedAt: day(-10), branchId: branches[0].id, followUpDate: day(-4), lastContactAt: day(-7), mergedIntoId: null, desk: "reception", createdAt: day(-10) },
+    { id: "lead-6", leadNumber: "LEAD-2026-000006", contactName: "Ann Mathai", phone: "9847060001", gender: "female", age: 47, city: "Perumbavoor", district: "Ernakulam", chiefComplaint: "Watering eyes", stage: "new_lead", sourceId: leadSources[3].id, priorityTier: "hot", ownerId: null, branchId: branches[0].id, mergedIntoId: null, desk: "reception", createdAt: day(0) },
+    { id: "lead-7", leadNumber: "LEAD-2026-000007", contactName: "Bilal K", phone: "9847060002", whatsapp: "9847060002", gender: "male", age: 33, city: "Calicut", district: "Kozhikode", chiefComplaint: "Diabetic retinopathy screening", diseaseId: diseases[4].id, stage: "new_lead", sourceId: leadSources[4].id, secondarySource: "whatsapp", priorityTier: "warm", ownerId: staffUsers[1].id, assignedAt: day(0), branchId: branches[0].id, mergedIntoId: null, desk: "back_office", createdAt: day(0) },
   ];
 
   // --- Bookings ---
@@ -177,17 +178,37 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     { id: "aud-2", actorId: staffUsers[3].id, action: "consultation.create", entity: "consultation", entityId: "cons-1", createdAt: day(-5) },
   ];
 
+  // Per-lead activity timeline seed (calls/stage-changes/notes augment these).
+  const leadActivities: Row[] = [
+    { id: "la-1", leadId: "lead-1", kind: "created", summary: "Lead created from Website form", actorId: staffUsers[0].id, createdAt: day(-3) },
+    { id: "la-2", leadId: "lead-1", kind: "assigned", summary: "Assigned to Call Exec", actorId: staffUsers[0].id, createdAt: day(-3) },
+    { id: "la-3", leadId: "lead-2", kind: "created", summary: "Lead created from Google Ads", actorId: staffUsers[0].id, createdAt: day(-6) },
+    { id: "la-4", leadId: "lead-2", kind: "note", summary: "Note added", detail: "Patient asked about consultation cost", actorId: staffUsers[1].id, createdAt: day(-1) },
+    { id: "la-5", leadId: "lead-3", kind: "created", summary: "Lead created from Social media", actorId: staffUsers[0].id, createdAt: day(-8) },
+    { id: "la-6", leadId: "lead-3", kind: "stage_change", summary: "Stage → interested", actorId: staffUsers[1].id, createdAt: day(-2) },
+  ];
+
+  const leadAssignments: Row[] = [
+    { id: "lasg-1", leadId: "lead-1", fromOwnerId: null, toOwnerId: staffUsers[1].id, reason: "auto: branch + disease", actorId: staffUsers[0].id, createdAt: day(-3) },
+    { id: "lasg-2", leadId: "lead-2", fromOwnerId: null, toOwnerId: staffUsers[1].id, reason: "auto: digital lead", actorId: staffUsers[0].id, createdAt: day(-6) },
+  ];
+
   // ---- Wire cross-references by reference ----
   const byId = <T extends Row>(arr: T[], id: string | null | undefined, key = "id") => arr.find((r) => r[key] === id);
   const patientMini = (mrd: string) => { const p = byId(patients, mrd, "mrd"); return p ? { mrd: p.mrd, name: p.name } : null; };
 
   leads.forEach((l) => {
     l.source = byId(leadSources, l.sourceId) ?? null;
+    l.disease = byId(diseases, l.diseaseId) ?? null;
     l.owner = byId(staffUsers, l.ownerId) ?? null;
     l.branch = byId(branches, l.branchId) ?? null;
     l.calls = callLogs.filter((c) => c.leadId === l.id);
+    l.activities = leadActivities.filter((a) => a.leadId === l.id);
+    l.assignments = leadAssignments.filter((a) => a.leadId === l.id);
   });
   callLogs.forEach((c) => { c.lead = byId(leads, c.leadId) ?? null; });
+  leadActivities.forEach((a) => { a.lead = byId(leads, a.leadId) ?? null; a.actor = byId(staffUsers, a.actorId) ?? null; });
+  leadAssignments.forEach((a) => { a.lead = byId(leads, a.leadId) ?? null; a.fromOwner = byId(staffUsers, a.fromOwnerId) ?? null; a.toOwner = byId(staffUsers, a.toOwnerId) ?? null; });
   bookings.forEach((b) => {
     b.patient = byId(patients, b.patientMrd, "mrd");
     b.doctor = byId(doctors, b.doctorId);
@@ -245,6 +266,7 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     communicationLog: communications, waitlistEntry: waitlist, retentionStatus, campaign: campaigns,
     organization: organizations, camp: camps, campPatient: campPatients, mobileClinic: mobileClinics,
     mobileClinicPatient: mobileClinicPatients, auditLog,
+    leadActivity: leadActivities, leadAssignment: leadAssignments,
   };
   return { store, counters: {} };
 }
