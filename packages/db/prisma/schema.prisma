@@ -1013,6 +1013,9 @@ model AdmissionRecommendation {
   status           AdmissionStatus           @default(recommended)
   rejectionReason  AdmissionRejectionReason? @map("rejection_reason")
   counsellorId     String?                   @map("counsellor_id")
+  counsellingNotes String?                   @map("counselling_notes")
+  costDiscussed    Int?                      @map("cost_discussed") // paise
+  nextCounsellingAt DateTime?                @map("next_counselling_at")
   decisionAt       DateTime?                 @map("decision_at")
   createdAt        DateTime                  @default(now()) @map("created_at")
   updatedAt        DateTime                  @updatedAt @map("updated_at")
@@ -1249,10 +1252,28 @@ model Organization {
   active          Boolean          @default(true)
   createdAt       DateTime         @default(now()) @map("created_at")
 
-  camps     Camp[]
-  referrals Referral[]
+  camps       Camp[]
+  referrals   Referral[]
+  engagements OrganizationEngagement[]
 
   @@map("organizations")
+}
+
+/// Logged engagement touch-point with an institution (Phase 24 capture).
+model OrganizationEngagement {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  type           String   // visit | call | email | meeting
+  outcome        String
+  notes          String?
+  actorId        String?  @map("actor_id")
+  at             DateTime @default(now())
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, at])
+  @@map("organization_engagements")
 }
 
 model Camp {
@@ -1280,7 +1301,10 @@ model CampPatient {
   patientMrd      String?  @map("patient_mrd")
   contactName     String   @map("contact_name")
   phone           String?
+  age             Int?
+  gender          Gender?
   complaint       String?
+  diseaseId       String?  @map("disease_id")
   recommendedVisit Boolean @default(false) @map("recommended_visit")
   bookingId       String?  @map("booking_id")
   createdAt       DateTime @default(now()) @map("created_at")
@@ -1313,7 +1337,10 @@ model MobileClinicPatient {
   patientMrd      String?  @map("patient_mrd")
   contactName     String   @map("contact_name")
   phone           String?
+  age             Int?
+  gender          Gender?
   complaint       String?
+  diseaseId       String?  @map("disease_id")
   referredToBranch Boolean @default(false) @map("referred_to_branch")
   bookingId       String?  @map("booking_id")
   createdAt       DateTime @default(now()) @map("created_at")
@@ -1347,6 +1374,10 @@ model RetentionStatus {
   category        RetentionCategory @default(active)
   riskScore       Int               @default(0) @map("risk_score")
   successOwnerId  String?           @map("success_owner_id")
+  reactivationMethod String?        @map("reactivation_method") // call | whatsapp | visit | email
+  reactivationResult String?        @map("reactivation_result") // promised_visit | booked | not_interested | unreachable | do_not_contact
+  reactivationNote   String?        @map("reactivation_note")
+  reactivatedAt      DateTime?      @map("reactivated_at")
   lastEvaluatedAt DateTime          @default(now()) @map("last_evaluated_at")
 
   patient Patient @relation(fields: [patientMrd], references: [mrd])

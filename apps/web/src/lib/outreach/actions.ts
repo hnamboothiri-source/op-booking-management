@@ -10,6 +10,11 @@ const str = (fd: FormData, k: string) => {
   const v = fd.get(k)?.toString().trim();
   return v ? v : null;
 };
+const num = (fd: FormData, k: string) => {
+  const v = str(fd, k);
+  const n = v ? parseInt(v, 10) : NaN;
+  return Number.isFinite(n) ? n : null;
+};
 
 async function sourceId(name: string): Promise<string | null> {
   const s = await prisma.leadSourceMaster.findUnique({ where: { name } });
@@ -46,7 +51,8 @@ export async function addCampPatient(campId: string, fd: FormData): Promise<void
 
   await prisma.$transaction(async (tx) => {
     await tx.campPatient.create({
-      data: { campId, contactName, phone, complaint: str(fd, "complaint"), recommendedVisit },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: { campId, contactName, phone, age: num(fd, "age"), gender: (str(fd, "gender") as any) ?? null, diseaseId: str(fd, "diseaseId"), complaint: str(fd, "complaint"), recommendedVisit },
     });
     await tx.camp.update({ where: { id: campId }, data: { patientsScreened: { increment: 1 } } });
   });
@@ -85,7 +91,8 @@ export async function addMobilePatient(clinicId: string, fd: FormData): Promise<
 
   await prisma.$transaction(async (tx) => {
     await tx.mobileClinicPatient.create({
-      data: { mobileClinicId: clinicId, contactName, phone, complaint: str(fd, "complaint"), referredToBranch },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: { mobileClinicId: clinicId, contactName, phone, age: num(fd, "age"), gender: (str(fd, "gender") as any) ?? null, diseaseId: str(fd, "diseaseId"), complaint: str(fd, "complaint"), referredToBranch },
     });
     await tx.mobileClinic.update({ where: { id: clinicId }, data: { patientsScreened: { increment: 1 } } });
   });

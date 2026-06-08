@@ -41,3 +41,18 @@ export async function setNextEngagement(id: string, fd: FormData): Promise<void>
   await writeAudit({ actorId: user.id, action: "org.engagement", entity: "organization", entityId: id });
   revalidatePath(`/organizations/${id}`);
 }
+
+/** Log an engagement touch-point (type + outcome required) + set the next date. */
+export async function logEngagement(id: string, fd: FormData): Promise<void> {
+  const user = await requireCan("organizations", "edit");
+  const type = fd.get("type")?.toString() || "visit";
+  const outcome = str(fd, "outcome");
+  if (!outcome) throw new Error("Engagement outcome is required");
+  await prisma.organizationEngagement.create({
+    data: { organizationId: id, type, outcome, notes: str(fd, "notes"), actorId: user.id },
+  });
+  const nextEngagement = str(fd, "nextEngagement");
+  if (nextEngagement) await prisma.organization.update({ where: { id }, data: { nextEngagement: new Date(nextEngagement) } });
+  await writeAudit({ actorId: user.id, action: "org.log_engagement", entity: "organization", entityId: id, after: { type, outcome } });
+  revalidatePath(`/organizations/${id}`);
+}

@@ -43,6 +43,8 @@ export default async function CampDetail({ params, searchParams }: { params: Pro
           <form action={addCampPatient.bind(null, id)} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <label className="text-xs font-medium text-slate-600">Name<input name="contactName" required className={input} /></label>
             <label className="text-xs font-medium text-slate-600">Phone<input name="phone" className={input} /></label>
+            <label className="text-xs font-medium text-slate-600">Age<input type="number" name="age" className={input} /></label>
+            <label className="text-xs font-medium text-slate-600">Gender<select name="gender" className={input}><option value="">—</option><option value="male">male</option><option value="female">female</option><option value="other">other</option></select></label>
             <label className="text-xs font-medium text-slate-600">Complaint<input name="complaint" className={input} /></label>
             <label className="flex items-center gap-2 pt-5 text-xs font-medium text-slate-600"><input type="checkbox" name="recommendedVisit" className="h-4 w-4" /> Recommend hospital visit</label>
             <div className="col-span-2 sm:col-span-4"><SubmitButton>Add screening</SubmitButton></div>

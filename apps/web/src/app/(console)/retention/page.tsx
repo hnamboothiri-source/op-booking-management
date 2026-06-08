@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { recomputeRetention, assignSuccessOwner, markReactivated } from "@/lib/retention/actions";
-import { can } from "@prm/core";
+import { recomputeRetention, assignSuccessOwner, recordReactivation } from "@/lib/retention/actions";
+import { can, REACTIVATION_METHODS, REACTIVATION_RESULTS } from "@prm/core";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
 import { DRILL, listFilters } from "@/lib/drill/registry";
 import { DrillStat } from "@/components/drill/DrillStat";
@@ -84,7 +84,12 @@ function Section({ title, rows, staff, canEdit, owners }: {
                         <select name="ownerId" defaultValue={s.successOwnerId ?? ""} className="rounded border border-slate-300 px-1 py-0.5 text-xs"><option value="">unassigned</option>{staff.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}</select>
                         <button className="rounded border border-slate-300 px-2 py-0.5 text-xs hover:bg-slate-50">Assign</button>
                       </form>
-                      <form action={markReactivated.bind(null, s.patientMrd)}><button className="rounded border border-rose-200 px-2 py-0.5 text-xs text-rose-700 hover:bg-rose-50">Reactivated</button></form>
+                      <form action={recordReactivation.bind(null, s.patientMrd)} className="flex items-center gap-1">
+                        <select name="reactivationMethod" required defaultValue="" className="rounded border border-slate-300 px-1 py-0.5 text-xs"><option value="">method…</option>{REACTIVATION_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}</select>
+                        <select name="reactivationResult" required defaultValue="" className="rounded border border-slate-300 px-1 py-0.5 text-xs"><option value="">result…</option>{REACTIVATION_RESULTS.map((r) => <option key={r} value={r}>{r.replace(/_/g, " ")}</option>)}</select>
+                        <input name="reactivationNote" placeholder="note" className="w-24 rounded border border-slate-300 px-1 py-0.5 text-xs" />
+                        <button className="rounded border border-rose-200 px-2 py-0.5 text-xs text-rose-700 hover:bg-rose-50">Save</button>
+                      </form>
                     </div>
                   </td>
                 )}

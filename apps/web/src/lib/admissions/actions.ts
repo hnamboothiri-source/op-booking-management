@@ -16,9 +16,19 @@ export async function transitionAdmission(id: string, to: AdmissionStatus, fd: F
   const reason = fd.get("rejectionReason")?.toString();
   if (admissionNeedsReason(to) && !reason) throw new Error("A reason is required to reject/close an admission");
 
+  const counsellingNotes = fd.get("counsellingNotes")?.toString().trim() || null;
+  if (to === "counselled" && !counsellingNotes) throw new Error("Counselling notes are required when counselling a patient");
+  const costRupees = fd.get("costDiscussed")?.toString().trim();
+  const nextAt = fd.get("nextCounsellingAt")?.toString().trim();
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data: any = { status: to };
-  if (to === "counselled") data.counsellorId = user.id;
+  if (to === "counselled") {
+    data.counsellorId = user.id;
+    data.counsellingNotes = counsellingNotes;
+    if (costRupees) data.costDiscussed = Math.round(parseFloat(costRupees) * 100);
+    if (nextAt) data.nextCounsellingAt = new Date(nextAt);
+  }
   if (isAdmissionTerminal(to)) data.decisionAt = new Date();
   if (admissionNeedsReason(to)) data.rejectionReason = reason;
 

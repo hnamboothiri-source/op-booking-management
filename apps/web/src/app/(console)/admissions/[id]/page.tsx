@@ -32,8 +32,15 @@ export default async function AdmissionDetail({ params }: { params: Promise<{ id
         <Card><div className="text-xs text-slate-500 dark:text-slate-400">Status</div><div className="font-medium">{a.status}{a.rejectionReason ? ` · ${a.rejectionReason.replace(/_/g, " ")}` : ""}</div></Card>
       </div>
 
+      {a.counsellingNotes && (
+        <Card>
+          <div className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Counselling</div>
+          <p className="mt-1 text-sm">{a.counsellingNotes}{a.costDiscussed ? ` · cost discussed ₹${(a.costDiscussed / 100).toLocaleString("en-IN")}` : ""}</p>
+        </Card>
+      )}
+
       {canEdit && (
-        <div>
+        <div className="mt-6">
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Advance the funnel</h2>
           <div className="flex flex-wrap gap-2">
             {nextAdmissionStatuses(a.status as AdmissionStatus).map((s) =>
@@ -41,6 +48,13 @@ export default async function AdmissionDetail({ params }: { params: Promise<{ id
                 <form key={s} action={transitionAdmission.bind(null, a.id, s)} className="flex items-center gap-1">
                   <select name="rejectionReason" className="rounded border border-slate-300 px-1 py-1 text-xs dark:border-slate-600 dark:bg-slate-800"><option value="">reason…</option>{REJECTION_REASONS.map((rr) => <option key={rr} value={rr}>{rr.replace(/_/g, " ")}</option>)}</select>
                   <button className="rounded border border-red-200 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300">{s}</button>
+                </form>
+              ) : s === "counselled" ? (
+                <form key={s} action={transitionAdmission.bind(null, a.id, s)} className="flex w-full flex-wrap items-end gap-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                  <label className="flex-1 text-xs font-medium text-slate-600 dark:text-slate-300">Counselling notes *<input name="counsellingNotes" required placeholder="What was discussed / patient response" className="mt-1 block w-full rounded border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800" /></label>
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Cost discussed (₹)<input type="number" name="costDiscussed" className="mt-1 block w-32 rounded border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800" /></label>
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Next counselling<input type="date" name="nextCounsellingAt" className="mt-1 block rounded border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800" /></label>
+                  <button className="rounded bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700">Mark counselled</button>
                 </form>
               ) : (
                 <form key={s} action={transitionAdmission.bind(null, a.id, s)}><button className="rounded border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">{s}</button></form>

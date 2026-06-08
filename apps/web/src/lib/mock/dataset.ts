@@ -376,6 +376,9 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     { id: "org-1", name: "St. Mary's School", type: "school", nextEngagement: day(14), contactPersons: [{ name: "Principal", role: "Head" }], createdAt: day(-90) },
     { id: "org-2", name: "Acme Corp", type: "company", nextEngagement: null, contactPersons: [], createdAt: day(-60) },
   ];
+  const organizationEngagements: Row[] = [
+    { id: "oe-1", organizationId: "org-1", type: "visit", outcome: "Agreed to host an eye camp next month", notes: "Met the principal; ~300 students", actorId: "stf-camp", at: day(-12), createdAt: day(-12) },
+  ];
   const camps: Row[] = [
     { id: "cmp-1", name: "Eye Camp Koothattukulam", location: "Koothattukulam", organizerId: "org-1", status: "completed", revenue: 150000, createdAt: day(-20) },
     { id: "cmp-2", name: "Vision Screening Kochi", location: "Ernakulam", organizerId: null, status: "planned", revenue: 0, createdAt: day(-3) },
@@ -495,7 +498,7 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     patient: patients, lead: leads, callLog: callLogs, opBooking: bookings, consultation: consultations,
     admissionRecommendation: admissions, followUp: followUps, task: tasks, referral: referrals,
     communicationLog: communications, waitlistEntry: waitlist, retentionStatus, campaign: campaigns,
-    organization: organizations, camp: camps, campPatient: campPatients, mobileClinic: mobileClinics,
+    organization: organizations, organizationEngagement: organizationEngagements, camp: camps, campPatient: campPatients, mobileClinic: mobileClinics,
     mobileClinicPatient: mobileClinicPatients, auditLog,
     leadActivity: leadActivities, leadAssignment: leadAssignments, campaignChannel: campaignChannels,
     appointmentStatusHistory, appointmentReminder: appointmentReminders, doctorLeave: doctorLeaves,

@@ -38,6 +38,8 @@ export default async function MobileClinicDetail({ params, searchParams }: { par
           <form action={addMobilePatient.bind(null, id)} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <label className="text-xs font-medium text-slate-600">Name<input name="contactName" required className={input} /></label>
             <label className="text-xs font-medium text-slate-600">Phone<input name="phone" className={input} /></label>
+            <label className="text-xs font-medium text-slate-600">Age<input type="number" name="age" className={input} /></label>
+            <label className="text-xs font-medium text-slate-600">Gender<select name="gender" className={input}><option value="">—</option><option value="male">male</option><option value="female">female</option><option value="other">other</option></select></label>
             <label className="text-xs font-medium text-slate-600">Complaint<input name="complaint" className={input} /></label>
             <label className="flex items-center gap-2 pt-5 text-xs font-medium text-slate-600"><input type="checkbox" name="referredToBranch" className="h-4 w-4" /> Refer to branch</label>
             <div className="col-span-2 sm:col-span-4"><SubmitButton>Add screening</SubmitButton></div>
