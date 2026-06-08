@@ -76,6 +76,39 @@ export function roomConflict(
   return existing.some((b) => b.startTime === candidateStartTime);
 }
 
+// --- Appointment reminders (FRS §14) ---
+
+export type ReminderKind = "day_before" | "morning";
+
+export interface ReminderCandidate {
+  bookingId: string;
+  /** Appointment day (Date or ISO/yyyy-mm-dd string). */
+  appointmentDate: Date | string;
+  status: BookingStatus;
+  /** Reminder kinds already sent for this booking. */
+  sentKinds: string[];
+}
+
+const dayKey = (d: Date | string) => (typeof d === "string" ? d.slice(0, 10) : d.toISOString().slice(0, 10));
+
+/**
+ * Which reminders are due now: a **day-before** reminder for tomorrow's
+ * still-open appointments and a **morning-of** reminder for today's, skipping
+ * any already sent. Pure so the cron can sweep idempotently.
+ */
+export function dueReminders(items: ReminderCandidate[], now: Date): { bookingId: string; kind: ReminderKind }[] {
+  const today = dayKey(now);
+  const tomorrow = dayKey(new Date(now.getTime() + 86_400_000));
+  const out: { bookingId: string; kind: ReminderKind }[] = [];
+  for (const it of items) {
+    if (it.status !== "booked" && it.status !== "confirmed") continue;
+    const k = dayKey(it.appointmentDate);
+    if (k === tomorrow && !it.sentKinds.includes("day_before")) out.push({ bookingId: it.bookingId, kind: "day_before" });
+    if (k === today && !it.sentKinds.includes("morning")) out.push({ bookingId: it.bookingId, kind: "morning" });
+  }
+  return out;
+}
+
 /**
  * Generate slot start/end times for a session.
  * e.g. ("09:00","12:00",30) → [{start:"09:00",end:"09:30"}, ...].

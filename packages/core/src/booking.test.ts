@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   canTransitionBooking, nextBookingStatuses, occupiesSlot, releasesSlot,
-  slotStatusFor, hasCapacity, generateSlotTimes, nextQueueToken, roomConflict,
+  slotStatusFor, hasCapacity, generateSlotTimes, nextQueueToken, roomConflict, dueReminders,
 } from "./booking";
 import { conversionRate, isConverted, isClosedStage } from "./leads";
 
@@ -65,6 +65,30 @@ describe("roomConflict", () => {
     expect(roomConflict(existing, "09:00")).toBe(true);
     expect(roomConflict(existing, "09:40")).toBe(false);
     expect(roomConflict([], "09:00")).toBe(false);
+  });
+});
+
+describe("dueReminders", () => {
+  const now = new Date("2026-06-10T08:00:00Z");
+  const base = { sentKinds: [] as string[] };
+  it("sends day-before for tomorrow and morning for today", () => {
+    const due = dueReminders([
+      { bookingId: "a", appointmentDate: "2026-06-11", status: "booked", ...base }, // tomorrow
+      { bookingId: "b", appointmentDate: "2026-06-10", status: "confirmed", ...base }, // today
+      { bookingId: "c", appointmentDate: "2026-06-15", status: "booked", ...base }, // later
+    ], now);
+    expect(due).toEqual([
+      { bookingId: "a", kind: "day_before" },
+      { bookingId: "b", kind: "morning" },
+    ]);
+  });
+  it("skips already-sent and non-open statuses", () => {
+    const due = dueReminders([
+      { bookingId: "a", appointmentDate: "2026-06-11", status: "booked", sentKinds: ["day_before"] },
+      { bookingId: "b", appointmentDate: "2026-06-10", status: "cancelled", sentKinds: [] },
+      { bookingId: "c", appointmentDate: "2026-06-10", status: "completed", sentKinds: [] },
+    ], now);
+    expect(due).toEqual([]);
   });
 });
 

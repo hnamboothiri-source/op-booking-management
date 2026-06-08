@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { runRetentionRecompute } from "@/lib/retention/engine";
 import { runAutomation } from "@/lib/automation";
 import { leadTier } from "@/lib/leads/tier";
+import { dueReminders } from "@prm/core";
 
 /**
  * Daily automation job (Phase 5 — advanced automation). Intended to be invoked
@@ -102,7 +103,37 @@ async function handle(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, retention, remindersSent, birthdaysSent, annualReminders, slaEscalations, ranAt: new Date().toISOString() });
+  // Appointment reminders (FRS §14): day-before (tomorrow) + morning-of (today).
+  // Idempotent — any existing reminder of the same kind blocks a re-send.
+  const windowEnd = new Date(today.getTime() + 2 * 86400000);
+  const upcoming = await prisma.opBooking.findMany({
+    where: { status: { in: ["booked", "confirmed"] }, appointmentDate: { gte: today, lt: windowEnd } },
+    include: { patient: true },
+    take: 1000,
+  });
+  const byId = new Map(upcoming.map((b) => [b.id, b]));
+  // Read existing reminders fresh (not via include) so re-runs are idempotent.
+  const existingReminders = await prisma.appointmentReminder.findMany({ where: { bookingId: { in: upcoming.map((b) => b.id) } }, select: { bookingId: true, kind: true } });
+  const sentByBooking = new Map<string, string[]>();
+  for (const r of existingReminders) sentByBooking.set(r.bookingId, [...(sentByBooking.get(r.bookingId) ?? []), r.kind]);
+  const dueAppts = dueReminders(
+    upcoming.map((b) => ({ bookingId: b.id, appointmentDate: b.appointmentDate, status: b.status, sentKinds: sentByBooking.get(b.id) ?? [] })),
+    now,
+  );
+  let appointmentReminders = 0;
+  for (const d of dueAppts) {
+    const b = byId.get(d.bookingId);
+    if (!b) continue;
+    const to = b.patient.consentWhatsapp ? (b.patient.whatsapp ?? b.patient.phone) : null;
+    if (to) {
+      await dispatch(b.patientMrd, to, "appointment_reminder", `Reminder: appointment on ${b.appointmentDate.toISOString().slice(0, 10)} at ${b.startTime}`);
+      await runAutomation("appointment_upcoming", { patientMrd: b.patientMrd, bookingId: b.id, to });
+    }
+    await prisma.appointmentReminder.create({ data: { bookingId: b.id, kind: d.kind, channel: "whatsapp", scheduledFor: now, sentAt: to ? now : null, status: to ? "sent" : "failed" } });
+    appointmentReminders++;
+  }
+
+  return NextResponse.json({ ok: true, retention, remindersSent, birthdaysSent, annualReminders, slaEscalations, appointmentReminders, ranAt: new Date().toISOString() });
 }
 
 // Vercel Cron invokes via GET; manual/CI triggers may use POST.

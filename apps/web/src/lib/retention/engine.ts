@@ -24,7 +24,7 @@ export async function runRetentionRecompute(): Promise<{ scored: number; reactiv
     const rs = retentionScore({
       repeatVisit: p.lifetimeVisits > 1,
       followUpCompleted: false,
-      referralGiven: p._count.referralsGiven > 0,
+      referralGiven: (p._count?.referralsGiven ?? (p as { referralsGiven?: unknown[] }).referralsGiven?.length ?? 0) > 0,
       missedFollowUp: false,
       monthsSinceLastVisit: months,
       admissionRejected: false,
