@@ -54,9 +54,9 @@ export const AUTOMATION_RULES: AutomationRule[] = [
 
   // Follow-up
   { id: "fu.doctor-advice", on: "consultation_follow_up_advised", group: "follow_up",
-    actions: [{ kind: "create_task", taskType: "follow_up_medicine" }] },
+    actions: [{ kind: "create_task", taskType: "follow_up_medicine" }, { kind: "send_message", channel: "whatsapp", template: "follow_up_reminder" }] },
   { id: "fu.admission-rec", on: "admission_recommended", group: "follow_up",
-    actions: [{ kind: "create_task", taskType: "follow_up_admission" }] },
+    actions: [{ kind: "create_task", taskType: "follow_up_admission" }, { kind: "send_message", channel: "whatsapp", template: "admission_recommendation" }] },
   { id: "fu.missed", on: "follow_up_missed", group: "follow_up",
     actions: [{ kind: "escalate_to_manager" }] },
   { id: "fu.dormant", on: "patient_became_dormant", group: "follow_up",

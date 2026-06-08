@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendMessage } from "@prm/integrations";
 import { prisma } from "@/lib/db";
 import { runRetentionRecompute } from "@/lib/retention/engine";
+import { runAutomation } from "@/lib/automation";
+
+// A new lead left untouched (never called, still new_lead) for this long breaches SLA.
+const SLA_UNCONTACTED_HOURS = 24;
 
 /**
  * Daily automation job (Phase 5 — advanced automation). Intended to be invoked
@@ -77,7 +81,29 @@ async function handle(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, retention, remindersSent, birthdaysSent, annualReminders, ranAt: new Date().toISOString() });
+  // SLA: escalate leads that are still 'new_lead' and have never been called,
+  // older than the threshold. Idempotent — skip leads already escalated.
+  const cutoff = new Date(Date.now() - SLA_UNCONTACTED_HOURS * 3600_000);
+  const stale = await prisma.lead.findMany({
+    where: { mergedIntoId: null, stage: "new_lead", createdAt: { lt: cutoff }, calls: { none: {} } },
+    select: { id: true },
+    take: 1000,
+  });
+  let slaEscalations = 0;
+  if (stale.length > 0) {
+    const ids = stale.map((l) => l.id);
+    const alreadyEscalated = new Set(
+      (await prisma.task.findMany({ where: { leadId: { in: ids }, status: "escalated" }, select: { leadId: true } }))
+        .map((t) => t.leadId),
+    );
+    for (const l of stale) {
+      if (alreadyEscalated.has(l.id)) continue;
+      await runAutomation("lead_uncontacted_sla_breached", { leadId: l.id });
+      slaEscalations++;
+    }
+  }
+
+  return NextResponse.json({ ok: true, retention, remindersSent, birthdaysSent, annualReminders, slaEscalations, ranAt: new Date().toISOString() });
 }
 
 // Vercel Cron invokes via GET; manual/CI triggers may use POST.
