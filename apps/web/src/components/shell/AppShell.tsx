@@ -13,12 +13,19 @@ export interface NavItem {
   label: string;
   icon: IconName;
   group: string;
+  /** Extra route prefixes that should mark this item active (e.g. a module's sub-pages). */
+  match?: string[];
 }
 
-const GROUP_ORDER = ["Overview", "Call Centre", "Engagement", "Clinical", "Outreach", "Growth", "Admin"];
+const GROUP_ORDER = ["Overview", "Engagement", "Clinical", "Outreach", "Growth", "Workflow", "Admin"];
 
-function isActive(pathname: string, href: string): boolean {
-  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+function matchesPrefix(pathname: string, prefix: string): boolean {
+  return prefix === "/" ? pathname === "/" : pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+function isActive(pathname: string, item: NavItem): boolean {
+  const prefixes = item.match && item.match.length ? item.match : [item.href];
+  return prefixes.some((p) => matchesPrefix(pathname, p));
 }
 
 function NavList({ items, pathname, onNavigate }: { items: NavItem[]; pathname: string; onNavigate?: () => void }) {
@@ -30,7 +37,7 @@ function NavList({ items, pathname, onNavigate }: { items: NavItem[]; pathname: 
           <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">{group}</div>
           <div className="space-y-0.5">
             {items.filter((i) => i.group === group).map((i) => {
-              const active = isActive(pathname, i.href);
+              const active = isActive(pathname, i);
               return (
                 <Link
                   key={i.href}

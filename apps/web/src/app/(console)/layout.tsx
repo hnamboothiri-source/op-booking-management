@@ -1,52 +1,36 @@
 import { requireUser } from "@/lib/session";
 import { can, type Resource } from "@prm/core";
 import { AppShell, type NavItem } from "@/components/shell/AppShell";
+import { MODULE_DASHBOARDS } from "@/lib/modules/registry";
 
-// Sidebar nav: each item carries an icon + group for the grouped sidebar, and a
-// resource for RBAC filtering. Data-driven so new modules are just new entries.
-const NAV: (NavItem & { resource: Resource })[] = [
-  { href: "/", label: "Dashboard", icon: "dashboard", group: "Overview", resource: "dashboards" },
+// Module-first sidebar: a small Overview group of cross-module utility pages,
+// then one entry per module (→ its dashboard) grouped by domain. `match` lets a
+// module highlight when the user is deep in one of its sub-pages.
+type NavDef = NavItem & { resource: Resource };
+
+const UTILITY: NavDef[] = [
+  { href: "/", label: "Dashboard", icon: "dashboard", group: "Overview", resource: "dashboards", match: ["/"] },
   { href: "/analytics", label: "Analytics", icon: "chart", group: "Overview", resource: "dashboards" },
   { href: "/reports", label: "Reports", icon: "report", group: "Overview", resource: "reports" },
-
-  { href: "/call-center", label: "Overview", icon: "headset", group: "Call Centre", resource: "calls" },
-  { href: "/reception", label: "Reception", icon: "patients", group: "Call Centre", resource: "calls" },
-  { href: "/front-office", label: "Front Office", icon: "bell", group: "Call Centre", resource: "follow_ups" },
-  { href: "/back-office", label: "Back Office", icon: "target", group: "Call Centre", resource: "calls" },
-  { href: "/calls", label: "Calls", icon: "phone", group: "Call Centre", resource: "calls" },
-
-  { href: "/leads", label: "Leads", icon: "leads", group: "Engagement", resource: "leads" },
-  { href: "/prioritize", label: "Prioritize", icon: "target", group: "Engagement", resource: "calls" },
-  { href: "/communication", label: "Messaging", icon: "message", group: "Engagement", resource: "communication" },
-
-  { href: "/appointments", label: "Appointments", icon: "calendar", group: "Clinical", resource: "appointments" },
-  { href: "/appointments/calendar", label: "Calendar", icon: "calendar", group: "Clinical", resource: "appointments" },
-  { href: "/appointments/branches", label: "Branches", icon: "building", group: "Clinical", resource: "appointments" },
-  { href: "/waitlist", label: "Waitlist", icon: "hourglass", group: "Clinical", resource: "appointments" },
-  { href: "/queue", label: "Queue", icon: "queue", group: "Clinical", resource: "consultations" },
-  { href: "/consultations", label: "Consultations", icon: "stethoscope", group: "Clinical", resource: "consultations" },
-  { href: "/admissions", label: "Admissions", icon: "bed", group: "Clinical", resource: "admissions" },
-  { href: "/patients", label: "Patients", icon: "patients", group: "Clinical", resource: "patients" },
-  { href: "/follow-ups", label: "Follow-ups", icon: "bell", group: "Clinical", resource: "follow_ups" },
-
-  { href: "/referrals", label: "Referrals", icon: "referral", group: "Outreach", resource: "referrals" },
-  { href: "/camps", label: "Camps", icon: "tent", group: "Outreach", resource: "camps" },
-  { href: "/mobile-clinics", label: "Mobile", icon: "truck", group: "Outreach", resource: "mobile_clinics" },
-  { href: "/organizations", label: "Orgs", icon: "building", group: "Outreach", resource: "organizations" },
-
-  { href: "/campaigns", label: "Campaigns", icon: "megaphone", group: "Growth", resource: "campaigns" },
-  { href: "/retention", label: "Retention", icon: "heart", group: "Growth", resource: "retention" },
-  { href: "/tasks", label: "Tasks", icon: "tasks", group: "Growth", resource: "tasks" },
-
-  { href: "/masters", label: "Masters", icon: "sliders", group: "Admin", resource: "masters" },
   { href: "/audit", label: "Audit", icon: "shield", group: "Admin", resource: "audit" },
 ];
+
+const MODULE_NAV: NavDef[] = MODULE_DASHBOARDS.map((m) => ({
+  href: `/modules/${m.slug}`,
+  label: m.name,
+  icon: m.icon,
+  group: m.group,
+  resource: m.resource,
+  match: [`/modules/${m.slug}`, ...m.match],
+}));
+
+const NAV: NavDef[] = [...UTILITY, ...MODULE_NAV];
 
 export default async function ConsoleLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   // Dashboard is visible to everyone logged in; other items respect RBAC.
   const items: NavItem[] = NAV.filter((n) => n.resource === "dashboards" || can(user.role, n.resource, "view"))
-    .map(({ href, label, icon, group }) => ({ href, label, icon, group }));
+    .map(({ href, label, icon, group, match }) => ({ href, label, icon, group, match }));
 
   const todayLabel = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
