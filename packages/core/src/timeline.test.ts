@@ -82,6 +82,27 @@ describe("buildPatientTimeline", () => {
   it("returns an empty feed when there is no activity", () => {
     expect(buildPatientTimeline({})).toEqual([]);
   });
+
+  it("maps medicine courses and therapy sessions", () => {
+    const tl = buildPatientTimeline({
+      medicationCourses: [{ id: "m1", createdAt: D("2026-06-01T09:00:00Z"), medicine: "Triphala", durationDays: 30 }],
+      therapySessions: [
+        { id: "s1", sessionNo: 3, scheduledDate: D("2026-06-10T00:00:00Z"), completedAt: D("2026-06-10T05:00:00Z"), status: "completed", therapyLabel: "Panchakarma" },
+        { id: "s2", sessionNo: 4, scheduledDate: D("2026-06-13T00:00:00Z"), completedAt: null, status: "missed", therapyLabel: "Panchakarma" },
+      ],
+    });
+    const med = tl.find((e) => e.id === "medicine:m1")!;
+    expect(med.kind).toBe("medicine");
+    expect(med.title).toBe("Medicine prescribed");
+    expect(med.detail).toContain("Triphala");
+    expect(med.tone).toBe("blue");
+    const done = tl.find((e) => e.id === "therapy:s1")!;
+    expect(done.tone).toBe("green");
+    expect(done.title).toContain("session 3");
+    const missed = tl.find((e) => e.id === "therapy:s2")!;
+    expect(missed.tone).toBe("amber");
+    expect(missed.at.toISOString()).toBe("2026-06-13T00:00:00.000Z"); // falls back to scheduledDate
+  });
 });
 
 describe("groupTimelineByDay", () => {

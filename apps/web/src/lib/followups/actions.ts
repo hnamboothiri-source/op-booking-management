@@ -7,6 +7,7 @@ import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
 import { runAutomation } from "../automation";
+import { assertPlannedActivity } from "../planning/gate";
 
 const str = (fd: FormData, k: string) => {
   const v = fd.get(k)?.toString().trim();
@@ -19,10 +20,13 @@ export async function createFollowUp(fd: FormData): Promise<void> {
   const type = fd.get("type")?.toString() || "consultation_review";
   const dueDate = str(fd, "dueDate");
   if (!patientMrd || !dueDate) throw new Error("Patient MRD and due date are required");
+  const planRef = str(fd, "planRef");
+  await assertPlannedActivity("follow-ups", "followup_drive", planRef);
 
   const created = await prisma.followUp.create({
     data: {
       patientMrd,
+      planRef,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       type: type as any,
       dueDate: new Date(dueDate),
@@ -51,8 +55,12 @@ export async function transitionFollowUp(id: string, status: string): Promise<vo
   if (!fu) throw new Error("Follow-up not found");
   await prisma.followUp.update({
     where: { id },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    data: { status: status as any, closureReason: status === "done" ? "completed" : fu.closureReason },
+    data: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      status: status as any,
+      closureReason: status === "done" ? "completed" : fu.closureReason,
+      completedAt: status === "done" ? new Date() : status === "missed" ? fu.completedAt : null,
+    },
   });
   if (status === "missed") await runAutomation("follow_up_missed", { patientMrd: fu.patientMrd });
   await writeAudit({ actorId: user.id, action: "followup.transition", entity: "follow_up", entityId: id, before: { status: fu.status }, after: { status } });

@@ -40,7 +40,7 @@ const ROLE = (r?: string | null) => (r === "cmo" ? "CMO" : r === "chief_physicia
  * showing time · patient (or "Open") · status.
  */
 export function DayAgenda({ doctors, doctorHref }: { doctors: AgendaDoctor[]; doctorHref?: (id: string) => string }) {
-  if (doctors.length === 0) return <p className="py-8 text-center text-sm text-slate-400">No slots for this day. Generate slots on the Schedules page.</p>;
+  if (doctors.length === 0) return <p className="py-8 text-center text-sm text-slate-400">No bookings yet for this day — availability derives from the master schedule (see the OP booking board).</p>;
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {doctors.map((d) => (

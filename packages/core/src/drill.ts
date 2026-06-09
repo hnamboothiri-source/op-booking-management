@@ -15,6 +15,8 @@ export type DrillEntity =
   | "leads"
   | "appointments"
   | "consultations"
+  | "labReferrals"
+  | "treatmentPlans"
   | "admissions"
   | "followups"
   | "tasks"

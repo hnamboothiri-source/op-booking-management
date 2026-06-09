@@ -1,34 +1,33 @@
-import Link from "next/link";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { createSchedule, generateSlots, createDoctorLeave } from "@/lib/appointments/actions";
+import { createSchedule, createDoctorLeave } from "@/lib/appointments/actions";
 import { weekOfMonthLabel } from "@prm/core";
 import { PageHeader, SubmitButton, Card, Badge, LinkButton } from "@/components/ui";
+import { PlanActivitySelect } from "@/components/planning/PlanActivitySelect";
 
 export const dynamic = "force-dynamic";
 
 const input = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm";
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export default async function Schedules({ searchParams }: { searchParams: Promise<{ date?: string; generated?: string }> }) {
+export default async function Schedules() {
   await requireCan("appointments", "view");
-  const { date, generated } = await searchParams;
 
-  const [schedules, doctors, departments, branches, slots, leaves, rooms] = await Promise.all([
+  const [schedules, doctors, departments, branches, leaves, rooms] = await Promise.all([
     prisma.doctorSchedule.findMany({ where: { active: true }, include: { doctor: true, department: true }, orderBy: { dayOfWeek: "asc" } }),
     prisma.doctor.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.department.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.branch.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
-    date ? prisma.timeSlot.findMany({ where: { slotDate: new Date(date) }, include: { doctor: true, department: true }, orderBy: [{ doctor: { name: "asc" } }, { startTime: "asc" }] }) : [],
     prisma.doctorLeave.findMany({ include: { doctor: true }, orderBy: { fromDate: "desc" }, take: 20 }),
     prisma.consultationRoom.findMany({ where: { active: true } }),
   ]);
   const roomName = new Map(rooms.map((r) => [r.id, r.name]));
+  const docName = (id: string | null) => doctors.find((d) => d.id === id)?.name ?? "—";
   schedules.sort((a, b) => (a.doctor.name).localeCompare(b.doctor.name) || (a.dayOfWeek ?? 0) - (b.dayOfWeek ?? 0));
 
   return (
     <div>
-      <PageHeader title="Doctor schedules & slots" subtitle="Templates generate bookable slots" action={<LinkButton href="/appointments" tone="ghost">← Worklist</LinkButton>} />
+      <PageHeader title="Doctor schedule templates" subtitle="Master weekly schedule — bookable slots derive automatically (no daily generation)" action={<LinkButton href="/appointments/grid" tone="ghost">Room × Day grid →</LinkButton>} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -42,39 +41,28 @@ export default async function Schedules({ searchParams }: { searchParams: Promis
             <label className="text-xs font-medium text-slate-600">End<input type="time" name="endTime" defaultValue="12:00" className={input} /></label>
             <label className="text-xs font-medium text-slate-600">Slot mins<input type="number" name="slotDurationMinutes" defaultValue="20" className={input} /></label>
             <label className="text-xs font-medium text-slate-600">Max / slot<input type="number" name="maxPatientsPerSlot" defaultValue="1" className={input} /></label>
+            <div className="col-span-2"><PlanActivitySelect slug="appointments" typeKey="doctor_schedule" /></div>
             <div className="col-span-2"><SubmitButton>Add template</SubmitButton></div>
           </form>
+          <p className="mt-2 text-xs text-slate-400">For day-to-day room/slot edits use the <LinkButton href="/appointments/grid" tone="ghost">Room × Day grid</LinkButton> (no approval needed).</p>
         </Card>
 
-        <Card>
-          <h2 className="mb-3 font-semibold">Generate slots for a date</h2>
-          <form action={generateSlots} className="flex items-end gap-2">
-            <label className="text-xs font-medium text-slate-600">Date<input type="date" name="date" required className={input} /></label>
-            <SubmitButton>Generate</SubmitButton>
-          </form>
-          {generated !== undefined && <p className="mt-2 text-sm text-rose-700">Generated {generated} slot(s) for {date}.</p>}
-          <form className="mt-4 flex items-end gap-2" action="/appointments/schedules">
-            <label className="text-xs font-medium text-slate-600">View slots on<input type="date" name="date" defaultValue={date ?? ""} className={input} /></label>
-            <button className="rounded-md bg-slate-700 px-3 py-1.5 text-sm font-medium text-white">View</button>
-          </form>
-        </Card>
-      </div>
-
-      <div className="mt-6">
         <Card>
           <h2 className="mb-3 font-semibold">Doctor leave / emergency block</h2>
-          <form action={createDoctorLeave} className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <form action={createDoctorLeave} className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <label className="text-xs font-medium text-slate-600">Doctor<select name="doctorId" required className={input}>{doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
             <label className="text-xs font-medium text-slate-600">From<input type="date" name="fromDate" required className={input} /></label>
             <label className="text-xs font-medium text-slate-600">To<input type="date" name="toDate" className={input} /></label>
             <label className="text-xs font-medium text-slate-600">Kind<select name="kind" className={input}><option value="leave">leave</option><option value="emergency_block">emergency block</option></select></label>
+            <label className="text-xs font-medium text-slate-600">Covered by (substitute)<select name="coverDoctorId" className={input}><option value="">— slot dropped —</option>{doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
             <div className="flex items-end"><SubmitButton tone="ghost">Block</SubmitButton></div>
           </form>
+          <p className="mt-2 text-xs text-slate-400">A substitute takes the on-leave doctor's slots for those dates; leave it blank to drop the slots.</p>
           {leaves.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {leaves.map((l) => (
                 <span key={l.id} className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                  {l.doctor.name} · {l.fromDate.toISOString().slice(0, 10)}{l.toDate && l.toDate.toISOString().slice(0, 10) !== l.fromDate.toISOString().slice(0, 10) ? `–${l.toDate.toISOString().slice(0, 10)}` : ""} · {l.kind.replace(/_/g, " ")}
+                  {l.doctor.name} · {l.fromDate.toISOString().slice(0, 10)}{l.toDate && l.toDate.toISOString().slice(0, 10) !== l.fromDate.toISOString().slice(0, 10) ? `–${l.toDate.toISOString().slice(0, 10)}` : ""} · {l.kind.replace(/_/g, " ")}{l.coverDoctorId ? ` · cover: ${docName(l.coverDoctorId)}` : ""}
                 </span>
               ))}
             </div>
@@ -105,30 +93,6 @@ export default async function Schedules({ searchParams }: { searchParams: Promis
           {schedules.length === 0 && <p className="text-sm text-slate-400">No templates yet.</p>}
         </div>
       </div>
-
-      {date && (
-        <div className="mt-6">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Slots on {date} ({slots.length})</h2>
-          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="px-4 py-2">Doctor</th><th className="px-4 py-2">Dept</th><th className="px-4 py-2">Time</th><th className="px-4 py-2">Booked</th><th className="px-4 py-2">Status</th><th className="px-4 py-2"></th></tr></thead>
-              <tbody>
-                {slots.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">No slots. Generate above.</td></tr>}
-                {slots.map((s) => (
-                  <tr key={s.id} className="border-t border-slate-100">
-                    <td className="px-4 py-2">{s.doctor.name}</td>
-                    <td className="px-4 py-2 text-slate-600">{s.department.name}</td>
-                    <td className="px-4 py-2">{s.startTime}–{s.endTime}</td>
-                    <td className="px-4 py-2 text-slate-600">{s.bookedCount}/{s.capacity}</td>
-                    <td className="px-4 py-2"><Badge tone={s.status === "open" ? "green" : "slate"}>{s.status}</Badge></td>
-                    <td className="px-4 py-2 text-right">{s.status === "open" && <LinkButton href={`/appointments/book?slotId=${s.id}`} tone="ghost">Book</LinkButton>}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

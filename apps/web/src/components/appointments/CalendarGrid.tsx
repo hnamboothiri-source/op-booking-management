@@ -15,7 +15,7 @@ const STATE_TONE: Record<CalendarCellState, string> = {
  */
 export function CalendarGrid({ layout, columnLabels }: { layout: CalendarLayout; columnLabels: Record<string, string> }) {
   const { columns, times, grid } = layout;
-  if (columns.length === 0) return <p className="py-8 text-center text-sm text-slate-400">No slots for this view. Generate slots on the Schedules page.</p>;
+  if (columns.length === 0) return <p className="py-8 text-center text-sm text-slate-400">No bookings for this view yet — availability derives from the master schedule (see the OP booking board).</p>;
 
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">

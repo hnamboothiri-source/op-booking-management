@@ -3,12 +3,14 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
-  canTransitionBooking, releasesSlot, generateSlotTimes, splitSessionSlots, nextQueueToken, roomConflict, type BookingStatus,
+  canTransitionBooking, releasesSlot, nextQueueToken, roomConflict, type BookingStatus,
 } from "@prm/core";
 import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
 import { runAutomation } from "../automation";
+import { assertPlannedActivity } from "../planning/gate";
+import { ensureSlotForBooking } from "./slots";
 
 const str = (fd: FormData, k: string) => {
   const v = fd.get(k)?.toString().trim();
@@ -48,6 +50,7 @@ async function assertRoomFree(roomId: string | null, date: Date, startTime: stri
 // --- Doctor schedule templates ---
 export async function createSchedule(fd: FormData): Promise<void> {
   const user = await requireCan("appointments", "create");
+  await assertPlannedActivity("appointments", "doctor_schedule", str(fd, "planRef"));
   const doctorId = str(fd, "doctorId");
   const departmentId = str(fd, "departmentId");
   if (!doctorId || !departmentId) throw new Error("Doctor and department are required");
@@ -72,6 +75,47 @@ export async function createSchedule(fd: FormData): Promise<void> {
   redirect("/appointments/schedules");
 }
 
+/**
+ * Operational Room×Day grid edit — create or update a DoctorSchedule cell. Per the
+ * OP-management decision, the weekly allotment is operational config editable
+ * anytime, so this is NOT gated on a plan activity (unlike createSchedule).
+ */
+export async function saveScheduleSlot(fd: FormData): Promise<void> {
+  const user = await requireCan("appointments", "edit");
+  const id = str(fd, "id");
+  const doctorId = str(fd, "doctorId");
+  const departmentId = str(fd, "departmentId");
+  if (!doctorId || !departmentId) throw new Error("Doctor and department are required");
+  const dow = str(fd, "dayOfWeek");
+  const data = {
+    doctorId,
+    departmentId,
+    branchId: str(fd, "branchId"),
+    roomId: str(fd, "roomId"),
+    dayOfWeek: dow ? parseInt(dow, 10) : null,
+    session: str(fd, "session"),
+    weekOfMonth: str(fd, "weekOfMonth"),
+    slotsCount: str(fd, "slotsCount") ? parseInt(str(fd, "slotsCount")!, 10) : null,
+    startTime: str(fd, "startTime") ?? "09:00",
+    endTime: str(fd, "endTime") ?? "13:00",
+    slotDurationMinutes: parseInt(str(fd, "slotDurationMinutes") ?? "30", 10),
+    maxPatientsPerSlot: parseInt(str(fd, "maxPatientsPerSlot") ?? "1", 10),
+    active: true,
+  };
+  if (id) await prisma.doctorSchedule.update({ where: { id }, data });
+  else await prisma.doctorSchedule.create({ data });
+  await writeAudit({ actorId: user.id, action: id ? "schedule.grid.update" : "schedule.grid.create", entity: "doctor_schedule", entityId: id ?? doctorId });
+  revalidatePath("/appointments/grid");
+}
+
+/** Operational — remove a schedule cell from the grid (ungated). */
+export async function deleteSchedule(id: string): Promise<void> {
+  const user = await requireCan("appointments", "edit");
+  await prisma.doctorSchedule.update({ where: { id }, data: { active: false } });
+  await writeAudit({ actorId: user.id, action: "schedule.grid.delete", entity: "doctor_schedule", entityId: id });
+  revalidatePath("/appointments/grid");
+}
+
 // --- Doctor leave / emergency block ---
 export async function createDoctorLeave(fd: FormData): Promise<void> {
   const user = await requireCan("appointments", "create");
@@ -82,7 +126,7 @@ export async function createDoctorLeave(fd: FormData): Promise<void> {
   const fromDate = new Date(fromStr); const toDate = new Date(toStr!);
 
   const leave = await prisma.doctorLeave.create({
-    data: { doctorId, branchId: str(fd, "branchId"), fromDate, toDate, kind: str(fd, "kind") ?? "leave", reason: str(fd, "reason") },
+    data: { doctorId, branchId: str(fd, "branchId"), fromDate, toDate, kind: str(fd, "kind") ?? "leave", reason: str(fd, "reason"), coverDoctorId: str(fd, "coverDoctorId") },
   });
   // Block any already-generated slots in the leave window.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -92,49 +136,9 @@ export async function createDoctorLeave(fd: FormData): Promise<void> {
   redirect("/appointments/schedules");
 }
 
-// --- Slot generation for a date ---
-export async function generateSlots(fd: FormData): Promise<void> {
-  const user = await requireCan("appointments", "create");
-  const dateStr = str(fd, "date");
-  if (!dateStr) throw new Error("Date is required");
-  const date = new Date(dateStr);
-  const dow = date.getUTCDay();
-
-  const schedules = await prisma.doctorSchedule.findMany({
-    where: { active: true, OR: [{ dayOfWeek: dow }, { specificDate: date }] },
-  });
-  // Doctors on leave that day are skipped.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const leaves = await prisma.doctorLeave.findMany({ where: { fromDate: { lte: date }, toDate: { gte: date } } as any, select: { doctorId: true } });
-  const onLeave = new Set(leaves.map((l) => l.doctorId));
-
-  let created = 0;
-  for (const s of schedules) {
-    if (onLeave.has(s.doctorId)) continue;
-    if (s.weekOfMonth) continue; // nth-week rotation tags are shown, not auto-generated
-    // Honour the "nos" patient-count when present (split the session window into that many slots),
-    // else fall back to fixed-duration slots.
-    const times = s.slotsCount && s.slotsCount > 0
-      ? splitSessionSlots(s.startTime, s.endTime, s.slotsCount)
-      : generateSlotTimes(s.startTime, s.endTime, s.slotDurationMinutes);
-    for (const t of times) {
-      const exists = await prisma.timeSlot.findFirst({ where: { doctorId: s.doctorId, slotDate: date, startTime: t.start } });
-      if (exists) continue;
-      await prisma.timeSlot.create({
-        data: {
-          doctorId: s.doctorId, departmentId: s.departmentId, branchId: s.branchId, scheduleId: s.id,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          roomId: (s as any).roomId ?? null,
-          slotDate: date, startTime: t.start, endTime: t.end, capacity: s.maxPatientsPerSlot, bookedCount: 0, status: "open",
-        },
-      });
-      created++;
-    }
-  }
-  await writeAudit({ actorId: user.id, action: "slots.generate", entity: "time_slot", after: { date: dateStr, created } });
-  revalidatePath(`/appointments/schedules`);
-  redirect(`/appointments/schedules?date=${dateStr}&generated=${created}`);
-}
+// Slots are no longer pre-generated — the day's availability is derived live from the master
+// weekly schedule (see lib/appointments/slots.ts: daySlots) and a TimeSlot row is materialised
+// lazily on booking (ensureSlotForBooking). The old generateSlots action was removed.
 
 // --- Booking ---
 export async function createBooking(fd: FormData): Promise<void> {
@@ -158,13 +162,18 @@ export async function createBooking(fd: FormData): Promise<void> {
   const bookingRef = `OP-${date.getUTCFullYear()}-${String(count + 1).padStart(6, "0")}`;
 
   const created = await prisma.$transaction(async (tx) => {
+    // Lazily materialise a slot from the master schedule when booking directly (no pre-generation).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const slotId = timeSlotId ?? await ensureSlotForBooking(tx as any, { doctorId, departmentId, branchId: str(fd, "branchId"), roomId, date, startTime, endTime: str(fd, "endTime") });
     const b = await tx.opBooking.create({
       data: {
         bookingRef, patientMrd, doctorId, departmentId,
         branchId: str(fd, "branchId"),
         roomId,
-        timeSlotId,
+        timeSlotId: slotId,
         appointmentType: str(fd, "appointmentType") ?? "regular",
+        requestedDoctorId: str(fd, "requestedDoctorId"),
+        noPreference: fd.get("noPreference") === "on",
         appointmentDate: date,
         startTime,
         endTime: str(fd, "endTime"),
@@ -174,9 +183,9 @@ export async function createBooking(fd: FormData): Promise<void> {
         leadId,
       },
     });
-    if (timeSlotId) {
-      const slot = await tx.timeSlot.update({ where: { id: timeSlotId }, data: { bookedCount: { increment: 1 } } });
-      if (slot.bookedCount >= slot.capacity) await tx.timeSlot.update({ where: { id: timeSlotId }, data: { status: "full" } });
+    if (slotId) {
+      const slot = await tx.timeSlot.update({ where: { id: slotId }, data: { bookedCount: { increment: 1 } } });
+      if (slot.bookedCount >= slot.capacity) await tx.timeSlot.update({ where: { id: slotId }, data: { status: "full" } });
     }
     if (leadId) await tx.lead.update({ where: { id: leadId }, data: { stage: "appointment_booked" } });
     return b;
@@ -227,7 +236,9 @@ export async function walkInRegister(fd: FormData): Promise<void> {
       appointmentDate: today,
       startTime,
       source: "front_desk",
-      appointmentType: "regular",
+      appointmentType: str(fd, "appointmentType") ?? "regular",
+      requestedDoctorId: str(fd, "requestedDoctorId"),
+      noPreference: fd.get("noPreference") === "on",
       status: "arrived",
       chiefComplaint,
       bp: str(fd, "bp"),

@@ -64,9 +64,12 @@ export const MASTERS: MasterDef[] = [
       { name: "name", label: "Name", type: "text", required: true },
       { name: "designation", label: "Designation", type: "text" },
       { name: "registrationNo", label: "Registration No", type: "text" },
+      { name: "dailyTarget", label: "Daily target", type: "number" },
+      { name: "newTargetPct", label: "New booking target %", type: "number" },
+      { name: "followupTargetPct", label: "Follow-up target %", type: "number" },
       { name: "active", label: "Active", type: "boolean" },
     ],
-    listColumns: ["name", "designation", "registrationNo", "active"],
+    listColumns: ["name", "designation", "dailyTarget", "newTargetPct", "followupTargetPct", "active"],
   },
   {
     key: "consultation-rooms", label: "Consultation Room", model: "consultationRoom",

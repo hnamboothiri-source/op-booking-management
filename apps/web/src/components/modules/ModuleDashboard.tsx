@@ -1,12 +1,37 @@
 import Link from "next/link";
-import { branchScopeWhere, can, type RoleName } from "@prm/core";
+import { branchScopeWhere, can, formatINR, type RoleName, type TargetLine } from "@prm/core";
 import { PageHeader, Card } from "@/components/ui";
 import { DrillStat } from "@/components/drill/DrillStat";
 import { LeadFunnelChart } from "@/components/charts/LeadFunnelChart";
 import { BarChartCard } from "@/components/charts/BarChartCard";
 import { leadFunnel } from "@/lib/leads/funnel";
 import { drillCount } from "@/lib/drill/count";
+import { prisma } from "@/lib/db";
 import { resolveFilters, type ModuleDef } from "@/lib/modules/registry";
+import { getModuleFlow } from "@/lib/config/actions";
+import { resolveFlow } from "@/lib/modules/flow";
+import { FlowMap } from "@/components/modules/FlowMap";
+import type { CurrentUser } from "@/lib/session";
+
+/** Compact plan banner: the module's active plan, or a prompt to create one. */
+async function PlanBanner({ def }: { def: ModuleDef }) {
+  const plan = (await prisma.modulePlan.findFirst({ where: { moduleSlug: def.slug, status: "active" }, orderBy: { createdAt: "desc" } }))
+    ?? (await prisma.modulePlan.findFirst({ where: { moduleSlug: def.slug }, orderBy: { createdAt: "desc" } }));
+  const targets = plan ? ((plan.targets as TargetLine[] | null) ?? []).length : 0;
+  return (
+    <Link href={`/modules/${def.slug}/plan`} className="mb-6 block rounded-2xl border border-rose-100 bg-rose-50/60 px-4 py-3 transition-colors hover:border-rose-300">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-rose-700">Plan</div>
+          {plan
+            ? <div className="text-sm text-slate-700"><span className="font-semibold">{plan.title}</span>{plan.period ? ` · ${plan.period}` : ""} · {targets} target{targets === 1 ? "" : "s"} · budget {formatINR(plan.plannedBudget)}{plan.objective ? ` — ${plan.objective}` : ""}</div>
+            : <div className="text-sm text-slate-500">No plan yet — set this department&apos;s targets, budget &amp; activities.</div>}
+        </div>
+        <span className="text-sm font-medium text-rose-700">{plan ? "View plan →" : "Create plan →"}</span>
+      </div>
+    </Link>
+  );
+}
 
 async function FeatureSection({ def, role, branchId }: { def: ModuleDef; role: RoleName; branchId: string | null }) {
   if (def.feature === "leadFunnel") {
@@ -41,13 +66,21 @@ async function FeatureSection({ def, role, branchId }: { def: ModuleDef; role: R
 }
 
 /** Generic per-module dashboard: KPI tiles + optional feature chart + workspace cards. */
-export async function ModuleDashboard({ def, role, branchId }: { def: ModuleDef; role: RoleName; branchId: string | null }) {
-  const kpiValues = await Promise.all(def.kpis.map((k) => drillCount(k.entity, resolveFilters(k.filters), role, branchId)));
+export async function ModuleDashboard({ def, user }: { def: ModuleDef; user: CurrentUser }) {
+  const { role, branchId } = user;
+  const [kpiValues, flow] = await Promise.all([
+    Promise.all(def.kpis.map((k) => drillCount(k.entity, resolveFilters(k.filters), role, branchId))),
+    getModuleFlow(def.slug).then((steps) => resolveFlow(def, steps, user)),
+  ]);
   const cards = def.links.filter((c) => can(role, c.resource, c.action ?? "view"));
 
   return (
     <div>
       <PageHeader title={def.name} subtitle={def.subtitle} />
+
+      <PlanBanner def={def} />
+
+      <FlowMap steps={flow} variant="compact" />
 
       {def.kpis.length > 0 && (
         <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">

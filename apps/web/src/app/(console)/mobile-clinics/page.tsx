@@ -7,6 +7,7 @@ import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
 import { DRILL, listFilters } from "@/lib/drill/registry";
 import { DrillCount } from "@/components/drill/DrillCount";
 import { ActiveFilters } from "@/components/drill/ActiveFilters";
+import { PlanActivitySelect } from "@/components/planning/PlanActivitySelect";
 
 export const dynamic = "force-dynamic";
 const input = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm";
@@ -14,7 +15,11 @@ const input = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-s
 export default async function MobileClinics({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requireCan("mobile_clinics", "view");
   const filters = listFilters("mobileClinics", await searchParams);
-  const clinics = await prisma.mobileClinic.findMany({ where: DRILL.mobileClinics.buildWhere(filters), include: { _count: { select: { patients: true } } }, orderBy: { createdAt: "desc" } });
+  const [clinics, branches, diseases] = await Promise.all([
+    prisma.mobileClinic.findMany({ where: DRILL.mobileClinics.buildWhere(filters), include: { _count: { select: { patients: true } } }, orderBy: { createdAt: "desc" } }),
+    prisma.branch.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    prisma.diseaseMaster.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+  ]);
 
   return (
     <div>
@@ -25,8 +30,13 @@ export default async function MobileClinics({ searchParams }: { searchParams: Pr
           <form action={createMobileClinic} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <label className="text-xs font-medium text-slate-600">Route name<input name="routeName" required className={input} /></label>
             <label className="text-xs font-medium text-slate-600">Location<input name="location" className={input} /></label>
+            <label className="text-xs font-medium text-slate-600">Run by (branch)<select name="branchId" className={input}><option value="">Main hospital</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+            <label className="text-xs font-medium text-slate-600">Target disease<select name="diseaseId" className={input}><option value="">—</option>{diseases.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
             <label className="text-xs font-medium text-slate-600">Date<input type="date" name="scheduledAt" className={input} /></label>
-            <div className="col-span-2 flex items-end sm:col-span-1"><SubmitButton>Create route</SubmitButton></div>
+            <label className="text-xs font-medium text-slate-600">Expected patients<input type="number" name="expectedPatients" className={input} /></label>
+            <label className="flex items-center gap-2 pt-5 text-xs font-medium text-slate-600"><input type="checkbox" name="isRecurring" className="h-4 w-4" /> Recurring route</label>
+            <div className="sm:col-span-2"><PlanActivitySelect slug="mobile-clinics" typeKey="run_route" /></div>
+            <div className="col-span-2 sm:col-span-4"><SubmitButton>Create route</SubmitButton></div>
           </form>
         </Card>
       )}

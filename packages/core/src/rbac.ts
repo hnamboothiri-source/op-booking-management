@@ -22,7 +22,8 @@ export type RoleName =
   | "marketing_team"
   | "branch_manager"
   | "camp_coordinator"
-  | "mobile_clinic_coordinator";
+  | "mobile_clinic_coordinator"
+  | "module_manager";
 
 export type Action = "view" | "create" | "edit" | "delete";
 
@@ -156,6 +157,14 @@ export const ROLE_GRANTS: Record<RoleName, Grant[]> = {
     { resource: "leads", actions: ["view", "create"] },
     { resource: "tasks", actions: RW },
   ],
+
+  // A department manager. The static grant is just a read-only floor; their real
+  // (CRUD) authority is granted dynamically over the modules they own — see
+  // `effectiveCan` below and the web-side module-ownership map.
+  module_manager: [
+    { resource: "dashboards", actions: RO },
+    { resource: "reports", actions: RO },
+  ],
 };
 
 /** Does this role have permission to perform `action` on `resource`? */
@@ -198,4 +207,18 @@ export function isBranchScoped(role: RoleName): boolean {
 export function branchScopeWhere(role: RoleName, branchId: string | null): { branchId?: string } {
   if (isBranchScoped(role) && branchId) return { branchId };
   return {};
+}
+
+/**
+ * Module ownership is an orthogonal scope (like branch scoping): a department
+ * manager gets full CRUD on the resources of the modules they own, on top of
+ * whatever their role already grants. Pure so it stays unit-testable — the
+ * caller resolves `managedResources` from the module registry.
+ */
+export function effectiveCan(
+  roleAllows: boolean,
+  managedResources: readonly Resource[],
+  resource: Resource,
+): boolean {
+  return roleAllows || managedResources.includes(resource);
 }

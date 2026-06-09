@@ -20,18 +20,30 @@ type Row = Record<string, any>;
 // DB would supply) so created records render without missing required fields.
 const DEFAULTS: Record<string, Row> = {
   lead: { stage: "new_lead", priority: "medium", mergedIntoId: null, missedEnquiry: false, calls: [] },
-  opBooking: { status: "booked" },
+  opBooking: { status: "booked", noPreference: false, requestedDoctorId: null },
+  doctor: { active: true, opDoctor: true, newTargetPct: 70, followupTargetPct: 30 },
   admissionRecommendation: { status: "recommended" },
-  followUp: { status: "pending", priority: "medium" },
+  staffUser: { active: true, managedModules: [] },
+  modulePlan: { status: "draft", plannedBudget: 0, targets: [], activities: [], budgetBreakdown: null },
+  moduleMaster: { active: true, fields: [], listColumns: [] },
+  customRecord: { data: {} },
+  planConfig: { cadence: "quarterly", monthlyBudget: false, entryFields: [], reportColumns: [], flowSteps: [] },
+  medicationCourse: { status: "active", adherence: "unknown", lastResponseAt: null, notes: null, reminders: [] },
+  medicationReminder: { status: "scheduled", sentAt: null },
+  therapyPlan: { status: "planned", name: null, notes: null, sessions: [] },
+  therapySession: { status: "scheduled", completedAt: null, notes: null },
+  followUp: { status: "pending", priority: "medium", completedAt: null },
+  labReferral: { status: "pending" },
+  treatmentPlan: { status: "planned", startedAt: null, completedAt: null },
   task: { status: "open", priority: "medium" },
   referral: { status: "pending", revenue: 0, rewardEligible: false },
   communicationLog: { status: "queued" },
   waitlistEntry: { status: "waiting", priority: 0 },
   patient: { category: "new_patient", lifetimeVisits: 0, lifetimeRevenue: 0, isNew: true, consentWhatsapp: false, consentSms: false, consentEmail: false, bookings: [], leads: [], followUps: [], communications: [], admissionRecs: [], referralsGiven: [], referralsGot: [], consultations: [], documents: [], retention: null },
-  camp: { status: "planned", revenue: 0, patientsScreened: 0, _count: { campPatients: 0 }, campPatients: [] },
-  campPatient: { recommendedVisit: false },
-  mobileClinic: { status: "planned", patientsScreened: 0, _count: { patients: 0 }, patients: [] },
-  mobileClinicPatient: { referredToBranch: false },
+  camp: { status: "planned", revenue: 0, patientsScreened: 0, isRecurring: false, venue: null, venueCapacity: null, expectedPatients: null, expectedAdmissions: null, branchId: null, diseaseId: null, expenses: [], staffRoster: [], revenueLines: [], planning: {}, _count: { campPatients: 0 }, campPatients: [] },
+  campPatient: { recommendedVisit: false, leadId: null },
+  mobileClinic: { status: "planned", patientsScreened: 0, isRecurring: false, venue: null, venueCapacity: null, expectedPatients: null, expectedAdmissions: null, branchId: null, diseaseId: null, expenses: [], staffRoster: [], revenueLines: [], planning: {}, _count: { patients: 0 }, patients: [] },
+  mobileClinicPatient: { referredToBranch: false, leadId: null },
   campaign: { budget: 0, active: true },
   organization: { active: true, _count: { camps: 0, referrals: 0 }, camps: [], referrals: [] },
   consultation: {},
@@ -78,6 +90,8 @@ function hydrate(row: Row) {
   link("bookingId", "opBooking", "booking");
   link("referrerPatientMrd", "patient", "referrerPatient", "mrd");
   link("referredPatientMrd", "patient", "referredPatient", "mrd");
+  link("courseId", "medicationCourse", "course");
+  link("planId", "therapyPlan", "plan");
 }
 const isObj = (v: unknown): v is Row => typeof v === "object" && v !== null && !(v instanceof Date);
 

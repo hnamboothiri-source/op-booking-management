@@ -5,6 +5,7 @@ import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
 import { runRetentionRecompute } from "./engine";
+import { assertPlannedActivity } from "../planning/gate";
 
 /**
  * Recompute retention for every patient (Module 12). Thin auth + audit wrapper
@@ -29,6 +30,7 @@ export async function assignSuccessOwner(patientMrd: string, fd: FormData): Prom
  * booked / promised-visit result moves the patient to reactivated. */
 export async function recordReactivation(patientMrd: string, fd: FormData): Promise<void> {
   const user = await requireCan("retention", "edit");
+  await assertPlannedActivity("retention", "reactivation_drive", fd.get("planRef")?.toString() || null);
   const method = fd.get("reactivationMethod")?.toString().trim() || null;
   const result = fd.get("reactivationResult")?.toString().trim() || null;
   const note = fd.get("reactivationNote")?.toString().trim() || null;

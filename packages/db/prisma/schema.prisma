@@ -39,6 +39,7 @@ enum Role {
   branch_manager
   camp_coordinator
   mobile_clinic_coordinator
+  module_manager
 }
 
 enum Gender {
@@ -173,6 +174,14 @@ enum FollowUpStatus {
   cancelled
 }
 
+// M5 Treatment plan lifecycle (Treatment Conversion / Module 17)
+enum TreatmentStatus {
+  planned
+  in_progress
+  completed
+  discontinued
+}
+
 // M10 Admission conversion
 enum AdmissionStatus {
   recommended
@@ -257,6 +266,21 @@ enum TaskType {
   contact_dormant_patient
   camp_follow_up
   doctor_referral_follow_up
+  module_activity
+}
+
+// Module-level planning (every module's "Plan" page)
+enum PlanStatus {
+  draft
+  active
+  closed
+}
+
+// Planning approval tier (maker-checker-approver on plan activities)
+enum PlanRank {
+  staff
+  supervisor
+  manager
 }
 
 enum TaskStatus {
@@ -281,6 +305,33 @@ enum CampStatus {
   in_progress
   completed
   cancelled
+}
+
+// Outreach budget + implementation model (M7/M8)
+enum OutreachExpenseCategory {
+  venue_rent
+  transport_driver
+  food_consumables
+  marketing_ads
+  staff_honorarium
+  misc
+}
+
+enum OutreachStaffRole {
+  doctor
+  optometrist
+  registration
+  pharmacist
+  driver
+  attender
+  coordinator
+}
+
+enum OutreachRevenueKind {
+  registration
+  optometry_checkup
+  medicine_sales
+  other
 }
 
 enum EnquiryStatus {
@@ -354,6 +405,8 @@ model Doctor {
   opDoctor        Boolean  @default(true) @map("op_doctor")
   registrationNo  String?  @unique @map("registration_no")
   dailyTarget     Int?     @map("daily_target")
+  newTargetPct      Int    @default(70) @map("new_target_pct")      // % of capacity for new OP bookings
+  followupTargetPct Int    @default(30) @map("followup_target_pct") // % of capacity for follow-up OP bookings
   active          Boolean  @default(true)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
@@ -393,6 +446,9 @@ model StaffUser {
   branchId     String?  @map("branch_id")
   passwordHash String?  @map("password_hash")
   active       Boolean  @default(true)
+  // Module slugs this user is a department manager of (orthogonal scope; see rbac.effectiveCan).
+  managedModules String[] @default([]) @map("managed_modules")
+  planRank     PlanRank @default(staff) @map("plan_rank") // maker/checker/approver tier
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -525,6 +581,7 @@ model DoctorSchedule {
   branch     Branch?    @relation(fields: [branchId], references: [id])
   timeSlots  TimeSlot[]
 
+  planRef String? @map("plan_ref")
   @@map("doctor_schedules")
 }
 
@@ -598,6 +655,10 @@ model Patient {
   documents       PatientDocument[]
   campPatients    CampPatient[]
   mobilePatients  MobileClinicPatient[]
+  medicationCourses   MedicationCourse[]
+  medicationReminders MedicationReminder[]
+  therapyPlans        TherapyPlan[]
+  therapySessions     TherapySession[]
 
   @@index([phone])
   @@index([category])
@@ -626,6 +687,137 @@ model PatientDocument {
   patient Patient @relation(fields: [patientMrd], references: [mrd])
 
   @@map("patient_documents")
+}
+
+// ===========================================================================
+// AYURVEDA ENGAGEMENT — medicine adherence + therapy/Panchakarma tracking
+// ===========================================================================
+
+enum MedicationCourseStatus {
+  active
+  completed
+  discontinued
+}
+enum AdherenceState {
+  unknown
+  on_track
+  missed_doses
+  needs_refill
+  side_effects
+  needs_consult
+}
+enum MedicationReminderKind {
+  start
+  compliance
+  refill
+}
+enum MedicationReminderStatus {
+  scheduled
+  sent
+  done
+}
+enum TherapyType {
+  panchakarma
+  abhyanga
+  shirodhara
+  njavarakizhi
+  kativasthi
+  other
+}
+enum TherapyPlanStatus {
+  planned
+  in_progress
+  completed
+  discontinued
+}
+enum TherapySessionStatus {
+  scheduled
+  completed
+  missed
+  cancelled
+}
+
+model MedicationCourse {
+  id             String                 @id @default(uuid())
+  patientMrd     String                 @map("patient_mrd")
+  consultationId String?                @map("consultation_id")
+  doctorId       String?                @map("doctor_id")
+  medicine       String
+  durationDays   Int                    @map("duration_days")
+  startDate      DateTime               @map("start_date") @db.Date
+  status         MedicationCourseStatus @default(active)
+  adherence      AdherenceState         @default(unknown)
+  lastResponseAt DateTime?              @map("last_response_at")
+  notes          String?
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  patient   Patient              @relation(fields: [patientMrd], references: [mrd])
+  reminders MedicationReminder[]
+
+  @@index([patientMrd, status])
+  @@map("medication_courses")
+}
+
+model MedicationReminder {
+  id         String                   @id @default(uuid())
+  courseId   String                   @map("course_id")
+  patientMrd String                   @map("patient_mrd")
+  kind       MedicationReminderKind
+  dueDate    DateTime                 @map("due_date") @db.Date
+  status     MedicationReminderStatus @default(scheduled)
+  sentAt     DateTime?                @map("sent_at")
+  createdAt  DateTime                 @default(now()) @map("created_at")
+  updatedAt  DateTime                 @updatedAt @map("updated_at")
+
+  course  MedicationCourse @relation(fields: [courseId], references: [id])
+  patient Patient          @relation(fields: [patientMrd], references: [mrd])
+
+  @@index([patientMrd, status])
+  @@index([courseId])
+  @@index([dueDate])
+  @@map("medication_reminders")
+}
+
+model TherapyPlan {
+  id             String            @id @default(uuid())
+  patientMrd     String            @map("patient_mrd")
+  consultationId String?           @map("consultation_id")
+  doctorId       String?           @map("doctor_id")
+  therapyType    TherapyType       @map("therapy_type")
+  name           String?
+  totalSessions  Int               @map("total_sessions")
+  status         TherapyPlanStatus @default(planned)
+  startDate      DateTime          @map("start_date") @db.Date
+  notes          String?
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  patient  Patient          @relation(fields: [patientMrd], references: [mrd])
+  sessions TherapySession[]
+
+  @@index([patientMrd, status])
+  @@map("therapy_plans")
+}
+
+model TherapySession {
+  id            String               @id @default(uuid())
+  planId        String               @map("plan_id")
+  patientMrd    String               @map("patient_mrd")
+  sessionNo     Int                  @map("session_no")
+  scheduledDate DateTime             @map("scheduled_date") @db.Date
+  status        TherapySessionStatus @default(scheduled)
+  completedAt   DateTime?            @map("completed_at")
+  notes         String?
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+
+  plan    TherapyPlan @relation(fields: [planId], references: [id])
+  patient Patient     @relation(fields: [patientMrd], references: [mrd])
+
+  @@index([patientMrd, status])
+  @@index([planId])
+  @@map("therapy_sessions")
 }
 
 // ===========================================================================
@@ -688,6 +880,7 @@ model Lead {
   @@index([phone])
   @@index([sourceId])
   @@index([ownerId])
+  planRef         String?      @map("plan_ref")
   @@map("leads")
 }
 
@@ -801,6 +994,8 @@ model OpBooking {
   status             AppointmentStatus @default(booked)
   source             BookingSource
   appointmentType    String?           @map("appointment_type") // regular | follow_up | emergency | senior | teleconsultation | camp_follow_up
+  requestedDoctorId  String?           @map("requested_doctor_id") // doctor the patient asked for (call-centre conversion tracking)
+  noPreference       Boolean           @default(false) @map("no_preference") // patient asked for no specific doctor
   queueToken         Int?              @map("queue_token")
   bookedBy           String?           @map("booked_by")
   bookedAt           DateTime          @default(now()) @map("booked_at")
@@ -883,6 +1078,7 @@ model DoctorLeave {
   toDate    DateTime @map("to_date") @db.Date
   kind      String   @default("leave") // leave | emergency_block
   reason    String?
+  coverDoctorId String? @map("cover_doctor_id") // substitute who takes the on-leave doctor's slots
   createdAt DateTime @default(now()) @map("created_at")
 
   doctor Doctor @relation(fields: [doctorId], references: [id])
@@ -988,14 +1184,18 @@ model OptometryReferral {
 }
 
 model TreatmentPlan {
-  id             String   @id @default(uuid())
-  consultationId String   @unique @map("consultation_id")
+  id             String          @id @default(uuid())
+  consultationId String          @unique @map("consultation_id")
   summary        String
-  durationDays   Int?     @map("duration_days")
-  createdAt      DateTime @default(now()) @map("created_at")
+  durationDays   Int?            @map("duration_days")
+  status         TreatmentStatus @default(planned)
+  startedAt      DateTime?       @map("started_at")
+  completedAt    DateTime?       @map("completed_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
 
   consultation Consultation @relation(fields: [consultationId], references: [id])
 
+  @@index([status])
   @@map("treatment_plans")
 }
 
@@ -1053,6 +1253,7 @@ model Referral {
   consultation    Consultation? @relation("ConsultationReferral", fields: [consultationId], references: [id])
 
   @@index([type, status])
+  planRef            String?        @map("plan_ref")
   @@map("referrals")
 }
 
@@ -1073,6 +1274,7 @@ model FollowUp {
   priority        TaskPriority   @default(medium)
   ownerId         String?        @map("owner_id")
   status          FollowUpStatus @default(pending)
+  completedAt     DateTime?      @map("completed_at")
   callOutcome     CallOutcome?   @map("call_outcome")
   closureReason   String?        @map("closure_reason")
   desk            String?        // call-centre desk: front_office (patient review)
@@ -1086,6 +1288,7 @@ model FollowUp {
   origin       OpBooking?    @relation(fields: [originBookingId], references: [id])
   tasks        Task[]
 
+  planRef         String?        @map("plan_ref")
   @@index([dueDate, status])
   @@index([ownerId])
   @@map("follow_ups")
@@ -1124,6 +1327,76 @@ model Task {
   @@map("tasks")
 }
 
+// Department/module-level plan — objectives, targets, budget, time frame, activities.
+model ModulePlan {
+  id            String     @id @default(uuid())
+  moduleSlug    String     @map("module_slug")
+  title         String
+  period        String?                              // e.g. "2026-Q3"
+  periodStart   DateTime?  @map("period_start") @db.Date
+  periodEnd     DateTime?  @map("period_end") @db.Date
+  objective     String?
+  status        PlanStatus @default(draft)
+  ownerId       String?    @map("owner_id")
+  plannedBudget Int        @default(0) @map("planned_budget") // paise
+  targets       Json?                                // TargetLine[]
+  activities    Json?                                // ActivityLine[]
+  budgetBreakdown Json?    @map("budget_breakdown")   // { [monthLabel]: paise } for yearly+monthlyBudget
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  @@index([moduleSlug, status])
+  @@map("module_plans")
+}
+
+// ===========================================================================
+// MODULE CONFIGURATION — runtime, admin-editable per-module config
+// ===========================================================================
+
+// A per-module master definition (a stored row of the MASTERS registry).
+model ModuleMaster {
+  id          String   @id @default(uuid())
+  moduleSlug  String   @map("module_slug")
+  key         String                               // unique within the module, e.g. "clinic-venues"
+  label       String
+  fields      Json                                 // FieldDef[]
+  listColumns Json     @map("list_columns")         // string[]
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([moduleSlug, key])
+  @@map("module_masters")
+}
+
+// One generic table for ALL custom-master rows (avoids a model per master).
+model CustomRecord {
+  id         String   @id @default(uuid())
+  moduleSlug String   @map("module_slug")
+  masterKey  String   @map("master_key")
+  data       Json                                  // { [fieldName]: value }, money in paise, dates ISO
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([moduleSlug, masterKey])
+  @@map("custom_records")
+}
+
+// Per-module planning configuration (cadence + custom entry/report fields).
+model PlanConfig {
+  id            String   @id @default(uuid())
+  moduleSlug    String   @unique @map("module_slug")
+  cadence       String   @default("quarterly")      // yearly|quarterly|monthly|half_yearly|custom
+  monthlyBudget Boolean  @default(false) @map("monthly_budget")
+  entryFields   Json     @map("entry_fields")        // FieldDef[]
+  reportColumns Json     @map("report_columns")      // FieldDef[]
+  flowSteps     Json     @default("[]") @map("flow_steps") // FlowStep[] — admin override of the built-in module flow
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("plan_configs")
+}
+
 // ===========================================================================
 // M11 COMMUNICATION
 // ===========================================================================
@@ -1149,6 +1422,7 @@ model CommunicationLog {
 
   @@index([patientMrd])
   @@index([status])
+  planRef     String?              @map("plan_ref")
   @@map("communication_logs")
 }
 
@@ -1180,6 +1454,7 @@ model Campaign {
   leads          Lead[]
   communications CommunicationLog[]
 
+  planRef        String?      @map("plan_ref")
   @@map("campaigns")
 }
 
@@ -1279,19 +1554,35 @@ model OrganizationEngagement {
 model Camp {
   id             String       @id @default(uuid())
   name           String
-  location       String?
+  location       String?                                // locality / town
+  venue          String?                                // auditorium / place name
+  venueCapacity  Int?         @map("venue_capacity")
+  branchId       String?      @map("branch_id")        // owning branch (main hospital or a branch)
+  diseaseId      String?      @map("disease_id")        // target disease/focus
+  expectedAdmissions Int?     @map("expected_admissions")
   organizerId    String?      @map("organizer_id")
   coordinatorId  String?      @map("coordinator_id")
   scheduledAt    DateTime?    @map("scheduled_at")
   status         CampStatus   @default(planned)
-  staffAssigned  Json?        @map("staff_assigned")
+  isRecurring    Boolean      @default(false) @map("is_recurring")
+  parentId       String?      @map("parent_id")         // a recurring series' first camp
+  expectedPatients Int?       @map("expected_patients")
+  staffAssigned  Json?        @map("staff_assigned")    // deprecated → staffRoster
+  staffRoster    Json?        @map("staff_roster")      // OutreachStaffLine[]
+  expenses       Json?        // OutreachExpenseLine[] (planned vs actual)
+  revenueLines   Json?        @map("revenue_lines")     // OutreachRevenueLine[] (on-site income)
+  planning       Json?        // PlanningChecklist
   patientsScreened Int        @default(0) @map("patients_screened")
   revenue        Int          @default(0) // paise from camp patients
   createdAt      DateTime     @default(now()) @map("created_at")
 
   organizer    Organization? @relation(fields: [organizerId], references: [id])
+  parent       Camp?         @relation("CampSeries", fields: [parentId], references: [id])
+  children     Camp[]        @relation("CampSeries")
   campPatients CampPatient[]
 
+  planRef        String?      @map("plan_ref")
+  @@index([branchId])
   @@map("camps")
 }
 
@@ -1307,6 +1598,7 @@ model CampPatient {
   diseaseId       String?  @map("disease_id")
   recommendedVisit Boolean @default(false) @map("recommended_visit")
   bookingId       String?  @map("booking_id")
+  leadId          String?  @map("lead_id")  // the auto-created lead (downstream ROI tracing)
   createdAt       DateTime @default(now()) @map("created_at")
 
   camp    Camp     @relation(fields: [campId], references: [id])
@@ -1319,15 +1611,28 @@ model MobileClinic {
   id            String     @id @default(uuid())
   routeName     String     @map("route_name")
   location      String?
+  venue         String?
+  venueCapacity Int?       @map("venue_capacity")
+  branchId      String?    @map("branch_id")
+  diseaseId     String?    @map("disease_id")
   coordinatorId String?    @map("coordinator_id")
   scheduledAt   DateTime?  @map("scheduled_at")
   status        CampStatus @default(planned)
+  isRecurring   Boolean    @default(false) @map("is_recurring")
+  expectedPatients Int?    @map("expected_patients")
+  expectedAdmissions Int?  @map("expected_admissions")
+  staffRoster   Json?      @map("staff_roster")    // OutreachStaffLine[]
+  expenses      Json?      // OutreachExpenseLine[]
+  revenueLines  Json?      @map("revenue_lines")    // OutreachRevenueLine[]
+  planning      Json?      // PlanningChecklist
   patientsScreened Int     @default(0) @map("patients_screened")
   revenue       Int        @default(0) // paise
   createdAt     DateTime   @default(now()) @map("created_at")
 
   patients MobileClinicPatient[]
 
+  planRef String? @map("plan_ref")
+  @@index([branchId])
   @@map("mobile_clinics")
 }
 
@@ -1343,6 +1648,7 @@ model MobileClinicPatient {
   diseaseId       String?  @map("disease_id")
   referredToBranch Boolean @default(false) @map("referred_to_branch")
   bookingId       String?  @map("booking_id")
+  leadId          String?  @map("lead_id")  // the auto-created lead (downstream ROI tracing)
   createdAt       DateTime @default(now()) @map("created_at")
 
   mobileClinic MobileClinic @relation(fields: [mobileClinicId], references: [id])
@@ -1383,6 +1689,7 @@ model RetentionStatus {
   patient Patient @relation(fields: [patientMrd], references: [mrd])
 
   @@index([category])
+  planRef       String?  @map("plan_ref")
   @@map("retention_status")
 }
 

@@ -1,4 +1,7 @@
-import { loginWithPassword } from "@/lib/auth-actions";
+import { loginWithPassword, loginAsStaff } from "@/lib/auth-actions";
+import { store } from "@/lib/mock/dataset";
+import { getModuleBySlug } from "@/lib/modules/registry";
+import { DottedAccent } from "@/components/DottedAccent";
 
 export const dynamic = "force-dynamic";
 
@@ -12,19 +15,33 @@ const ROLES: { role: string; label: string; blurb: string }[] = [
   { role: "patient_success_executive", label: "Patient Success", blurb: "Retention, follow-ups" },
 ];
 
+// Seeded department managers — log in as a specific staff member so the confined,
+// owned-module experience demos correctly.
+function managerLogins() {
+  return (store.staffUser ?? [])
+    .filter((s) => Array.isArray(s.managedModules) && s.managedModules.length > 0)
+    .map((s) => ({
+      id: s.id as string,
+      label: s.name as string,
+      blurb: (s.managedModules as string[]).map((slug) => getModuleBySlug(slug)?.name ?? slug).join(" · "),
+    }));
+}
+
 export default async function LoginPage() {
+  const managers = managerLogins();
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-6 py-16">
+    <main className="relative mx-auto flex min-h-screen max-w-lg flex-col justify-center overflow-hidden px-6 py-16">
+      <DottedAccent className="opacity-60" />
       <div className="mb-6 flex items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-rose-700 to-gold-500 text-lg font-bold text-white">S</span>
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-rose-600 to-gold-500 text-lg font-bold text-white">S</span>
         <div className="leading-tight">
           <p className="text-sm font-medium text-rose-800 dark:text-rose-200">Sreedhareeyam Ayurveda Hospital</p>
           <p className="text-xs text-slate-400">Patient Relationship Management · Prototype</p>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <div className="h-1 bg-gradient-to-r from-rose-700 to-gold-500" />
+      <div className="relative overflow-hidden rounded-2xl border border-rose-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className="h-1 bg-gradient-to-r from-rose-600 to-gold-500" />
         <div className="p-6">
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">Choose a role to explore</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">This is a clickable prototype — pick any role. No password needed; data is sample data.</p>
@@ -40,6 +57,24 @@ export default async function LoginPage() {
               </form>
             ))}
           </div>
+
+          {managers.length > 0 && (
+            <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-700">
+              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Department managers</h2>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Confined to the modules they manage.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {managers.map((m) => (
+                  <form key={m.id} action={loginAsStaff}>
+                    <input type="hidden" name="staffId" value={m.id} />
+                    <button type="submit" className="w-full rounded-lg border border-slate-200 p-3 text-left transition-colors hover:border-rose-300 hover:bg-rose-50 dark:border-slate-700 dark:hover:border-rose-700 dark:hover:bg-rose-950/40">
+                      <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">{m.label}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">{m.blurb}</div>
+                    </button>
+                  </form>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </main>

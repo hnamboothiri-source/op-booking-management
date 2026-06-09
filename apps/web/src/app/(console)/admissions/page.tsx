@@ -37,6 +37,10 @@ export default async function Admissions({ searchParams }: { searchParams: Promi
   const admitted = cnt("admitted");
   const lost = cnt("rejected") + cnt("lost");
   const pending = total - admitted - lost;
+  // Recommendation tracker (the three states the desk works): recommended / accepted / pending decision.
+  const recommended = cnt("recommended");
+  const accepted = cnt("accepted") + cnt("admitted");
+  const pendingDecision = cnt("recommended") + cnt("counselled") + cnt("interested") + cnt("postponed");
 
   return (
     <div>
@@ -47,6 +51,15 @@ export default async function Admissions({ searchParams }: { searchParams: Promi
         <DrillStat label="In funnel" value={pending} entity="admissions" filters={{ status: PENDING_STATUSES }} />
         <DrillStat label="Admitted" value={admitted} entity="admissions" filters={{ status: "admitted" }} />
         <Card><div className="text-2xl font-bold">{admissionConversionRate(admitted, total)}%</div><div className="text-xs text-slate-500 dark:text-slate-400">Conversion ({lost} lost)</div></Card>
+      </div>
+
+      <div className="mb-6">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Recommendation tracker</h2>
+        <div className="grid grid-cols-3 gap-3">
+          <DrillStat label="Recommended" value={recommended} entity="admissions" filters={{ status: "recommended" }} />
+          <DrillStat label="Accepted" value={accepted} entity="admissions" filters={{ status: "accepted,admitted" }} />
+          <DrillStat label="Pending" value={pendingDecision} entity="admissions" filters={{ status: "recommended,counselled,interested,postponed" }} />
+        </div>
       </div>
 
       <ActiveFilters filters={filters} basePath="/admissions" />

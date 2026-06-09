@@ -23,11 +23,13 @@ const KIND_LABEL: Record<TimelineKind, string> = {
   referral: "Referrals",
   waitlist: "Waitlist",
   document: "Documents",
+  medicine: "Medicines",
+  therapy: "Therapies",
 };
 
 const KIND_ORDER: TimelineKind[] = [
   "booking", "consultation", "call", "lead", "follow_up",
-  "communication", "admission", "referral", "waitlist", "document",
+  "communication", "admission", "referral", "waitlist", "document", "medicine", "therapy",
 ];
 
 /** Minimal 14px stroke icons keyed by kind. */
@@ -55,6 +57,10 @@ function KindIcon({ kind }: { kind: TimelineKind }) {
       return <svg {...common}><path d="M5 22h14M5 2h14M17 22v-4.2a2 2 0 0 0-.6-1.4L12 12l-4.4 4.4a2 2 0 0 0-.6 1.4V22M7 2v4.2c0 .5.2 1 .6 1.4L12 12l4.4-4.4c.4-.4.6-.9.6-1.4V2" /></svg>;
     case "document":
       return <svg {...common}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h8" /></svg>;
+    case "medicine":
+      return <svg {...common}><path d="M10.5 20.5a4.95 4.95 0 0 1-7-7l6-6a4.95 4.95 0 0 1 7 7z" /><path d="M8.5 8.5l7 7" /></svg>;
+    case "therapy":
+      return <svg {...common}><path d="M12 21s-7-4.3-9.3-9A5 5 0 0 1 12 6a5 5 0 0 1 9.3 6c-2.3 4.7-9.3 9-9.3 9z" /></svg>;
   }
 }
 

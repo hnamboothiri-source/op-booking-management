@@ -6,6 +6,7 @@ import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
 import { quoteForReach } from "@prm/core";
+import { assertPlannedActivity } from "../planning/gate";
 
 const str = (fd: FormData, k: string) => {
   const v = fd.get(k)?.toString().trim();
@@ -22,6 +23,8 @@ export async function createCampaign(fd: FormData): Promise<void> {
   const name = str(fd, "name");
   const type = fd.get("type")?.toString() || "facebook_ads";
   if (!name) throw new Error("Campaign name is required");
+  const planRef = str(fd, "planRef");
+  await assertPlannedActivity("campaigns", "launch_campaign", planRef);
   const budgetRupees = str(fd, "budget");
   const start = str(fd, "startDate");
   const end = str(fd, "endDate");
@@ -29,6 +32,7 @@ export async function createCampaign(fd: FormData): Promise<void> {
   const created = await prisma.campaign.create({
     data: {
       name,
+      planRef,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       type: type as any,
       budget: budgetRupees ? Math.round(parseFloat(budgetRupees) * 100) : 0,

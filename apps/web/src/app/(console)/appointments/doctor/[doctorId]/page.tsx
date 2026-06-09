@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { slotUtilisation, minutesBetween } from "@prm/core";
+import { daySlots } from "@/lib/appointments/slots";
 import { PageHeader, Card, LinkButton } from "@/components/ui";
 import { DayAgenda, type AgendaDoctor } from "@/components/appointments/DayAgenda";
 
@@ -19,33 +20,33 @@ export default async function DoctorDay({ params, searchParams }: { params: Prom
   const doctor = await prisma.doctor.findUnique({ where: { id: doctorId } });
   if (!doctor) notFound();
 
-  const [slots, bookings, rooms] = await Promise.all([
-    prisma.timeSlot.findMany({ where: { slotDate: date, doctorId }, orderBy: { startTime: "asc" } }),
+  const [{ cells }, bookings, rooms] = await Promise.all([
+    daySlots(dateStr),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    prisma.opBooking.findMany({ where: { appointmentDate: date, doctorId } as any, include: { patient: true } }),
+    prisma.opBooking.findMany({ where: { appointmentDate: date, doctorId } as any }),
     prisma.consultationRoom.findMany({ where: { active: true } }),
   ]);
   const roomName = new Map(rooms.map((r) => [r.id, r.name]));
-  const bySlot = new Map(bookings.filter((b) => b.timeSlotId).map((b) => [b.timeSlotId as string, b]));
+  // Slots for THIS doctor on the date, derived live from the master schedule.
+  const mySlots = cells.filter((c) => c.doctorId === doctorId).sort((a, b) => a.startTime.localeCompare(b.startTime));
 
-  const allotted = slots.length;
-  const allottedMins = slots.reduce((m, s) => m + minutesBetween(s.startTime, s.endTime), 0);
-  const booked = slots.filter((s) => s.bookedCount > 0).length;
+  const allotted = mySlots.length;
+  const allottedMins = mySlots.reduce((m, s) => m + minutesBetween(s.startTime, s.endTime), 0);
+  const booked = mySlots.filter((s) => s.booked).length;
   const consulted = bookings.filter((b) => b.status === "completed").length;
   const noShow = bookings.filter((b) => b.status === "no_show").length;
   const util = slotUtilisation(booked, allotted);
 
-  const sorted = [...slots].sort((a, b) => a.startTime.localeCompare(b.startTime));
-  const agenda: AgendaDoctor[] = slots.length === 0 ? [] : [{
+  const agenda: AgendaDoctor[] = mySlots.length === 0 ? [] : [{
     id: doctorId, name: doctor.name, role: doctor.role ?? null,
-    room: roomName.get(slots[0].roomId ?? "") ?? null,
-    windowLabel: `${sorted[0].startTime}–${sorted[sorted.length - 1].endTime}`,
+    room: roomName.get(mySlots[0].roomId ?? "") ?? null,
+    windowLabel: `${mySlots[0].startTime}–${mySlots[mySlots.length - 1].endTime}`,
     allotted, booked, utilisation: util,
-    slots: sorted.map((s) => {
-      const b = bySlot.get(s.id);
-      const status = s.status === "blocked" ? "blocked" : b ? b.status : s.bookedCount >= s.capacity ? "full" : "open";
-      return { id: s.id, startTime: s.startTime, endTime: s.endTime, status, patientName: b?.patient?.name ?? null, href: b ? `/appointments/${b.id}` : s.status !== "blocked" && s.bookedCount < s.capacity ? `/appointments/book?slotId=${s.id}` : undefined };
-    }),
+    slots: mySlots.map((c) => ({
+      id: `${c.doctorId}-${c.startTime}`, startTime: c.startTime, endTime: c.endTime,
+      status: c.booked ? (c.bookingStatus ?? "booked") : "open", patientName: c.patientName ?? null,
+      href: c.bookingId ? `/appointments/${c.bookingId}` : `/appointments/book?doctorId=${doctorId}&date=${dateStr}&startTime=${c.startTime}`,
+    })),
   }];
 
   const stat = (label: string, value: React.ReactNode) => (

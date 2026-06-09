@@ -144,6 +144,54 @@ export const DRILL: Record<DrillEntity, DrillDef> = {
     },
   },
 
+  labReferrals: {
+    resource: "consultations",
+    branchScoped: false,
+    filters: ["status", "consultationId"],
+    listPath: "/conversion/tests",
+    buildWhere: (f) => simpleWhere(f, ["status", "consultationId"]),
+    label: (f) => (f.status ? `Tests · ${humanize(f.status)}` : "Tests recommended"),
+    preview: async (where, take) => {
+      const [rows, total] = await Promise.all([
+        prisma.labReferral.findMany({ where, include: { consultation: { include: { patient: true } } }, orderBy: { createdAt: "desc" }, take }),
+        prisma.labReferral.count({ where }),
+      ]);
+      return {
+        total,
+        rows: rows.map((l) => ({
+          title: l.consultation?.patient?.name ?? l.testName,
+          subtitle: `${l.testName}`,
+          href: l.consultation?.patientMrd ? `/patients/${encodeURIComponent(l.consultation.patientMrd)}` : undefined,
+          badge: humanize(l.status),
+        })),
+      };
+    },
+  },
+
+  treatmentPlans: {
+    resource: "consultations",
+    branchScoped: false,
+    filters: ["status", "consultationId"],
+    listPath: "/conversion/treatments",
+    buildWhere: (f) => simpleWhere(f, ["status", "consultationId"]),
+    label: (f) => (f.status ? `Treatments · ${humanize(f.status)}` : "Treatment plans"),
+    preview: async (where, take) => {
+      const [rows, total] = await Promise.all([
+        prisma.treatmentPlan.findMany({ where, include: { consultation: { include: { patient: true } } }, orderBy: { createdAt: "desc" }, take }),
+        prisma.treatmentPlan.count({ where }),
+      ]);
+      return {
+        total,
+        rows: rows.map((t) => ({
+          title: t.consultation?.patient?.name ?? t.summary,
+          subtitle: t.durationDays ? `${t.summary} · ${t.durationDays}d` : t.summary,
+          href: t.consultation?.patientMrd ? `/patients/${encodeURIComponent(t.consultation.patientMrd)}` : undefined,
+          badge: humanize(t.status),
+        })),
+      };
+    },
+  },
+
   admissions: {
     resource: "admissions",
     branchScoped: false,

@@ -8,9 +8,9 @@ export const dynamic = "force-dynamic";
 
 const input = "mt-1 w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm";
 
-export default async function BookPage({ searchParams }: { searchParams: Promise<{ slotId?: string; mrd?: string; leadId?: string; rescheduleFrom?: string }> }) {
+export default async function BookPage({ searchParams }: { searchParams: Promise<{ slotId?: string; mrd?: string; leadId?: string; rescheduleFrom?: string; doctorId?: string; date?: string; startTime?: string; requestedDoctorId?: string }> }) {
   await requireCan("appointments", "create");
-  const { slotId, mrd, leadId, rescheduleFrom } = await searchParams;
+  const { slotId, mrd, leadId, rescheduleFrom, doctorId: qDoctorId, date: qDate, startTime: qStart, requestedDoctorId: qRequested } = await searchParams;
 
   const [doctors, departments, branches, rooms, slot, lead, oldBooking, rescheduleReasons] = await Promise.all([
     prisma.doctor.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
@@ -76,8 +76,8 @@ export default async function BookPage({ searchParams }: { searchParams: Promise
           </>
         ) : (
           <>
-            <label className="text-sm font-medium text-slate-700">Doctor *
-              <select name="doctorId" required className={input}>{doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+            <label className="text-sm font-medium text-slate-700">Doctor (booked) *
+              <select name="doctorId" required defaultValue={qDoctorId ?? ""} className={input}>{doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
             </label>
             <label className="text-sm font-medium text-slate-700">Department *
               <select name="departmentId" required className={input}>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
@@ -85,8 +85,8 @@ export default async function BookPage({ searchParams }: { searchParams: Promise
             <label className="text-sm font-medium text-slate-700">Branch
               <select name="branchId" className={input}><option value="">—</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
             </label>
-            <label className="text-sm font-medium text-slate-700">Date *<input type="date" name="appointmentDate" required className={input} /></label>
-            <label className="text-sm font-medium text-slate-700">Start time *<input type="time" name="startTime" required className={input} /></label>
+            <label className="text-sm font-medium text-slate-700">Date *<input type="date" name="appointmentDate" required defaultValue={qDate ?? ""} className={input} /></label>
+            <label className="text-sm font-medium text-slate-700">Start time *<input type="time" name="startTime" required defaultValue={qStart ?? ""} className={input} /></label>
           </>
         )}
 
@@ -98,6 +98,14 @@ export default async function BookPage({ searchParams }: { searchParams: Promise
           <select name="appointmentType" className={input} defaultValue={appointmentType}>
             {["regular", "follow_up", "emergency", "senior", "teleconsultation", "camp_follow_up"].map((t) => <option key={t} value={t}>{t.replace(/_/g, " ")}</option>)}
           </select>
+        </label>
+
+        <label className="text-sm font-medium text-slate-700">Patient asked for
+          <select name="requestedDoctorId" defaultValue={qRequested ?? ""} className={input}><option value="">— no specific doctor —</option>{doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+          <span className="text-xs font-normal text-slate-400">If different from the booked doctor, this is logged as a conversion.</span>
+        </label>
+        <label className="flex items-center gap-2 pt-6 text-sm font-medium text-slate-700">
+          <input type="checkbox" name="noPreference" className="h-4 w-4" /> Patient had no preference
         </label>
 
         <label className="text-sm font-medium text-slate-700">Source

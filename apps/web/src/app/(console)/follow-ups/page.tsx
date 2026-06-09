@@ -6,6 +6,8 @@ import { can } from "@prm/core";
 import { PageHeader, Card, Badge, SubmitButton, LinkButton } from "@/components/ui";
 import { DRILL, listFilters } from "@/lib/drill/registry";
 import { ActiveFilters } from "@/components/drill/ActiveFilters";
+import { DrillStat } from "@/components/drill/DrillStat";
+import { PlanActivitySelect } from "@/components/planning/PlanActivitySelect";
 
 export const dynamic = "force-dynamic";
 
@@ -52,14 +54,23 @@ export default async function FollowUps({ searchParams }: { searchParams: Promis
   const dueToday = open.filter((f) => f.dueDate.getTime() === today.getTime());
   const upcoming = open.filter((f) => f.dueDate > today);
 
-  const [doctors, staff] = await Promise.all([
+  const [doctors, staff, reviewOpen, medsOpen, missedCount] = await Promise.all([
     prisma.doctor.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.staffUser.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    prisma.followUp.count({ where: { type: "consultation_review", status: { in: ["pending", "booked"] } } }),
+    prisma.followUp.count({ where: { type: "medicine", status: { in: ["pending", "booked"] } } }),
+    prisma.followUp.count({ where: { status: "missed" } }),
   ]);
 
   return (
     <div>
       <PageHeader title="Follow-ups" subtitle="Make sure patients don't drop out (Module 9)" />
+
+      <div className="mb-6 grid grid-cols-3 gap-3">
+        <DrillStat label="Review appointments" value={reviewOpen} entity="followups" filters={{ type: "consultation_review" }} sub="Open consultation reviews" />
+        <DrillStat label="Medication follow-up" value={medsOpen} entity="followups" filters={{ type: "medicine" }} sub="Open medicine reviews" />
+        <DrillStat label="Missed follow-up alerts" value={missedCount} entity="followups" filters={{ status: "missed" }} sub="Escalated to manager" />
+      </div>
 
       {can(user.role, "follow_ups", "create") && (
         <Card>
@@ -70,6 +81,7 @@ export default async function FollowUps({ searchParams }: { searchParams: Promis
             <input type="date" name="dueDate" required className={input} />
             <select name="ownerId" className={input}><option value="">Owner: me</option>{staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
             <input name="notes" placeholder="Instructions / notes" className={`${input} sm:col-span-1`} />
+            <div className="sm:col-span-2"><PlanActivitySelect slug="follow-ups" typeKey="followup_drive" /></div>
             <SubmitButton>Add</SubmitButton>
           </form>
         </Card>

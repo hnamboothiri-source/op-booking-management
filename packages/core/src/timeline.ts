@@ -19,7 +19,9 @@ export type TimelineKind =
   | "admission"
   | "referral"
   | "waitlist"
-  | "document";
+  | "document"
+  | "medicine"
+  | "therapy";
 
 export type TimelineTone = "slate" | "green" | "amber" | "red" | "blue";
 
@@ -123,6 +125,22 @@ export interface DocumentSrc {
   label: string;
 }
 
+export interface MedicationCourseSrc {
+  id: string;
+  createdAt: Date;
+  medicine: string;
+  durationDays: number;
+}
+
+export interface TherapySessionSrc {
+  id: string;
+  sessionNo: number;
+  scheduledDate: Date;
+  completedAt?: Date | null;
+  status: string;
+  therapyLabel: string;
+}
+
 export interface TimelineSources {
   bookings?: BookingSrc[];
   consultations?: ConsultationSrc[];
@@ -134,6 +152,8 @@ export interface TimelineSources {
   referrals?: ReferralSrc[];
   waitlist?: WaitlistSrc[];
   documents?: DocumentSrc[];
+  medicationCourses?: MedicationCourseSrc[];
+  therapySessions?: TherapySessionSrc[];
 }
 
 const humanize = (s: string) => s.replace(/_/g, " ");
@@ -277,6 +297,28 @@ function documentEvent(d: DocumentSrc): TimelineEvent {
   };
 }
 
+function medicineEvent(m: MedicationCourseSrc): TimelineEvent {
+  return {
+    id: `medicine:${m.id}`,
+    kind: "medicine",
+    at: m.createdAt,
+    title: "Medicine prescribed",
+    detail: `${m.medicine} · ${m.durationDays} days`,
+    tone: "blue",
+  };
+}
+
+function therapySessionEvent(t: TherapySessionSrc): TimelineEvent {
+  return {
+    id: `therapy:${t.id}`,
+    kind: "therapy",
+    at: t.completedAt ?? t.scheduledDate,
+    title: `${t.therapyLabel} · session ${t.sessionNo}`,
+    detail: humanize(t.status),
+    tone: t.status === "completed" ? "green" : t.status === "missed" ? "amber" : t.status === "cancelled" ? "slate" : "blue",
+  };
+}
+
 /**
  * Merge all patient-linked sources into one feed, newest first. Ties on the
  * same instant are broken by id so the order is deterministic (stable across
@@ -294,6 +336,8 @@ export function buildPatientTimeline(s: TimelineSources): TimelineEvent[] {
     ...(s.referrals ?? []).map(referralEvent),
     ...(s.waitlist ?? []).map(waitlistEvent),
     ...(s.documents ?? []).map(documentEvent),
+    ...(s.medicationCourses ?? []).map(medicineEvent),
+    ...(s.therapySessions ?? []).map(therapySessionEvent),
   ];
   return events.sort((a, b) => {
     const d = b.at.getTime() - a.at.getTime();

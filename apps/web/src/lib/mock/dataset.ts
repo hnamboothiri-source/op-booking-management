@@ -72,7 +72,15 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     ["yoga", "Yoga (General)", "yoga", 0, false],
   ];
   const ROLE_LABEL: Record<string, string> = { chief_physician: "Chief Physician", dy_chief_physician: "Dy Chief Physician", cmo: "CMO", consultant: "Consultant", medical_officer: "Medical Officer", holistic: "Holistic", dietitian: "Dietitian", yoga: "Yoga" };
-  const doctors: Row[] = DOCTOR_DEFS.map(([key, name, role, dailyTarget, opDoctor], i) => ({ id: `doc-${key}`, name, role, designation: role ? ROLE_LABEL[role] : null, opDoctor, dailyTarget, registrationNo: `KMC-${2001 + i}`, active: true }));
+  // New vs follow-up % mix varies by seniority: chiefs balanced, MOs mostly new intake.
+  const targetMix = (role: string | null): [number, number] =>
+    role === "chief_physician" || role === "dy_chief_physician" || role === "cmo" ? [50, 50]
+    : role === "consultant" ? [65, 35]
+    : role === "medical_officer" ? [80, 20] : [70, 30];
+  const doctors: Row[] = DOCTOR_DEFS.map(([key, name, role, dailyTarget, opDoctor], i) => {
+    const [newTargetPct, followupTargetPct] = targetMix(role);
+    return { id: `doc-${key}`, name, role, designation: role ? ROLE_LABEL[role] : null, opDoctor, dailyTarget, newTargetPct, followupTargetPct, registrationNo: `KMC-${2001 + i}`, active: true };
+  });
   const docId = (key: string) => `doc-${key}`;
 
   // --- Rooms (consultation rooms first; then chief/purpose rooms) ---
@@ -103,14 +111,20 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
   const communicationTemplates: Row[] = [
     { id: "tpl-0", name: "Appointment confirmation", channel: "whatsapp", body: "Hi {{name}}, your appointment is confirmed.", active: true },
     { id: "tpl-1", name: "Follow-up reminder", channel: "sms", body: "Hi {{first_name}}, it's time for your follow-up.", active: true },
+    { id: "tpl-med", name: "medicine_reminder", channel: "whatsapp", body: "Hi {{first_name}}, a reminder to continue {{medicine}}. Please order a refill if you are running low.", active: true },
+    { id: "tpl-thr", name: "therapy_reminder", channel: "whatsapp", body: "Hi {{first_name}}, your therapy session is scheduled. Please arrive 15 minutes early.", active: true },
   ];
 
   // --- Staff ---
   const staffUsers: Row[] = [
-    { id: "stf-admin", name: "Admin User", email: "admin@sreedhareeyam.test", role: "administrator", branchId: branches[0].id, active: true },
-    { id: "stf-callexec", name: "Call Exec", email: "callexec@sreedhareeyam.test", role: "call_center_executive", branchId: branches[0].id, active: true },
-    { id: "stf-front", name: "Front Desk", email: "front@sreedhareeyam.test", role: "front_office", branchId: branches[0].id, active: true },
-    { id: "stf-menon", name: "Dr. Menon", email: "menon@sreedhareeyam.test", role: "doctor", branchId: branches[0].id, active: true },
+    { id: "stf-admin", name: "Admin User", email: "admin@sreedhareeyam.test", role: "administrator", branchId: branches[0].id, active: true, managedModules: [], planRank: "manager" },
+    { id: "stf-callexec", name: "Call Exec", email: "callexec@sreedhareeyam.test", role: "call_center_executive", branchId: branches[0].id, active: true, managedModules: [], planRank: "staff" },
+    { id: "stf-front", name: "Front Desk", email: "front@sreedhareeyam.test", role: "front_office", branchId: branches[0].id, active: true, managedModules: [], planRank: "staff" },
+    { id: "stf-menon", name: "Dr. Menon", email: "menon@sreedhareeyam.test", role: "doctor", branchId: branches[0].id, active: true, managedModules: [], planRank: "staff" },
+    { id: "stf-superv", name: "Suma (Supervisor)", email: "supervisor@sreedhareeyam.test", role: "call_center_manager", branchId: branches[0].id, active: true, managedModules: [], planRank: "supervisor" },
+    // Department managers (Module Workspaces): confined to the modules they own.
+    { id: "stf-clinmgr", name: "Dr. Priya (Clinical Mgr)", email: "clinical.manager@sreedhareeyam.test", role: "module_manager", branchId: branches[0].id, active: true, managedModules: ["consultations", "follow-ups", "conversion"], planRank: "manager" },
+    { id: "stf-outmgr", name: "Rahul (Outreach Mgr)", email: "outreach.manager@sreedhareeyam.test", role: "module_manager", branchId: branches[0].id, active: true, managedModules: ["camps", "mobile-clinics"], planRank: "manager" },
   ];
 
   // --- Patients ---
@@ -120,6 +134,8 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     { mrd: "MRD-1003", name: "Anita George", phone: "9847032345", place: "Ernakulam", category: "new_patient", lifetimeVisits: 1, lifetimeRevenue: 30000, isNew: true, consentWhatsapp: true, consentSms: true, consentEmail: true, lastVisitDate: day(-2), createdAt: day(-30), updatedAt: day(-2) },
     { mrd: "MRD-DORMANT1", name: "Ravi Kumar", phone: "9847099001", place: "Thrissur", category: "dormant", lifetimeVisits: 3, lifetimeRevenue: 360000, isNew: false, consentWhatsapp: true, consentSms: false, consentEmail: false, lastVisitDate: day(-280), createdAt: day(-400), updatedAt: day(-280) },
     { mrd: "MRD-1005", name: "Fathima Rasheed", phone: "9847052345", place: "Malappuram", category: "at_risk", lifetimeVisits: 2, lifetimeRevenue: 90000, isNew: false, consentWhatsapp: false, consentSms: true, consentEmail: false, lastVisitDate: day(-120), createdAt: day(-150), updatedAt: day(-120) },
+    { mrd: "MRD-1006", name: "Thomas Varghese", phone: "9847060006", place: "Koothattukulam", category: "repeat_patient", lifetimeVisits: 3, lifetimeRevenue: 210000, isNew: false, consentWhatsapp: true, consentSms: true, consentEmail: false, lastVisitDate: day(-90), createdAt: day(-300), updatedAt: day(-90) },
+    { mrd: "MRD-1007", name: "Saramma Joseph", phone: "9847060007", place: "Koothattukulam", category: "dormant", lifetimeVisits: 2, lifetimeRevenue: 120000, isNew: false, consentWhatsapp: true, consentSms: false, consentEmail: false, lastVisitDate: day(-240), createdAt: day(-360), updatedAt: day(-240) },
   ];
 
   // --- Leads ---
@@ -238,11 +254,15 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     slot.bookedCount = 1;
     slot.status = "full";
     const opStatus = i === 0 ? "completed" : i === 1 ? "in_consultation" : i === 2 ? "arrived" : i < 4 ? "confirmed" : "booked";
+    // Mix new vs follow-up; mark a couple as call-centre conversions (asked for another doctor) and one no-preference.
+    const apptType = i % 3 === 0 ? "follow_up" : "regular";
+    const requestedDoctorId = i === 2 ? doctors[0].id : i === 4 ? doctors[1].id : null; // asked for a different (busy) doctor
+    const noPreference = i === 1;
     bookings.push({
       id: `bk-slot-${i}`, bookingRef: `OP-1${String(i).padStart(3, "0")}`, patientMrd: demoPatients[i % demoPatients.length],
       doctorId: slot.doctorId, departmentId: oph, branchId: branches[0].id, roomId: slot.roomId, timeSlotId: slot.id,
       appointmentDate: today, startTime: slot.startTime, endTime: slot.endTime, status: opStatus, source: "call_centre",
-      appointmentType: "regular", queueToken: 10 + i, bookedBy: "stf-callexec", bookedAt: day(-1),
+      appointmentType: apptType, requestedDoctorId, noPreference, queueToken: 10 + i, bookedBy: "stf-callexec", bookedAt: day(-1),
       checkedInAt: ["arrived", "in_consultation", "completed"].includes(opStatus) ? day(0) : null,
       completedAt: opStatus === "completed" ? day(0) : null,
     });
@@ -263,12 +283,38 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
   // --- Consultations ---
   const consultations: Row[] = [
     { id: "cons-1", bookingId: "bk-3", patientMrd: "MRD-1002", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[0].id, diseaseId: diseases[0].id, outcome: "admission_advised", diagnosis: "Bilateral cataract", advice: "Surgery recommended", notes: "Discuss package", createdAt: day(-5) },
+    { id: "cons-2", bookingId: "bk-101", patientMrd: "MRD-1003", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, diseaseId: diseases[1].id, outcome: "test_recommended", diagnosis: "Suspected glaucoma", advice: "Confirm with tests", createdAt: day(-3) },
+    { id: "cons-3", bookingId: "bk-102", patientMrd: "MRD-1001", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, diseaseId: diseases[2].id, outcome: "medicine_prescribed", diagnosis: "Dry eye", advice: "Start lubricants + Panchakarma", createdAt: day(-2) },
+    { id: "cons-4", bookingId: "bk-103", patientMrd: "MRD-1005", doctorId: doctors[2].id, departmentId: departments[0].id, branchId: branches[0].id, diseaseId: diseases[4].id, outcome: "test_recommended", diagnosis: "Diabetic retinopathy screen", advice: "Blood panel before review", createdAt: day(-8) },
+    { id: "cons-5", bookingId: "bk-104", patientMrd: "MRD-DORMANT1", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[0].id, diseaseId: diseases[3].id, outcome: "follow_up_advised", diagnosis: "Allergic conjunctivitis", advice: "Review in 3 weeks", createdAt: day(-20) },
+    { id: "cons-6", bookingId: "bk-105", patientMrd: "MRD-1002", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[0].id, diseaseId: diseases[0].id, outcome: "surgery_or_procedure_advised", diagnosis: "Mature cataract (L)", advice: "Pre-op workup", createdAt: day(-12) },
+    { id: "cons-7", bookingId: "bk-106", patientMrd: "MRD-1003", doctorId: doctors[0].id, departmentId: departments[1].id, branchId: branches[0].id, diseaseId: diseases[2].id, outcome: "medicine_prescribed", diagnosis: "Dry eye", advice: "Internal medication course", createdAt: day(-1) },
+  ];
+
+  // --- Lab/test referrals (Consultation → Test) ---
+  const labReferrals: Row[] = [
+    { id: "lab-1", consultationId: "cons-2", testName: "Fundus photography", status: "done", createdAt: day(-3) },
+    { id: "lab-2", consultationId: "cons-2", testName: "Applanation tonometry", status: "done", createdAt: day(-3) },
+    { id: "lab-3", consultationId: "cons-4", testName: "FBS / PPBS", status: "pending", createdAt: day(-8) },
+    { id: "lab-4", consultationId: "cons-4", testName: "HbA1c", status: "booked", createdAt: day(-8) },
+    { id: "lab-5", consultationId: "cons-6", testName: "Pre-op ECG", status: "missed", createdAt: day(-12) },
+  ];
+
+  // --- Treatment plans (Test/Consultation → Treatment) ---
+  const treatmentPlans: Row[] = [
+    { id: "tp-1", consultationId: "cons-3", summary: "Panchakarma 14-day course", durationDays: 14, status: "in_progress", startedAt: day(-2), completedAt: null, createdAt: day(-2) },
+    { id: "tp-2", consultationId: "cons-1", summary: "Netra Tarpana course", durationDays: 7, status: "completed", startedAt: day(-5), completedAt: day(-1), createdAt: day(-5) },
+    { id: "tp-3", consultationId: "cons-6", summary: "Surgery prep + recovery protocol", durationDays: 21, status: "planned", startedAt: null, completedAt: null, createdAt: day(-12) },
+    { id: "tp-4", consultationId: "cons-7", summary: "Internal medication course", durationDays: 30, status: "in_progress", startedAt: day(-1), completedAt: null, createdAt: day(-1) },
   ];
 
   // --- Admissions ---
   const admissions: Row[] = [
     { id: "adm-1", patientMrd: "MRD-1002", consultationId: "cons-1", doctorId: doctors[1].id, packageId: admissionPackages[2].id, estimatedCost: 5000000, status: "counselled", createdAt: day(-5), updatedAt: day(-4) },
     { id: "adm-2", patientMrd: "MRD-1001", doctorId: doctors[0].id, packageId: admissionPackages[0].id, estimatedCost: 2500000, status: "admitted", createdAt: day(-25), updatedAt: day(-20) },
+    { id: "adm-3", patientMrd: "MRD-1005", consultationId: "cons-6", doctorId: doctors[1].id, packageId: admissionPackages[1].id, estimatedCost: 1500000, status: "recommended", createdAt: day(-12), updatedAt: day(-12) },
+    { id: "adm-4", patientMrd: "MRD-1003", consultationId: "cons-2", doctorId: doctors[0].id, packageId: admissionPackages[0].id, estimatedCost: 2500000, status: "interested", createdAt: day(-4), updatedAt: day(-3) },
+    { id: "adm-5", patientMrd: "MRD-DORMANT1", doctorId: doctors[1].id, packageId: admissionPackages[2].id, estimatedCost: 5000000, status: "rejected", rejectionReason: "cost_concern", createdAt: day(-18), updatedAt: day(-15) },
   ];
 
   // --- Follow-ups ---
@@ -277,6 +323,11 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     { id: "fu-2", patientMrd: "MRD-1003", type: "consultation_review", dueDate: today, status: "pending", ownerId: staffUsers[1].id, desk: "front_office", createdAt: day(-2) },
     { id: "fu-3", patientMrd: "MRD-1001", type: "medicine", dueDate: day(5), status: "booked", ownerId: staffUsers[1].id, desk: "front_office", createdAt: day(-2) },
     { id: "fu-4", patientMrd: "MRD-DORMANT1", type: "dormant_reactivation", dueDate: day(-10), status: "missed", ownerId: staffUsers[1].id, desk: "front_office", createdAt: day(-15) },
+    // Closed follow-ups give the compliance report on-time vs late vs missed signal.
+    { id: "fu-5", patientMrd: "MRD-1001", type: "medicine", dueDate: day(-3), status: "done", completedAt: day(-3), ownerId: staffUsers[1].id, consultationId: "cons-3", desk: "front_office", createdAt: day(-6) },
+    { id: "fu-6", patientMrd: "MRD-1003", type: "consultation_review", dueDate: day(-7), status: "done", completedAt: day(-5), ownerId: staffUsers[1].id, consultationId: "cons-2", desk: "front_office", createdAt: day(-10) },
+    { id: "fu-7", patientMrd: "MRD-1002", type: "test", dueDate: day(-2), status: "missed", ownerId: staffUsers[1].id, consultationId: "cons-6", desk: "front_office", createdAt: day(-6) },
+    { id: "fu-8", patientMrd: "MRD-1005", type: "test", dueDate: today, status: "pending", ownerId: staffUsers[1].id, consultationId: "cons-4", desk: "front_office", createdAt: day(-1) },
   ];
 
   // --- Tasks ---
@@ -380,19 +431,65 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     { id: "oe-1", organizationId: "org-1", type: "visit", outcome: "Agreed to host an eye camp next month", notes: "Met the principal; ~300 students", actorId: "stf-camp", at: day(-12), createdAt: day(-12) },
   ];
   const camps: Row[] = [
-    { id: "cmp-1", name: "Eye Camp Koothattukulam", location: "Koothattukulam", organizerId: "org-1", status: "completed", revenue: 150000, createdAt: day(-20) },
-    { id: "cmp-2", name: "Vision Screening Kochi", location: "Ernakulam", organizerId: null, status: "planned", revenue: 0, createdAt: day(-3) },
+    {
+      id: "cmp-1", name: "Eye Camp Koothattukulam", location: "Koothattukulam", venue: "Town Auditorium", venueCapacity: 150, branchId: branches[0].id, diseaseId: diseases[0].id,
+      organizerId: "org-1", status: "completed", isRecurring: true, expectedPatients: 80, expectedAdmissions: 6, revenue: 150000, createdAt: day(-20),
+      planning: { locationIdentified: true, venueBooked: true, existingPatientsContacted: true, adsReleased: true, staffArranged: true, mobileUnitArranged: true },
+      expenses: [
+        { category: "venue_rent", planned: 500000, actual: 480000, note: "Town auditorium" },
+        { category: "transport_driver", planned: 300000, actual: 320000, note: "Bus + driver bata" },
+        { category: "food_consumables", planned: 200000, actual: 180000 },
+        { category: "marketing_ads", planned: 400000, actual: 250000, note: "Local FB/Insta" },
+      ],
+      staffRoster: [
+        { role: "doctor", name: "Dr. Menon", honorarium: 400000 },
+        { role: "optometrist", name: "Anu", honorarium: 150000 },
+        { role: "driver", name: "Saji", honorarium: 80000 },
+        { role: "attender", name: "Ravi", honorarium: 60000 },
+      ],
+      revenueLines: [
+        { kind: "registration", amount: 200000 },
+        { kind: "optometry_checkup", amount: 300000 },
+        { kind: "medicine_sales", amount: 800000 },
+      ],
+    },
+    { id: "cmp-2", name: "Vision Screening Kochi", location: "Ernakulam", branchId: branches[1].id, organizerId: null, status: "planned", isRecurring: false, expectedPatients: 50, revenue: 0, createdAt: day(-3),
+      planning: { locationIdentified: true, venueBooked: false, existingPatientsContacted: false, adsReleased: false },
+      expenses: [{ category: "venue_rent", planned: 350000, actual: null }, { category: "marketing_ads", planned: 300000, actual: null }],
+      staffRoster: [], revenueLines: [] },
   ];
   const campPatients: Row[] = [
-    { id: "cp-1", campId: "cmp-1", contactName: "Ramesh", phone: "9847090001", complaint: "Blurred vision", recommendedVisit: true, createdAt: day(-20) },
+    { id: "cp-1", campId: "cmp-1", contactName: "Ramesh", phone: "9847090001", complaint: "Blurred vision", recommendedVisit: true, leadId: "lead-camp1", createdAt: day(-20) },
     { id: "cp-2", campId: "cmp-1", contactName: "Geetha", phone: "9847090002", complaint: "Itchy eyes", recommendedVisit: false, createdAt: day(-20) },
   ];
   const mobileClinics: Row[] = [
-    { id: "mc-1", routeName: "Route A — Idukki", location: "Idukki", status: "completed", createdAt: day(-18) },
+    { id: "mc-1", routeName: "Route A — Idukki", location: "Idukki", venue: "Panchayat hall", venueCapacity: 60, branchId: branches[0].id, status: "completed", isRecurring: false, expectedPatients: 40, expectedAdmissions: 3, createdAt: day(-18),
+      planning: { locationIdentified: true, venueBooked: true, mobileUnitArranged: true, adsReleased: true },
+      expenses: [{ category: "transport_driver", planned: 250000, actual: 260000, note: "Van fuel + driver" }, { category: "food_consumables", planned: 120000, actual: 110000 }],
+      staffRoster: [{ role: "optometrist", name: "Deepa", honorarium: 150000 }, { role: "driver", name: "Manoj", honorarium: 70000 }],
+      revenueLines: [{ kind: "optometry_checkup", amount: 150000 }, { kind: "medicine_sales", amount: 220000 }] },
   ];
   const mobileClinicPatients: Row[] = [
-    { id: "mcp-1", mobileClinicId: "mc-1", contactName: "Joy", phone: "9847091001", complaint: "Cataract suspected", referredToBranch: true, createdAt: day(-18) },
+    { id: "mcp-1", mobileClinicId: "mc-1", contactName: "Joy", phone: "9847091001", complaint: "Cataract suspected", referredToBranch: true, leadId: "lead-mob1", createdAt: day(-18) },
   ];
+
+  // Downstream chain for outreach ROI: camp screening → lead → booking → consultation → admitted admission
+  // (attributed to the Kochi branch). Pushed onto the earlier arrays before relation wiring runs.
+  const campSourceId = leadSources.find((s) => s.name === "camp")?.id ?? null;
+  const mobileSourceId = leadSources.find((s) => s.name === "mobile_clinic")?.id ?? null;
+  leads.push(
+    { id: "lead-camp1", leadNumber: "LEAD-2026-000010", contactName: "Ramesh", phone: "9847090001", stage: "converted_to_patient", sourceId: campSourceId, ownerId: staffUsers[1].id, branchId: branches[0].id, patientMrd: "MRD-1003", mergedIntoId: null, desk: "back_office", createdAt: day(-19) },
+    { id: "lead-mob1", leadNumber: "LEAD-2026-000011", contactName: "Joy", phone: "9847091001", stage: "interested", sourceId: mobileSourceId, ownerId: staffUsers[1].id, branchId: branches[0].id, mergedIntoId: null, desk: "back_office", createdAt: day(-18) },
+  );
+  bookings.push(
+    { id: "bk-camp1", bookingRef: "OP-CAMP1", patientMrd: "MRD-1003", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[1].id, appointmentDate: day(-10), startTime: "10:00", status: "completed", source: "camp", appointmentType: "camp_follow_up", bookedAt: day(-12), bookedBy: "stf-callexec", leadId: "lead-camp1", completedAt: day(-10) },
+  );
+  consultations.push(
+    { id: "cons-camp1", bookingId: "bk-camp1", patientMrd: "MRD-1003", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[1].id, diseaseId: diseases[0].id, outcome: "admission_advised", diagnosis: "Cataract — camp referral", createdAt: day(-10) },
+  );
+  admissions.push(
+    { id: "adm-camp1", patientMrd: "MRD-1003", consultationId: "cons-camp1", doctorId: doctors[1].id, packageId: admissionPackages[2].id, estimatedCost: 5000000, status: "admitted", createdAt: day(-9), updatedAt: day(-8) },
+  );
 
   // --- Audit ---
   const auditLog: Row[] = [
@@ -456,7 +553,11 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     c.department = byId(departments, c.departmentId);
     c.disease = byId(diseases, c.diseaseId) ?? null;
     c.booking = byId(bookings, c.bookingId) ?? null;
+    c.labReferrals = labReferrals.filter((l) => l.consultationId === c.id);
+    c.treatmentPlan = treatmentPlans.find((t) => t.consultationId === c.id) ?? null;
   });
+  labReferrals.forEach((l) => { l.consultation = byId(consultations, l.consultationId) ?? null; });
+  treatmentPlans.forEach((t) => { t.consultation = byId(consultations, t.consultationId) ?? null; });
   admissions.forEach((a) => { a.patient = byId(patients, a.patientMrd, "mrd"); a.package = byId(admissionPackages, a.packageId) ?? null; });
   followUps.forEach((f) => { f.patient = byId(patients, f.patientMrd, "mrd"); f.doctor = byId(doctors, f.doctorId) ?? null; });
   tasks.forEach((t) => { t.assignee = byId(staffUsers, t.assigneeId) ?? null; t.lead = byId(leads, t.leadId) ?? null; });
@@ -490,12 +591,137 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     p.retention = byId(retentionStatus, p.mrd, "patientMrd") ?? null;
   });
 
+  const isoDay = (n: number) => day(n).toISOString().slice(0, 10);
+  // An already-approved typed activity (entered by staff → verified by supervisor → approved by manager).
+  const appr = (typeKey: string, title: string, target: number): Row => ({
+    title, typeKey, target, ownerId: staffUsers[1].id, dueDate: null, budget: null, status: "planned", taskId: null, draftEntityId: null,
+    approval: { status: "approved", enteredById: staffUsers[1].id, enteredAt: isoDay(-10), verifiedById: "stf-superv", verifiedAt: isoDay(-9), approvedById: staffUsers[0].id, approvedAt: isoDay(-8) },
+    changeLog: [
+      { at: isoDay(-10), byId: staffUsers[1].id, byRank: "staff", action: "entered" },
+      { at: isoDay(-9), byId: "stf-superv", byRank: "supervisor", action: "verified" },
+      { at: isoDay(-8), byId: staffUsers[0].id, byRank: "manager", action: "approved" },
+    ],
+  });
+  const mkPlan = (slug: string, title: string, acts: Row[], budget = 0, targets: Row[] = []): Row => ({
+    id: `plan-${slug}`, moduleSlug: slug, title, period: "2026-Q3", periodStart: day(-30), periodEnd: day(60),
+    objective: `${title} objectives.`, status: "active", ownerId: staffUsers[0].id, plannedBudget: budget, targets, activities: acts, createdAt: day(-30), updatedAt: day(-2),
+  });
+  // A mid-workflow (entered, awaiting verification) activity to demo the 3 steps on the leads plan.
+  const enteredAct: Row = {
+    title: "Festival call drive", typeKey: "call_drive", target: 50, ownerId: staffUsers[1].id, dueDate: null, budget: null, status: "planned", taskId: null, draftEntityId: null,
+    approval: { status: "entered", enteredById: staffUsers[1].id, enteredAt: isoDay(-2) },
+    changeLog: [{ at: isoDay(-2), byId: staffUsers[1].id, byRank: "staff", action: "entered" }],
+  };
+  const modulePlans: Row[] = [
+    mkPlan("leads", "Lead Management — Q3", [appr("generate_leads", "Lead generation drive", 200), enteredAct], 5000000, [
+      { kpiLabel: "New leads", label: "New leads", target: 200, unit: "" },
+      { kpiLabel: "Converted", label: "Converted", target: 30, unit: "" },
+    ]),
+    mkPlan("camps", "Outreach Camps — Q3", [appr("conduct_camp", "Conduct 6 camps", 6)], 12000000, [{ kpiLabel: "All camps", label: "Camps", target: 6, unit: "" }]),
+    mkPlan("mobile-clinics", "Mobile Routes — Q3", [appr("run_route", "Run 4 routes", 4)], 3000000),
+    mkPlan("campaigns", "Campaigns — Q3", [appr("launch_campaign", "Launch 3 campaigns", 3)], 8000000),
+    mkPlan("appointments", "Clinics — Q3", [appr("doctor_schedule", "Doctor schedules", 10)]),
+    mkPlan("referrals", "Referrals — Q3", [appr("referral_drive", "Referral drive", 20)]),
+    mkPlan("follow-ups", "Follow-ups — Q3", [appr("followup_drive", "Follow-up drive", 100)]),
+    mkPlan("communication", "Engagement — Q3", [appr("message_blast", "Reactivation blasts", 3)]),
+    mkPlan("retention", "Retention — Q3", [appr("reactivation_drive", "Reactivation drive", 30)]),
+    mkPlan("organizations", "Partnerships — Q3", [appr("engagement_plan", "Engagement plan", 12)]),
+  ];
+
+  // ---- Module configuration: per-module masters, custom records, plan configs ----
+  const moduleMasters: Row[] = [
+    {
+      id: "mm-appt-venues", moduleSlug: "appointments", key: "clinic-venues", label: "Clinic Venue",
+      fields: [
+        { name: "name", label: "Name", type: "text", required: true },
+        { name: "capacity", label: "Capacity", type: "number" },
+        { name: "active", label: "Active", type: "boolean" },
+      ],
+      listColumns: ["name", "capacity", "active"], active: true,
+    },
+  ];
+  const customRecords: Row[] = [
+    { id: "cr-venue-1", moduleSlug: "appointments", masterKey: "clinic-venues", data: { name: "Town Hall (Kochi)", capacity: 120, active: true } },
+    { id: "cr-venue-2", moduleSlug: "appointments", masterKey: "clinic-venues", data: { name: "Community Centre (Aluva)", capacity: 80, active: true } },
+  ];
+  const planConfigs: Row[] = [
+    {
+      id: "pc-appt", moduleSlug: "appointments", cadence: "yearly", monthlyBudget: true,
+      entryFields: [
+        { name: "channel", label: "Channel", type: "select", options: [
+          { value: "call_centre", label: "Call centre" }, { value: "front_desk", label: "Front desk" }, { value: "camp", label: "Camp" },
+        ] },
+      ],
+      reportColumns: [{ name: "channel", label: "Channel", type: "text" }],
+      flowSteps: [],
+    },
+    {
+      id: "pc-leads", moduleSlug: "leads", cadence: "quarterly", monthlyBudget: false,
+      entryFields: [], reportColumns: [], flowSteps: [],
+    },
+    {
+      // Demo of a custom flow override (Configure → Flow): a trimmed follow-ups journey.
+      id: "pc-followups", moduleSlug: "follow-ups", cadence: "monthly", monthlyBudget: false,
+      entryFields: [], reportColumns: [],
+      flowSteps: [
+        { title: "Start: today's follow-ups", description: "Custom flow — work due tasks first.", kpiLabel: "Due today", href: "/follow-ups", actionLabel: "Open", icon: "bell" },
+        { title: "Result: nothing overdue", description: "Custom flow — keep overdue at zero.", kpiLabel: "Overdue", href: "/follow-ups", actionLabel: "View", icon: "chart" },
+      ],
+    },
+  ];
+
+  // --- Ayurveda engagement: medicine courses + reminders, therapy plans + sessions ---
+  const medicationCourses: Row[] = [
+    { id: "mc-1", patientMrd: "MRD-1001", medicine: "Triphala Churna", durationDays: 30, startDate: day(-26), status: "active", adherence: "needs_refill", lastResponseAt: day(-2), notes: "Twice daily after food", createdAt: day(-26), updatedAt: day(-2) },
+    { id: "mc-2", patientMrd: "MRD-1001", medicine: "Ashwagandha Tablets", durationDays: 45, startDate: day(-10), status: "active", adherence: "on_track", lastResponseAt: day(-1), notes: "One at bedtime", createdAt: day(-10), updatedAt: day(-1) },
+    { id: "mc-3", patientMrd: "MRD-1002", medicine: "Kashayam (Maharasnadi)", durationDays: 21, startDate: day(-5), status: "active", adherence: "unknown", lastResponseAt: null, notes: null, createdAt: day(-5), updatedAt: day(-5) },
+  ];
+  const medicationReminders: Row[] = [
+    { id: "mr-1", courseId: "mc-1", patientMrd: "MRD-1001", kind: "start", dueDate: day(-26), status: "sent", sentAt: day(-26), createdAt: day(-26), updatedAt: day(-26) },
+    { id: "mr-2", courseId: "mc-1", patientMrd: "MRD-1001", kind: "compliance", dueDate: day(-11), status: "sent", sentAt: day(-11), createdAt: day(-26), updatedAt: day(-11) },
+    { id: "mr-3", courseId: "mc-1", patientMrd: "MRD-1001", kind: "refill", dueDate: day(2), status: "scheduled", sentAt: null, createdAt: day(-26), updatedAt: day(-26) },
+    { id: "mr-4", courseId: "mc-2", patientMrd: "MRD-1001", kind: "start", dueDate: day(-10), status: "sent", sentAt: day(-10), createdAt: day(-10), updatedAt: day(-10) },
+    { id: "mr-5", courseId: "mc-2", patientMrd: "MRD-1001", kind: "compliance", dueDate: day(12), status: "scheduled", sentAt: null, createdAt: day(-10), updatedAt: day(-10) },
+    { id: "mr-6", courseId: "mc-2", patientMrd: "MRD-1001", kind: "refill", dueDate: day(26), status: "scheduled", sentAt: null, createdAt: day(-10), updatedAt: day(-10) },
+    { id: "mr-7", courseId: "mc-3", patientMrd: "MRD-1002", kind: "start", dueDate: day(-5), status: "sent", sentAt: day(-5), createdAt: day(-5), updatedAt: day(-5) },
+    { id: "mr-8", courseId: "mc-3", patientMrd: "MRD-1002", kind: "compliance", dueDate: day(5), status: "scheduled", sentAt: null, createdAt: day(-5), updatedAt: day(-5) },
+    { id: "mr-9", courseId: "mc-3", patientMrd: "MRD-1002", kind: "refill", dueDate: day(12), status: "scheduled", sentAt: null, createdAt: day(-5), updatedAt: day(-5) },
+  ];
+  const therapyPlans: Row[] = [
+    { id: "tp-1", patientMrd: "MRD-1001", therapyType: "panchakarma", name: "Panchakarma detox", totalSessions: 10, status: "in_progress", startDate: day(-21), notes: "Morning slot", createdAt: day(-21), updatedAt: day(-1) },
+    { id: "tp-2", patientMrd: "MRD-1002", therapyType: "shirodhara", name: null, totalSessions: 7, status: "planned", startDate: day(2), notes: null, createdAt: day(-1), updatedAt: day(-1) },
+  ];
+  const therapySessions: Row[] = [
+    ...Array.from({ length: 10 }, (_, i) => {
+      const n = i + 1;
+      // 7 completed, 1 missed (session 8), 2 scheduled — shows 7/10 + an amber miss.
+      const status = n <= 7 ? "completed" : n === 8 ? "missed" : "scheduled";
+      const sched = day(-21 + i * 2);
+      return { id: `ts-1-${n}`, planId: "tp-1", patientMrd: "MRD-1001", sessionNo: n, scheduledDate: sched, status, completedAt: status === "completed" ? sched : null, notes: null, createdAt: day(-21), updatedAt: sched };
+    }),
+    ...Array.from({ length: 7 }, (_, i) => {
+      const n = i + 1;
+      return { id: `ts-2-${n}`, planId: "tp-2", patientMrd: "MRD-1002", sessionNo: n, scheduledDate: day(2 + i * 3), status: "scheduled", completedAt: null, notes: null, createdAt: day(-1), updatedAt: day(-1) };
+    }),
+  ];
+  medicationCourses.forEach((c) => { c.patient = byId(patients, c.patientMrd, "mrd") ?? null; c.reminders = medicationReminders.filter((r) => r.courseId === c.id); });
+  medicationReminders.forEach((r) => { r.patient = byId(patients, r.patientMrd, "mrd") ?? null; r.course = byId(medicationCourses, r.courseId) ?? null; });
+  therapyPlans.forEach((p) => { p.patient = byId(patients, p.patientMrd, "mrd") ?? null; p.sessions = therapySessions.filter((s) => s.planId === p.id); });
+  therapySessions.forEach((s) => { s.patient = byId(patients, s.patientMrd, "mrd") ?? null; s.plan = byId(therapyPlans, s.planId) ?? null; });
+  patients.forEach((p) => {
+    p.medicationCourses = medicationCourses.filter((c) => c.patientMrd === p.mrd);
+    p.therapyPlans = therapyPlans.filter((t) => t.patientMrd === p.mrd);
+  });
+
   const store: Record<string, Row[]> = {
+    moduleMaster: moduleMasters, customRecord: customRecords, planConfig: planConfigs,
+    medicationCourse: medicationCourses, medicationReminder: medicationReminders, therapyPlan: therapyPlans, therapySession: therapySessions,
     branch: branches, department: departments, doctor: doctors, consultationRoom: consultationRooms,
     staffUser: staffUsers, leadSourceMaster: leadSources, diseaseMaster: diseases, serviceMaster: services,
     referralSourceMaster: referralSources, admissionPackageMaster: admissionPackages, followUpTypeMaster: followUpTypes,
     taskTypeMaster: taskTypes, reasonMaster: reasons, communicationTemplate: communicationTemplates,
     patient: patients, lead: leads, callLog: callLogs, opBooking: bookings, consultation: consultations,
+    labReferral: labReferrals, treatmentPlan: treatmentPlans,
     admissionRecommendation: admissions, followUp: followUps, task: tasks, referral: referrals,
     communicationLog: communications, waitlistEntry: waitlist, retentionStatus, campaign: campaigns,
     organization: organizations, organizationEngagement: organizationEngagements, camp: camps, campPatient: campPatients, mobileClinic: mobileClinics,
@@ -504,7 +730,7 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     appointmentStatusHistory, appointmentReminder: appointmentReminders, doctorLeave: doctorLeaves,
     doctorSchedule: doctorSchedules, timeSlot: timeSlots,
     marketingChannelMaster: marketingChannels, channelSeasonalOffer: channelSeasonalOffers,
-    callChecklistItem: callChecklistItems,
+    callChecklistItem: callChecklistItems, modulePlan: modulePlans,
   };
   return { store, counters: {} };
 }

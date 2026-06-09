@@ -26,9 +26,9 @@ export function DrillStat({
     <button
       type="button"
       onClick={() => openDrill({ entity, filters, label })}
-      className="group block overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-800 dark:hover:border-rose-700"
+      className="group block overflow-hidden rounded-2xl border border-rose-100 bg-white text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-800 dark:hover:border-rose-700"
     >
-      <div className="h-1 bg-gradient-to-r from-rose-700 to-gold-500" />
+      <div className="h-1 bg-gradient-to-r from-rose-600 to-gold-500" />
       <div className="p-4">
         <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
           <span>{label}</span>

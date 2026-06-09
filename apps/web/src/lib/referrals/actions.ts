@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
+import { assertPlannedActivity } from "../planning/gate";
 
 const str = (fd: FormData, k: string) => {
   const v = fd.get(k)?.toString().trim();
@@ -14,9 +15,12 @@ const str = (fd: FormData, k: string) => {
 export async function createReferral(fd: FormData): Promise<void> {
   const user = await requireCan("referrals", "create");
   const type = fd.get("type")?.toString() || "patient_to_patient";
+  const planRef = str(fd, "planRef");
+  await assertPlannedActivity("referrals", "referral_drive", planRef);
 
   const created = await prisma.referral.create({
     data: {
+      planRef,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       type: type as any,
       referrerPatientMrd: str(fd, "referrerPatientMrd"),

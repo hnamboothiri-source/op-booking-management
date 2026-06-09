@@ -3,10 +3,16 @@ import { notFound } from "next/navigation";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { addCampPatient } from "@/lib/outreach/actions";
-import { can } from "@prm/core";
+import { computeOutreachKpis } from "@/lib/outreach/metrics";
+import { can, budgetTotals, onSiteRevenue, expensesByCategory, type OutreachExpenseLine, type OutreachStaffLine, type OutreachRevenueLine, type PlanningChecklist } from "@prm/core";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
 import { DrillStat } from "@/components/drill/DrillStat";
 import { ActiveFilters } from "@/components/drill/ActiveFilters";
+import { BudgetSection } from "@/components/outreach/BudgetSection";
+import { PlanningSection, RosterSection, RevenueSection } from "@/components/outreach/OutreachEditors";
+import { RoiSummary } from "@/components/outreach/RoiSummary";
+import { PlanPanel } from "@/components/outreach/PlanPanel";
+import { LocalPatients } from "@/components/outreach/LocalPatients";
 
 export const dynamic = "force-dynamic";
 const input = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm";
@@ -25,6 +31,21 @@ export default async function CampDetail({ params, searchParams }: { params: Pro
   const onlyRecommended = recommendedVisit === "true";
   const shown = onlyRecommended ? camp.campPatients.filter((p) => p.recommendedVisit) : camp.campPatients;
 
+  const canEdit = can(user.role, "camps", "edit");
+  const expenses = (camp.expenses as OutreachExpenseLine[] | null) ?? [];
+  const roster = (camp.staffRoster as OutreachStaffLine[] | null) ?? [];
+  const revenueLines = (camp.revenueLines as OutreachRevenueLine[] | null) ?? [];
+  const planning = (camp.planning as PlanningChecklist | null) ?? {};
+  const totals = budgetTotals(expenses, roster);
+  const byCat = expensesByCategory(expenses);
+  const [kpis, branches, diseases, localPatients] = await Promise.all([
+    computeOutreachKpis("camp", id),
+    prisma.branch.findMany(),
+    prisma.diseaseMaster.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    camp.location ? prisma.patient.findMany({ where: { place: { contains: camp.location, mode: "insensitive" } }, take: 50 }) : Promise.resolve([]),
+  ]);
+  const branchName = (bid: string) => branches.find((b) => b.id === bid)?.name ?? bid;
+
   return (
     <div>
       <PageHeader title={camp.name} subtitle={`${camp.location ?? ""}${camp.organizer ? ` · ${camp.organizer.name}` : ""}`} />
@@ -34,7 +55,22 @@ export default async function CampDetail({ params, searchParams }: { params: Pro
         <DrillStat label="Screened" value={camp.campPatients.length} entity="campPatients" filters={{ campId: id }} />
         <DrillStat label="Recommended visit" value={recommended} entity="campPatients" filters={{ campId: id, recommendedVisit: "true" }} />
         <Card><div className="text-2xl font-bold">{camp.campPatients.length ? Math.round((recommended / camp.campPatients.length) * 100) : 0}%</div><div className="text-xs text-slate-500 dark:text-slate-400">Conversion</div></Card>
-        <Card><div className="text-2xl font-bold">₹{(camp.revenue / 100).toLocaleString("en-IN")}</div><div className="text-xs text-slate-500 dark:text-slate-400">Revenue</div></Card>
+        <Card><div className="text-2xl font-bold">{camp.isRecurring ? "Recurring" : "One-off"}</div><div className="text-xs text-slate-500 dark:text-slate-400">{branchName(camp.branchId ?? "") !== (camp.branchId ?? "") ? `Run by ${branchName(camp.branchId ?? "")}` : "Camp type"}</div></Card>
+      </div>
+
+      <div className="mb-6 space-y-6">
+        <PlanPanel eventType="camp" id={id}
+          plan={{ location: camp.location, venue: camp.venue, venueCapacity: camp.venueCapacity, diseaseId: camp.diseaseId, branchId: camp.branchId, isRecurring: camp.isRecurring, expectedPatients: camp.expectedPatients, expectedAdmissions: camp.expectedAdmissions }}
+          rentPlanned={byCat.venue_rent?.planned ?? 0} adPlanned={byCat.marketing_ads?.planned ?? 0}
+          branches={branches} diseases={diseases} canEdit={canEdit} />
+        <LocalPatients eventType="camp" id={id} location={camp.location} patients={localPatients.map((p) => ({ mrd: p.mrd, name: p.name, phone: p.phone, place: p.place }))} canEdit={canEdit} />
+        <RoiSummary plannedTotal={totals.plannedTotal} actualTotal={totals.actualTotal} onSite={onSiteRevenue(revenueLines)} kpis={kpis} branchName={branchName} />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <PlanningSection eventType="camp" id={id} planning={planning} canEdit={canEdit} />
+          <RosterSection eventType="camp" id={id} roster={roster} canEdit={canEdit} />
+        </div>
+        <BudgetSection eventType="camp" id={id} expenses={expenses} roster={roster} canEdit={canEdit} />
+        <RevenueSection eventType="camp" id={id} lines={revenueLines} canEdit={canEdit} />
       </div>
 
       {can(user.role, "camps", "edit") && (

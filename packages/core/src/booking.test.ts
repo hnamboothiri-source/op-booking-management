@@ -3,6 +3,8 @@ import {
   canTransitionBooking, nextBookingStatuses, occupiesSlot, releasesSlot,
   slotStatusFor, hasCapacity, generateSlotTimes, nextQueueToken, roomConflict, dueReminders,
   splitSessionSlots, weekOfMonthLabel, minutesBetween, slotUtilisation,
+  targetSplit, needsMorePatients, isConversion, weekOfMonth, isNewBooking,
+  scheduleAppliesOn, derivedDaySlots, type ScheduleLike,
 } from "./booking";
 import { conversionRate, isConverted, isClosedStage } from "./leads";
 
@@ -137,5 +139,59 @@ describe("lead funnel helpers", () => {
     expect(isConverted("appointment_booked")).toBe(true);
     expect(isClosedStage("lost")).toBe(true);
     expect(isClosedStage("new_lead")).toBe(false);
+  });
+});
+
+describe("OP management helpers", () => {
+  it("targetSplit divides capacity by % mix", () => {
+    expect(targetSplit(10, 70, 30)).toEqual({ newTarget: 7, followupTarget: 3 });
+    expect(targetSplit(10, 50, 50)).toEqual({ newTarget: 5, followupTarget: 5 });
+    expect(targetSplit(0, 70, 30)).toEqual({ newTarget: 0, followupTarget: 0 });
+  });
+  it("needsMorePatients flags under-filled doctors with open capacity", () => {
+    expect(needsMorePatients(2, 10)).toBe(true); // 20% fill
+    expect(needsMorePatients(8, 10)).toBe(false); // 80% fill
+    expect(needsMorePatients(10, 10)).toBe(false); // full
+    expect(needsMorePatients(0, 0)).toBe(false);
+  });
+  it("isConversion when requested differs from booked", () => {
+    expect(isConversion("docA", "docB")).toBe(true);
+    expect(isConversion("docA", "docA")).toBe(false);
+    expect(isConversion(null, "docA")).toBe(false);
+  });
+  it("weekOfMonth + isNewBooking", () => {
+    expect(weekOfMonth("2026-06-01")).toBe(1);
+    expect(weekOfMonth("2026-06-08")).toBe(2);
+    expect(weekOfMonth("2026-06-30")).toBe(5);
+    expect(isNewBooking("regular")).toBe(true);
+    expect(isNewBooking(null)).toBe(true);
+    expect(isNewBooking("follow_up")).toBe(false);
+  });
+});
+
+describe("master schedule → derived slots", () => {
+  const base: ScheduleLike = { id: "s1", doctorId: "docA", departmentId: "oph", roomId: "room-9", dayOfWeek: 3, startTime: "09:00", endTime: "13:00", slotsCount: 2, slotDurationMinutes: 30, maxPatientsPerSlot: 1 };
+  // 2026-06-10 is a Wednesday (dayOfWeek 3), week-of-month 2.
+  const wed = "2026-06-10";
+  it("scheduleAppliesOn matches weekday", () => {
+    expect(scheduleAppliesOn(base, wed)).toBe(true);
+    expect(scheduleAppliesOn(base, "2026-06-11")).toBe(false); // Thu
+  });
+  it("respects week-of-month rotation", () => {
+    expect(scheduleAppliesOn({ ...base, weekOfMonth: "1,3" }, wed)).toBe(false); // wed is week 2
+    expect(scheduleAppliesOn({ ...base, weekOfMonth: "2" }, wed)).toBe(true);
+  });
+  it("respects valid range + specificDate", () => {
+    expect(scheduleAppliesOn({ ...base, validFrom: "2026-07-01" }, wed)).toBe(false);
+    expect(scheduleAppliesOn({ id: "s2", doctorId: "docA", departmentId: "oph", specificDate: wed, dayOfWeek: null, startTime: "09:00", endTime: "10:00", slotDurationMinutes: 30, maxPatientsPerSlot: 1 }, wed)).toBe(true);
+  });
+  it("derives slots and reassigns on leave to a substitute", () => {
+    const slots = derivedDaySlots([base], wed, []);
+    expect(slots.length).toBe(2);
+    expect(slots[0].doctorId).toBe("docA");
+    const covered = derivedDaySlots([base], wed, [{ doctorId: "docA", fromDate: wed, toDate: wed, coverDoctorId: "docB" }]);
+    expect(covered.every((s) => s.doctorId === "docB" && s.substituteFor === "docA")).toBe(true);
+    const dropped = derivedDaySlots([base], wed, [{ doctorId: "docA", fromDate: wed, toDate: wed, coverDoctorId: null }]);
+    expect(dropped.length).toBe(0);
   });
 });

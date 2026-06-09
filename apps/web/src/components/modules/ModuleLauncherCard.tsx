@@ -7,12 +7,12 @@ export function ModuleLauncherCard({ def, kpis }: { def: ModuleDef; kpis: { labe
   return (
     <Link
       href={`/modules/${def.slug}`}
-      className="group block overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-colors hover:border-rose-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-rose-700"
+      className="group block overflow-hidden rounded-2xl border border-rose-100 bg-white shadow-sm transition-colors hover:border-rose-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-rose-700"
     >
-      <div className="h-1 bg-gradient-to-r from-rose-700 to-gold-500" />
+      <div className="h-1 bg-gradient-to-r from-rose-600 to-gold-500" />
       <div className="p-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-rose-100 bg-rose-50 text-rose-600 transition-colors group-hover:border-rose-300 group-hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-300">
             <NavIcon name={def.icon} />
           </span>
           <div className="flex min-w-0 flex-1 items-center gap-1 font-semibold text-slate-800 group-hover:text-rose-700 dark:text-slate-100 dark:group-hover:text-rose-300">

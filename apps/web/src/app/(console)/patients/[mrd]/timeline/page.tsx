@@ -4,11 +4,11 @@ import { prisma } from "@/lib/db";
 import { PageHeader, LinkButton } from "@/components/ui";
 import { PatientTimeline } from "@/components/PatientTimeline";
 import { mockPatientTimeline } from "@/lib/patients/timeline-mock";
-import type { TimelineKind } from "@prm/core";
+import { buildPatientTimeline, THERAPY_TYPE_LABELS, type TimelineKind, type TherapyType } from "@prm/core";
 
 export const dynamic = "force-dynamic";
 
-const KINDS = ["booking", "consultation", "call", "lead", "follow_up", "communication", "admission", "referral", "waitlist", "document"];
+const KINDS = ["booking", "consultation", "call", "lead", "follow_up", "communication", "admission", "referral", "waitlist", "document", "medicine", "therapy"];
 
 export default async function PatientTimelinePage({ params, searchParams }: { params: Promise<{ mrd: string }>; searchParams: Promise<{ kind?: string }> }) {
   const { mrd: raw } = await params;
@@ -16,11 +16,25 @@ export default async function PatientTimelinePage({ params, searchParams }: { pa
   const { kind } = await searchParams;
   await requireCan("patients", "view");
 
-  // Best-effort name for the header; the timeline feed itself is still mock
-  // data during the frontend phase (see timeline-mock.ts).
-  const patient = await prisma.patient.findUnique({ where: { mrd }, select: { name: true } });
+  // Header name + the real Ayurveda-engagement events (medicine + therapy) are
+  // live from the store; the rest of the feed is still sample data.
+  const [patient, courses, sessions, plans] = await Promise.all([
+    prisma.patient.findUnique({ where: { mrd }, select: { name: true } }),
+    prisma.medicationCourse.findMany({ where: { patientMrd: mrd } }),
+    prisma.therapySession.findMany({ where: { patientMrd: mrd } }),
+    prisma.therapyPlan.findMany({ where: { patientMrd: mrd } }),
+  ]);
+  const planType = new Map(plans.map((p) => [p.id, p.therapyType as TherapyType]));
 
-  const events = mockPatientTimeline();
+  const realEvents = buildPatientTimeline({
+    medicationCourses: courses.map((c) => ({ id: c.id, createdAt: c.createdAt, medicine: c.medicine, durationDays: c.durationDays })),
+    therapySessions: sessions.map((s) => ({
+      id: s.id, sessionNo: s.sessionNo, scheduledDate: s.scheduledDate, completedAt: s.completedAt,
+      status: s.status, therapyLabel: THERAPY_TYPE_LABELS[planType.get(s.planId) ?? "panchakarma"] ?? "Therapy",
+    })),
+  });
+  // Merge live engagement events with the sample feed, newest first.
+  const events = [...realEvents, ...mockPatientTimeline()].sort((a, b) => b.at.getTime() - a.at.getTime());
   const initialKind = kind && KINDS.includes(kind) ? (kind as TimelineKind) : undefined;
 
   return (

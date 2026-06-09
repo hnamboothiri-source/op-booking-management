@@ -6,6 +6,7 @@ import { setNextEngagement, logEngagement } from "@/lib/organizations/actions";
 import { can, ENGAGEMENT_TYPES } from "@prm/core";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
 import { DrillStat } from "@/components/drill/DrillStat";
+import { PlanActivitySelect } from "@/components/planning/PlanActivitySelect";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,7 @@ export default async function OrgDetail({ params }: { params: Promise<{ id: stri
               <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Type<select name="type" className="mt-1 block rounded border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800">{ENGAGEMENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></label>
               <label className="flex-1 text-xs font-medium text-slate-600 dark:text-slate-300">Outcome *<input name="outcome" required placeholder="What came out of it" className="mt-1 block w-full rounded border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800" /></label>
               <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Next engagement<input type="date" name="nextEngagement" className="mt-1 block rounded border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800" /></label>
+              <PlanActivitySelect slug="organizations" typeKey="engagement_plan" />
               <SubmitButton tone="ghost">Log engagement</SubmitButton>
             </form>
           </Card>

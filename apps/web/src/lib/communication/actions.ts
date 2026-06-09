@@ -6,6 +6,7 @@ import { renderTemplate } from "@prm/core";
 import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
+import { assertPlannedActivity } from "../planning/gate";
 
 /** Placeholder values available to templates, derived from a patient. */
 function patientVars(p: { name: string; place: string | null; phone: string | null }): Record<string, string> {
@@ -32,7 +33,7 @@ function consentOk(channel: Channel, p: { consentWhatsapp: boolean; consentSms: 
   return true;
 }
 
-async function deliver(channel: Channel, to: string, templateName: string, body: string | null, patientMrd: string | null, templateId: string | null) {
+export async function deliver(channel: Channel, to: string, templateName: string, body: string | null, patientMrd: string | null, templateId: string | null) {
   const res = await sendMessage({ channel, to, template: templateName, body: body ?? undefined });
   await prisma.communicationLog.create({
     data: {
@@ -77,6 +78,7 @@ export async function sendOne(fd: FormData): Promise<void> {
 /** Bulk/campaign send to a patient segment, respecting consent. */
 export async function sendBulk(fd: FormData): Promise<void> {
   const user = await requireCan("communication", "create");
+  await assertPlannedActivity("communication", "message_blast", fd.get("planRef")?.toString() || null);
   const channel = (fd.get("channel")?.toString() || "whatsapp") as Channel;
   const category = fd.get("category")?.toString();
   const templateId = str(fd, "templateId");

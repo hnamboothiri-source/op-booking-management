@@ -11,7 +11,7 @@ const input = "mt-1 w-full rounded-md border border-slate-300 px-3 py-1.5 text-s
 const label = "text-sm font-medium text-slate-700 dark:text-slate-300";
 const legend = "col-span-2 mt-2 border-b border-slate-200 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400";
 
-export function LeadForm({ sources, campaigns, diseases, branches, staff }: { sources: Opt[]; campaigns: Opt[]; diseases: Opt[]; branches: Opt[]; staff: Opt[] }) {
+export function LeadForm({ sources, campaigns, diseases, branches, staff, planRefs }: { sources: Opt[]; campaigns: Opt[]; diseases: Opt[]; branches: Opt[]; staff: Opt[]; planRefs: { ref: string; label: string }[] }) {
   const formRef = useRef<HTMLFormElement>(null);
   const forceRef = useRef<HTMLInputElement>(null);
   const bypass = useRef(false);
@@ -114,6 +114,12 @@ export function LeadForm({ sources, campaigns, diseases, branches, staff }: { so
         </label>
         <label className={label}>Owner
           <select name="ownerId" className={input}><option value="">— me —</option>{staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+        </label>
+
+        <label className={`${label} col-span-2`}>Plan activity
+          {planRefs.length === 0
+            ? <span className="mt-1 block rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">No approved lead-generation activity — <Link href="/modules/leads/plan" className="font-medium underline">plan &amp; approve first →</Link></span>
+            : <select name="planRef" required className={input}>{planRefs.map((p) => <option key={p.ref} value={p.ref}>{p.label}</option>)}</select>}
         </label>
 
         <div className="col-span-2 flex items-center gap-3">

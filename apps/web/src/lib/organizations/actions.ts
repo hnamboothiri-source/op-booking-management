@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
+import { assertPlannedActivity } from "../planning/gate";
 
 const str = (fd: FormData, k: string) => {
   const v = fd.get(k)?.toString().trim();
@@ -45,6 +46,7 @@ export async function setNextEngagement(id: string, fd: FormData): Promise<void>
 /** Log an engagement touch-point (type + outcome required) + set the next date. */
 export async function logEngagement(id: string, fd: FormData): Promise<void> {
   const user = await requireCan("organizations", "edit");
+  await assertPlannedActivity("organizations", "engagement_plan", fd.get("planRef")?.toString() || null);
   const type = fd.get("type")?.toString() || "visit";
   const outcome = str(fd, "outcome");
   if (!outcome) throw new Error("Engagement outcome is required");

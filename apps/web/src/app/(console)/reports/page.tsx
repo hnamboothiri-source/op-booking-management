@@ -3,7 +3,7 @@ import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui";
 import { DrillCount } from "@/components/drill/DrillCount";
-import type { DrillEntity, DrillFilters } from "@prm/core";
+import { conversionRate, admissionConversionRate, type DrillEntity, type DrillFilters } from "@prm/core";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +49,21 @@ export default async function Reports() {
     prisma.leadSourceMaster.findMany(),
   ]);
 
+  // --- Follow-up & Treatment Conversion aggregations (Module 17) ---
+  const [followUpGroups, followUpsDone, consultationCount, testCount, treatmentCount] = await Promise.all([
+    prisma.followUp.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.followUp.findMany({ where: { status: "done" }, select: { dueDate: true, completedAt: true } }),
+    prisma.consultation.count(),
+    prisma.labReferral.count(),
+    prisma.treatmentPlan.count(),
+  ]);
+  const fuCount = (s: string) => followUpGroups.find((g) => g.status === s)?._count._all ?? 0;
+  const fuTotal = followUpGroups.reduce((a, g) => a + g._count._all, 0);
+  const fuClosed = fuCount("done") + fuCount("missed");
+  const onTime = followUpsDone.filter((f) => f.completedAt && f.dueDate && new Date(f.completedAt) <= new Date(f.dueDate)).length;
+  const admittedTotal = admissionByStatus.find((g) => g.status === "admitted")?._count._all ?? 0;
+  const admissionTotal = admissionByStatus.reduce((a, g) => a + g._count._all, 0);
+
   const dName = (id: string | null) => doctors.find((d) => d.id === id)?.name ?? "Unknown";
   const disName = (id: string | null) => diseases.find((d) => d.id === id)?.name ?? "Unspecified";
   const sName = (id: string | null) => sources.find((s) => s.id === id)?.name?.replace(/_/g, " ") ?? "Unknown";
@@ -68,6 +83,8 @@ export default async function Reports() {
         <a className={csvLink} href="/api/reports/export?type=appointments-by-status">Appointments by status</a>
         <a className={csvLink} href="/api/reports/export?type=consultations-by-doctor">Consultations by doctor</a>
         <a className={csvLink} href="/api/reports/export?type=admission-funnel">Admission funnel</a>
+        <a className={csvLink} href="/api/reports/export?type=follow-up-compliance">Follow-up compliance</a>
+        <a className={csvLink} href="/api/reports/export?type=treatment-funnel">Treatment funnel</a>
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <Table title="Consultations by doctor" rows={byDoctor.map((r) => ({ label: dName(r.doctorId), value: r._count._all, drill: { entity: "consultations", filters: { doctorId: r.doctorId } } }))} />
@@ -76,6 +93,28 @@ export default async function Reports() {
         <Table title="Admission funnel" rows={admissionByStatus.map((r) => ({ label: r.status, value: r._count._all, drill: { entity: "admissions", filters: { status: r.status } } }))} />
         <Table title="Appointments by status" rows={apptByStatus.map((r) => ({ label: r.status.replace(/_/g, " "), value: r._count._all, drill: { entity: "appointments", filters: { status: r.status } } }))} />
         <Table title="Leads by source" rows={leadBySource.map((r) => ({ label: sName(r.sourceId), value: r._count._all, ...(r.sourceId ? { drill: { entity: "leads", filters: { sourceId: r.sourceId } } } : {}) }))} />
+        <Table title="Follow-up compliance" rows={[
+          { label: "Completed (on time)", value: onTime, drill: { entity: "followups", filters: { status: "done" } } },
+          { label: "Completed (total)", value: fuCount("done"), drill: { entity: "followups", filters: { status: "done" } } },
+          { label: "Missed", value: fuCount("missed"), drill: { entity: "followups", filters: { status: "missed" } } },
+          { label: "Open (pending/booked)", value: fuCount("pending") + fuCount("booked"), drill: { entity: "followups", filters: { status: "pending,booked" } } },
+          { label: "On-time compliance %", value: `${conversionRate(onTime, fuClosed)}%` },
+          { label: "Total follow-ups", value: fuTotal },
+        ]} />
+        <Table title="Admission conversion rate" rows={[
+          { label: "Recommended (total)", value: admissionTotal, drill: { entity: "admissions", filters: {} } },
+          { label: "Admitted", value: admittedTotal, drill: { entity: "admissions", filters: { status: "admitted" } } },
+          { label: "Conversion rate %", value: `${admissionConversionRate(admittedTotal, admissionTotal)}%` },
+        ]} />
+        <Table title="Treatment conversion funnel" rows={[
+          { label: "Consultations", value: consultationCount, drill: { entity: "consultations", filters: {} } },
+          { label: "Tests advised", value: testCount, drill: { entity: "labReferrals", filters: {} } },
+          { label: "Treatment plans", value: treatmentCount, drill: { entity: "treatmentPlans", filters: {} } },
+          { label: "Admissions advised", value: admissionTotal, drill: { entity: "admissions", filters: {} } },
+          { label: "Admitted", value: admittedTotal, drill: { entity: "admissions", filters: { status: "admitted" } } },
+          { label: "Consultation → Test %", value: `${conversionRate(testCount, consultationCount)}%` },
+          { label: "Test → Treatment %", value: `${conversionRate(treatmentCount, testCount)}%` },
+        ]} />
       </div>
     </div>
   );

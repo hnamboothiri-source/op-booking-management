@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { can, visibleResources, isBranchScoped, branchScopeWhere } from "./rbac";
+import { can, visibleResources, isBranchScoped, branchScopeWhere, effectiveCan } from "./rbac";
 
 describe("rbac.can", () => {
   it("administrator can do anything", () => {
@@ -51,5 +51,25 @@ describe("rbac branch scoping", () => {
     expect(branchScopeWhere("branch_manager", "b1")).toEqual({ branchId: "b1" });
     expect(branchScopeWhere("administrator", "b1")).toEqual({});
     expect(branchScopeWhere("branch_manager", null)).toEqual({});
+  });
+});
+
+describe("rbac module ownership (effectiveCan)", () => {
+  it("module_manager floor is read-only dashboards/reports", () => {
+    expect(can("module_manager", "reports", "view")).toBe(true);
+    expect(can("module_manager", "consultations", "edit")).toBe(false);
+  });
+  it("grants CRUD on owned-module resources on top of role", () => {
+    const owned = ["consultations", "follow_ups"] as const;
+    // role denies it, but ownership grants it
+    expect(effectiveCan(can("module_manager", "consultations", "edit"), owned, "consultations")).toBe(true);
+    expect(effectiveCan(can("module_manager", "follow_ups", "delete"), owned, "follow_ups")).toBe(true);
+  });
+  it("does not grant resources outside owned modules", () => {
+    const owned = ["consultations"] as const;
+    expect(effectiveCan(can("module_manager", "campaigns", "edit"), owned, "campaigns")).toBe(false);
+  });
+  it("passes through whatever the role already allows", () => {
+    expect(effectiveCan(can("administrator", "campaigns", "delete"), [], "campaigns")).toBe(true);
   });
 });

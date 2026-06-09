@@ -7,6 +7,7 @@ import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
 import { runAutomation } from "../automation";
+import { assertPlannedActivity } from "../planning/gate";
 import { ASSIGNMENT_RULES, ASSIGNMENT_FALLBACK } from "./assignment-rules";
 
 const str = (fd: FormData, k: string) => {
@@ -62,6 +63,8 @@ export async function createLead(fd: FormData): Promise<void> {
   const contactName = str(fd, "contactName");
   const phone = str(fd, "phone");
   if (!contactName || !phone) throw new Error("Name and phone are required");
+  const planRef = str(fd, "planRef");
+  await assertPlannedActivity("leads", "generate_leads", planRef);
 
   // Auto-route to a call-centre desk by the lead's source (Reception vs Back Office).
   const sourceId = str(fd, "sourceId");
@@ -84,6 +87,7 @@ export async function createLead(fd: FormData): Promise<void> {
   const created = await prisma.lead.create({
     data: {
       leadNumber,
+      planRef,
       contactName,
       phone,
       whatsapp: str(fd, "whatsapp"),

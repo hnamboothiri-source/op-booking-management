@@ -6,6 +6,7 @@ import { can } from "@prm/core";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
 import { DRILL, listFilters } from "@/lib/drill/registry";
 import { DrillStat } from "@/components/drill/DrillStat";
+import { PlanActivitySelect } from "@/components/planning/PlanActivitySelect";
 import { DrillCount } from "@/components/drill/DrillCount";
 import { ActiveFilters } from "@/components/drill/ActiveFilters";
 
@@ -56,6 +57,7 @@ export default async function Referrals({ searchParams }: { searchParams: Promis
             <label className="text-xs font-medium text-slate-600">Organization<select name="organizationId" className={input}><option value="">—</option>{orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select></label>
             <label className="text-xs font-medium text-slate-600">Referred patient MRD<input name="referredPatientMrd" className={input} /></label>
             <label className="flex items-center gap-2 pt-5 text-xs font-medium text-slate-600"><input type="checkbox" name="rewardEligible" className="h-4 w-4" /> Reward eligible</label>
+            <PlanActivitySelect slug="referrals" typeKey="referral_drive" />
             <div className="col-span-2 sm:col-span-3"><SubmitButton>Add referral</SubmitButton></div>
           </form>
         </Card>

@@ -6,6 +6,7 @@ import { computeCampaignKpis } from "@/lib/campaigns/metrics";
 import { can } from "@prm/core";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
 import { DrillCount } from "@/components/drill/DrillCount";
+import { PlanActivitySelect } from "@/components/planning/PlanActivitySelect";
 
 export const dynamic = "force-dynamic";
 const input = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm";
@@ -42,6 +43,7 @@ export default async function Campaigns() {
             <label className="col-span-2 text-xs font-medium text-slate-600 dark:text-slate-300">Audience / traits<input name="targetAudience" placeholder="e.g. seniors with cataract symptoms" className={input} /></label>
             <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Start<input type="date" name="startDate" className={input} /></label>
             <label className="text-xs font-medium text-slate-600 dark:text-slate-300">End<input type="date" name="endDate" className={input} /></label>
+            <div className="sm:col-span-2"><PlanActivitySelect slug="campaigns" typeKey="launch_campaign" /></div>
             <div className="col-span-2 sm:col-span-4"><SubmitButton>Create campaign</SubmitButton><span className="ml-2 text-xs text-slate-400">Add channels &amp; launch on the campaign page.</span></div>
           </form>
         </Card>

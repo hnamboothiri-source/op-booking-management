@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { can } from "@prm/core";
+import { can, budgetTotals, onSiteRevenue, outreachRoi, type OutreachExpenseLine, type OutreachStaffLine, type OutreachRevenueLine } from "@prm/core";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
+import { computeOutreachKpis, type OutreachEventType } from "@/lib/outreach/metrics";
 
 /**
  * CSV export for report tables. GET /api/reports/export?type=<key>.
@@ -53,6 +54,55 @@ export async function GET(req: NextRequest) {
       const grp = await prisma.admissionRecommendation.groupBy({ by: ["status"], _count: { _all: true } });
       headers = ["Status", "Count"];
       rows = grp.map((g) => [g.status, g._count._all]);
+      break;
+    }
+    case "outreach-budget": {
+      const [camps, clinics] = await Promise.all([prisma.camp.findMany(), prisma.mobileClinic.findMany()]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const line = (ev: any, kind: string) => {
+        const t = budgetTotals((ev.expenses as OutreachExpenseLine[]) ?? [], (ev.staffRoster as OutreachStaffLine[]) ?? []);
+        return [ev.name ?? ev.routeName, kind, t.plannedTotal / 100, t.actualTotal / 100, t.variance / 100];
+      };
+      headers = ["Event", "Type", "Planned (₹)", "Actual (₹)", "Variance (₹)"];
+      rows = [...camps.map((c) => line(c, "camp")), ...clinics.map((c) => line(c, "mobile"))];
+      break;
+    }
+    case "outreach-roi": {
+      const [camps, clinics] = await Promise.all([prisma.camp.findMany(), prisma.mobileClinic.findMany()]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const line = async (ev: any, type: OutreachEventType) => {
+        const t = budgetTotals((ev.expenses as OutreachExpenseLine[]) ?? [], (ev.staffRoster as OutreachStaffLine[]) ?? []);
+        const onSite = onSiteRevenue((ev.revenueLines as OutreachRevenueLine[]) ?? []);
+        const k = await computeOutreachKpis(type, ev.id);
+        const roi = outreachRoi(t.actualTotal, onSite, k.downstreamRevenue);
+        return [ev.name ?? ev.routeName, type, t.actualTotal / 100, onSite / 100, k.downstreamRevenue / 100, roi.revenue / 100, roi.roi ?? "", k.screened, k.admissions];
+      };
+      headers = ["Event", "Type", "Spend (₹)", "On-site (₹)", "Downstream (₹)", "Revenue (₹)", "ROI %", "Screened", "IP admissions"];
+      rows = [...(await Promise.all(camps.map((c) => line(c, "camp")))), ...(await Promise.all(clinics.map((c) => line(c, "mobile"))))];
+      break;
+    }
+    case "follow-up-compliance": {
+      const grp = await prisma.followUp.groupBy({ by: ["status"], _count: { _all: true } });
+      headers = ["Status", "Count"];
+      rows = grp.map((g) => [g.status, g._count._all]);
+      break;
+    }
+    case "treatment-funnel": {
+      const [consultations, tests, treatments, admissions, admitted] = await Promise.all([
+        prisma.consultation.count(),
+        prisma.labReferral.count(),
+        prisma.treatmentPlan.count(),
+        prisma.admissionRecommendation.count(),
+        prisma.admissionRecommendation.count({ where: { status: "admitted" } }),
+      ]);
+      headers = ["Stage", "Count"];
+      rows = [
+        ["Consultations", consultations],
+        ["Tests advised", tests],
+        ["Treatment plans", treatments],
+        ["Admissions advised", admissions],
+        ["Admitted", admitted],
+      ];
       break;
     }
     default:

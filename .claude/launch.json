@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--workspace", "apps/web"],
       "port": 3000
+    },
+    {
+      "name": "andromeda",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/harinarayanannamboothiri/Codes/andromeda-1.0.0", "run", "dev", "--", "-p", "3001"],
+      "port": 3001
     }
   ]
 }

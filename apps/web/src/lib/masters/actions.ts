@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
-import { getMaster, type FieldDef, type MasterDef } from "./registry";
+import { getMaster } from "./registry";
+import { buildData } from "./coerce";
 
 // Prisma delegate accessor (dynamic by model name from the registry).
 function delegate(model: string): {
@@ -41,45 +42,11 @@ export async function refOptions(ref: "branch" | "department" | "marketingChanne
   return rows.map((r) => ({ value: String(r.id), label: String(r.name) }));
 }
 
-function coerce(field: FieldDef, fd: FormData): unknown {
-  const raw = fd.get(field.name);
-  switch (field.type) {
-    case "boolean":
-      return raw === "on" || raw === "true";
-    case "number": {
-      const s = raw?.toString().trim();
-      return s ? parseInt(s, 10) : null;
-    }
-    case "money": {
-      const s = raw?.toString().trim();
-      return s ? Math.round(parseFloat(s) * 100) : null; // rupees → paise
-    }
-    case "date": {
-      const s = raw?.toString().trim();
-      return s ? new Date(s) : null;
-    }
-    default: {
-      const s = raw?.toString().trim();
-      return s ? s : null;
-    }
-  }
-}
-
-function buildData(m: MasterDef, fd: FormData): Record<string, unknown> {
-  const data: Record<string, unknown> = {};
-  for (const f of m.fields) {
-    const v = coerce(f, fd);
-    // Always include booleans (unchecked = false); include others only when set.
-    if (f.type === "boolean" || v !== null) data[f.name] = v;
-  }
-  return data;
-}
-
 export async function createRow(key: string, fd: FormData): Promise<void> {
   const user = await requireCan("masters", "create");
   const m = getMaster(key);
   if (!m) throw new Error(`Unknown master: ${key}`);
-  const data = buildData(m, fd);
+  const data = buildData(m.fields, fd);
   const created = await delegate(m.model).create({ data });
   await writeAudit({ actorId: user.id, action: `${key}.create`, entity: m.model, entityId: String(created.id), after: data });
   revalidatePath(`/masters/${key}`);
@@ -91,7 +58,7 @@ export async function updateRow(key: string, id: string, fd: FormData): Promise<
   const m = getMaster(key);
   if (!m) throw new Error(`Unknown master: ${key}`);
   const before = await delegate(m.model).findUnique({ where: { id } });
-  const data = buildData(m, fd);
+  const data = buildData(m.fields, fd);
   await delegate(m.model).update({ where: { id }, data });
   await writeAudit({ actorId: user.id, action: `${key}.update`, entity: m.model, entityId: id, before, after: data });
   revalidatePath(`/masters/${key}`);

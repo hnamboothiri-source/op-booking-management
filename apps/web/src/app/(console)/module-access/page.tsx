@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireCan } from "@/lib/session";
 import { can, ROLE_GRANTS, type RoleName } from "@prm/core";
 import { MODULE_DASHBOARDS } from "@/lib/modules/registry";
@@ -19,6 +20,10 @@ export default async function ModuleAccess() {
   return (
     <div>
       <PageHeader title="Module access by role" subtitle="Which department / role can see which module — drives the per-department rollout" />
+
+      <div className="mb-4">
+        <Link href="/module-access/managers" className="inline-flex items-center gap-1 rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700">Appoint department managers →</Link>
+      </div>
 
       <div className="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <table className="w-full text-sm">

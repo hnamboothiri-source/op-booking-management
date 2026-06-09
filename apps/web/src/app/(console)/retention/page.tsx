@@ -7,6 +7,7 @@ import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
 import { DRILL, listFilters } from "@/lib/drill/registry";
 import { DrillStat } from "@/components/drill/DrillStat";
 import { ActiveFilters } from "@/components/drill/ActiveFilters";
+import { approvedActivities } from "@/lib/planning/gate";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ export default async function Retention({ searchParams }: { searchParams: Promis
   const owners = (id: string | null) => staff.find((s) => s.id === id)?.name ?? "—";
   const atRisk = statuses.filter((s) => s.category === "at_risk");
   const dormant = statuses.filter((s) => s.category === "dormant" || s.category === "lost");
+  const drives = await approvedActivities("retention", "reactivation_drive");
 
   return (
     <div>
@@ -33,6 +35,12 @@ export default async function Retention({ searchParams }: { searchParams: Promis
         subtitle="Identify patients who may be lost and bring them back (Module 12)"
         action={canEdit ? <form action={recomputeRetention}><SubmitButton>Recompute scores</SubmitButton></form> : undefined}
       />
+
+      <div className={`mb-6 rounded-xl border px-4 py-2 text-sm ${drives.length ? "border-rose-100 bg-rose-50/60 text-slate-600" : "border-amber-300 bg-amber-50 text-amber-800"}`}>
+        {drives.length
+          ? <>Reactivations are recorded under the approved drive: <span className="font-medium">{drives.map((d) => d.label).join(", ")}</span>. <Link href="/modules/retention/plan" className="text-rose-700 hover:underline">View plan →</Link></>
+          : <>No approved reactivation drive — <Link href="/modules/retention/plan" className="font-medium underline">plan &amp; approve one first →</Link> (reactivations are gated on it).</>}
+      </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
         <DrillStat label="Active" value={countOf("active")} entity="retention" filters={{ category: "active" }} />

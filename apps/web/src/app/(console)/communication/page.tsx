@@ -5,6 +5,7 @@ import MessageComposer from "@/components/MessageComposer";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
 import { DRILL, listFilters } from "@/lib/drill/registry";
 import { ActiveFilters } from "@/components/drill/ActiveFilters";
+import { PlanActivitySelect } from "@/components/planning/PlanActivitySelect";
 
 export const dynamic = "force-dynamic";
 const input = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm";
@@ -38,6 +39,7 @@ export default async function Communication({ searchParams }: { searchParams: Pr
               <select name="templateId" className={input}><option value="">— template —</option>{templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
             </div>
             <p className="text-xs text-slate-400">Only patients who have consented to the channel are messaged.</p>
+            <PlanActivitySelect slug="communication" typeKey="message_blast" />
             <SubmitButton>Send to segment</SubmitButton>
           </form>
         </Card>

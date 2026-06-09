@@ -1,6 +1,14 @@
 @import "tailwindcss";
 
 /*
+ * The app is intentionally a fixed LIGHT theme (dark wine sidebar + light
+ * content). We make Tailwind's `dark:` variant class-based so it only applies
+ * under an explicit `.dark` class — which we never add — rendering every
+ * existing `dark:*` utility inert and keeping content/header reliably light.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
  * Design tokens (shared with the Accommodation app's look).
  * The brand accent is a deep wine; we re-point Tailwind's built-in `rose-*`
  * ramp to that wine so every existing `rose-*` utility across the app re-skins
@@ -8,18 +16,21 @@
  * (KPI card top bars, highlights). Semantic green/amber/red/blue are untouched.
  */
 @theme {
-  /* Brand — deep wine (maps onto Tailwind's rose scale) */
-  --color-rose-50: #fbf2f5;
-  --color-rose-100: #f6e3ea;
-  --color-rose-200: #ecc6d3;
-  --color-rose-300: #db9cb1;
-  --color-rose-400: #c4647f;
-  --color-rose-500: #a23e5c;
-  --color-rose-600: #7d2e46;
-  --color-rose-700: #5e2235;
-  --color-rose-800: #4a1b2a;
-  --color-rose-900: #3a1521;
-  --color-rose-950: #230d14;
+  /* Brand — Andromeda orange (maps onto Tailwind's rose scale; primary #fe6019 = rose-600) */
+  --color-rose-50: #fff7f3;
+  --color-rose-100: #ffece4;
+  --color-rose-200: #ffd9c7;
+  --color-rose-300: #ffb99e;
+  --color-rose-400: #ff8f63;
+  --color-rose-500: #ff7038;
+  --color-rose-600: #fe6019;
+  --color-rose-700: #d94d0f;
+  --color-rose-800: #ab3e10;
+  --color-rose-900: #7c2e0e;
+  --color-rose-950: #5e240b;
+
+  /* Body font → Poppins (loaded via next/font in the root layout) */
+  --font-sans: var(--font-poppins), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
   /* Accent — gold */
   --color-gold-50: #fbf6ea;
@@ -33,21 +44,12 @@
 }
 
 :root {
-  --background: #faf7f4; /* warm cream */
-  --foreground: #2a1f24; /* warm near-black */
-}
-
-/* Dark mode follows the OS preference. Tailwind v4's `dark:` variant keys off
-   the same media query, so component-level dark: classes stay in sync. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #1a1216; /* warm near-black */
-    --foreground: #ece3e6;
-  }
+  --background: #fffaf3; /* Andromeda theme-light cream */
+  --foreground: #222222; /* near-black (Andromeda heading/text dark) */
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-poppins), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }

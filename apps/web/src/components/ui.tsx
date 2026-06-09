@@ -26,10 +26,10 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
 export function LinkButton({ href, children, tone = "primary" }: { href: string; children: React.ReactNode; tone?: "primary" | "ghost" }) {
   const cls =
     tone === "primary"
-      ? "bg-rose-600 text-white hover:bg-rose-700"
-      : "border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800";
+      ? "bg-rose-600 text-white shadow-sm hover:bg-rose-700"
+      : "border border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800";
   return (
-    <Link href={href} className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium ${cls}`}>
+    <Link href={href} className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors ${cls}`}>
       {children}
     </Link>
   );
@@ -41,9 +41,9 @@ export function SubmitButton({ children, tone = "primary" }: { children: React.R
       ? "border border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/40"
       : tone === "ghost"
       ? "border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-      : "bg-rose-600 text-white hover:bg-rose-700";
+      : "bg-rose-600 text-white shadow-sm hover:bg-rose-700";
   return (
-    <button type="submit" className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium ${cls}`}>
+    <button type="submit" className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors ${cls}`}>
       {children}
     </button>
   );
@@ -51,8 +51,8 @@ export function SubmitButton({ children, tone = "primary" }: { children: React.R
 
 export function Card({ children, accent = false }: { children: React.ReactNode; accent?: boolean }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      {accent && <div className="h-1 bg-gradient-to-r from-rose-700 to-gold-500" />}
+    <div className="overflow-hidden rounded-2xl border border-rose-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      {accent && <div className="h-1 bg-gradient-to-r from-rose-600 to-gold-500" />}
       <div className="p-4">{children}</div>
     </div>
   );

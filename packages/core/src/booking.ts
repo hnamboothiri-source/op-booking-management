@@ -138,6 +138,121 @@ export function slotUtilisation(used: number, allotted: number): number {
   return Math.min(100, Math.round((used / allotted) * 100));
 }
 
+// ----- OP management: targets, load balancing, conversion -----
+
+/** Split a doctor's allotted capacity into new vs follow-up targets by their % mix. */
+export function targetSplit(allotted: number, newPct: number, followupPct: number): { newTarget: number; followupTarget: number } {
+  const total = (newPct ?? 0) + (followupPct ?? 0);
+  if (allotted <= 0 || total <= 0) return { newTarget: 0, followupTarget: 0 };
+  const newTarget = Math.round((allotted * (newPct ?? 0)) / total);
+  return { newTarget, followupTarget: Math.max(0, allotted - newTarget) };
+}
+
+/** A doctor needs more patients when they still have open capacity and fill is below the threshold. */
+export function needsMorePatients(bookedTotal: number, allotted: number, fillThresholdPct = 60): boolean {
+  if (allotted <= 0) return false;
+  return bookedTotal < allotted && slotUtilisation(bookedTotal, allotted) < fillThresholdPct;
+}
+
+/** A booking is a call-centre conversion when the patient asked for one doctor but was booked with another. */
+export function isConversion(requestedDoctorId: string | null | undefined, doctorId: string): boolean {
+  return !!requestedDoctorId && requestedDoctorId !== doctorId;
+}
+
+/** Week-of-month (1–5) for a date — used by the doctor booking chart. */
+export function weekOfMonth(d: Date | string): number {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return Math.floor((date.getUTCDate() - 1) / 7) + 1;
+}
+
+/** Is this booking a "new" OP booking (vs a follow-up)? `regular` and unset count as new. */
+export function isNewBooking(appointmentType: string | null | undefined): boolean {
+  return appointmentType !== "follow_up";
+}
+
+// ----- Master schedule → derived daily slots (no daily generation) -----
+
+export interface ScheduleLike {
+  id: string;
+  doctorId: string;
+  departmentId: string;
+  branchId?: string | null;
+  roomId?: string | null;
+  dayOfWeek?: number | null;
+  specificDate?: Date | string | null;
+  session?: string | null;
+  weekOfMonth?: string | null;
+  startTime: string;
+  endTime: string;
+  slotsCount?: number | null;
+  slotDurationMinutes: number;
+  maxPatientsPerSlot: number;
+  validFrom?: Date | string | null;
+  validUntil?: Date | string | null;
+}
+export interface LeaveLike { doctorId: string; fromDate: Date | string; toDate: Date | string; coverDoctorId?: string | null }
+export interface DerivedSlot {
+  scheduleId: string;
+  doctorId: string;            // effective doctor (substitute when covering)
+  substituteFor?: string | null; // original doctor if this is a cover
+  departmentId: string;
+  branchId?: string | null;
+  roomId?: string | null;
+  session?: string | null;
+  startTime: string;
+  endTime: string;
+  capacity: number;
+}
+
+const ymd = (d: Date | string): string => (typeof d === "string" ? d.slice(0, 10) : d.toISOString().slice(0, 10));
+
+/** Does a master schedule apply on a given date? (weekday/specific-date + week-of-month + valid range) */
+export function scheduleAppliesOn(s: ScheduleLike, date: Date | string): boolean {
+  const dStr = ymd(date);
+  const d = new Date(`${dStr}T00:00:00.000Z`);
+  if (s.validFrom && dStr < ymd(s.validFrom)) return false;
+  if (s.validUntil && dStr > ymd(s.validUntil)) return false;
+  if (s.specificDate) return ymd(s.specificDate) === dStr;
+  if (s.dayOfWeek == null || s.dayOfWeek !== d.getUTCDay()) return false;
+  if (s.weekOfMonth) {
+    const weeks = s.weekOfMonth.split(/[,&]/).map((p) => parseInt(p.trim(), 10)).filter((n) => !Number.isNaN(n));
+    if (weeks.length && !weeks.includes(weekOfMonth(d))) return false;
+  }
+  return true;
+}
+
+/**
+ * Derive the bookable slots for a date directly from the master weekly schedule —
+ * no pre-generation. On-leave doctors are reassigned to their substitute
+ * (leave.coverDoctorId) or dropped when there's no cover.
+ */
+export function derivedDaySlots(schedules: ScheduleLike[], date: Date | string, leaves: LeaveLike[] = []): DerivedSlot[] {
+  const dStr = ymd(date);
+  const coverByDoctor = new Map<string, string | null>();
+  for (const l of leaves) {
+    if (dStr >= ymd(l.fromDate) && dStr <= ymd(l.toDate)) coverByDoctor.set(l.doctorId, l.coverDoctorId ?? null);
+  }
+  const out: DerivedSlot[] = [];
+  for (const s of schedules) {
+    if (!scheduleAppliesOn(s, date)) continue;
+    let doctorId = s.doctorId;
+    let substituteFor: string | null = null;
+    if (coverByDoctor.has(s.doctorId)) {
+      const cover = coverByDoctor.get(s.doctorId);
+      if (!cover) continue; // on leave, no substitute → slot dropped
+      doctorId = cover;
+      substituteFor = s.doctorId;
+    }
+    const times = s.slotsCount && s.slotsCount > 0
+      ? splitSessionSlots(s.startTime, s.endTime, s.slotsCount)
+      : generateSlotTimes(s.startTime, s.endTime, s.slotDurationMinutes);
+    for (const t of times) {
+      out.push({ scheduleId: s.id, doctorId, substituteFor, departmentId: s.departmentId, branchId: s.branchId ?? null, roomId: s.roomId ?? null, session: s.session ?? null, startTime: t.start, endTime: t.end, capacity: s.maxPatientsPerSlot });
+    }
+  }
+  return out;
+}
+
 /** Human label for a week-of-month rotation tag, e.g. "1,3" → "1st & 3rd Sun/Sat". */
 export function weekOfMonthLabel(weekOfMonth?: string | null): string {
   if (!weekOfMonth) return "";

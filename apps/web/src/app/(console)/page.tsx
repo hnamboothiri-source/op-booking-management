@@ -3,10 +3,13 @@ import { MODULE_DASHBOARDS, resolveFilters } from "@/lib/modules/registry";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { can, conversionRate, roiPct, branchScopeWhere, type DrillEntity, type DrillFilters, type RoleName } from "@prm/core";
+import { accessibleModules, isModuleManager } from "@/lib/modules/access";
+import type { CurrentUser } from "@/lib/session";
 import { DrillStat } from "@/components/drill/DrillStat";
 import { DrillCount } from "@/components/drill/DrillCount";
 import { Card } from "@/components/ui";
 import { ModuleLauncherCard } from "@/components/modules/ModuleLauncherCard";
+import { DottedAccent } from "@/components/DottedAccent";
 import { LeadFunnelChart } from "@/components/charts/LeadFunnelChart";
 import { BarChartCard } from "@/components/charts/BarChartCard";
 import { leadFunnel } from "@/lib/leads/funnel";
@@ -47,19 +50,19 @@ async function ManagementKpis({ role, branchId }: { role: RoleName; branchId: st
   );
 }
 
-async function ByModule({ role, branchId }: { role: RoleName; branchId: string | null }) {
-  const visible = MODULE_DASHBOARDS.filter((m) => can(role, m.resource, "view"));
+async function Departments({ user }: { user: CurrentUser }) {
+  const visible = accessibleModules(user);
   // Resolve up to 3 KPIs per module in one parallel pass.
   const cards = await Promise.all(
     visible.map(async (m) => {
       const picks = m.kpis.slice(0, 3);
-      const values = await Promise.all(picks.map((k) => drillCount(k.entity, resolveFilters(k.filters), role, branchId)));
+      const values = await Promise.all(picks.map((k) => drillCount(k.entity, resolveFilters(k.filters), user.role, user.branchId)));
       return { def: m, kpis: picks.map((k, i) => ({ label: k.label, value: values[i] })) };
     }),
   );
   return (
     <section className="mb-10">
-      <h2 className="mb-3 text-lg font-semibold">By module</h2>
+      <h2 className="mb-3 text-lg font-semibold">Departments</h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((c) => <ModuleLauncherCard key={c.def.id} def={c.def} kpis={c.kpis} />)}
       </div>
@@ -181,21 +184,27 @@ async function DoctorToday() {
 
 export default async function Dashboard() {
   const user = await requireUser();
-  const isManager = can(user.role, "dashboards", "view");
+  const moduleManager = isModuleManager(user);
+  // Cross-module rollups (lead funnel, campaigns, branch perf) are for org-wide
+  // managers; a department manager only sees the departments they own.
+  const showOrgRollup = !moduleManager && can(user.role, "dashboards", "view");
   return (
     <main>
-      <header className="mb-8">
+      <header className="relative mb-8 overflow-hidden rounded-2xl border border-rose-100 bg-rose-50/60 px-6 py-7">
+        <DottedAccent className="opacity-70" />
         <p className="text-sm font-medium text-rose-700 dark:text-rose-300">Welcome, {user.name} · {user.role.replace(/_/g, " ")}</p>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Consolidated dashboard</h1>
-        <p className="mt-2 max-w-3xl text-slate-500 dark:text-slate-400">
-          A single rollup across every module — open any module in the sidebar for its own dashboard &amp; workspaces.
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">{moduleManager ? "My departments" : "Consolidated dashboard"}</h1>
+        <p className="mt-2 max-w-3xl text-slate-600 dark:text-slate-400">
+          {moduleManager
+            ? "The departments you manage — open one for its dashboard, activities & reports."
+            : "A single rollup across every module — open any department in the sidebar for its own dashboard & workspaces."}
         </p>
       </header>
 
-      {isManager && <ManagementKpis role={user.role} branchId={user.branchId} />}
+      {showOrgRollup && <ManagementKpis role={user.role} branchId={user.branchId} />}
       {user.role === "doctor" && <DoctorToday />}
-      <ByModule role={user.role} branchId={user.branchId} />
-      {isManager && <Performance role={user.role} branchId={user.branchId} />}
+      <Departments user={user} />
+      {showOrgRollup && <Performance role={user.role} branchId={user.branchId} />}
     </main>
   );
 }

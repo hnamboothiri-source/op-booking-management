@@ -10,5 +10,5 @@ export default async function ModulePage({ params }: { params: Promise<{ slug: s
   const def = getModuleBySlug(slug);
   if (!def) notFound();
   const user = await requireCan(def.resource, "view");
-  return <ModuleDashboard def={def} role={user.role} branchId={user.branchId} />;
+  return <ModuleDashboard def={def} user={user} />;
 }
