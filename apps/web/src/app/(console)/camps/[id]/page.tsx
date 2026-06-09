@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { addCampPatient } from "@/lib/outreach/actions";
-import { computeOutreachKpis } from "@/lib/outreach/metrics";
-import { can, budgetTotals, onSiteRevenue, expensesByCategory, type OutreachExpenseLine, type OutreachStaffLine, type OutreachRevenueLine, type PlanningChecklist } from "@prm/core";
+import { computeOutreachKpis, outreachFunnel } from "@/lib/outreach/metrics";
+import { can, budgetTotals, onSiteRevenue, expensesByCategory, SCREENING_RISKS, SCREENING_RISK_LABELS, riskTone, type ScreeningRisk, type OutreachExpenseLine, type OutreachStaffLine, type OutreachRevenueLine, type PlanningChecklist } from "@prm/core";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
+import { LeadFunnelChart } from "@/components/charts/LeadFunnelChart";
 import { DrillStat } from "@/components/drill/DrillStat";
 import { ActiveFilters } from "@/components/drill/ActiveFilters";
 import { BudgetSection } from "@/components/outreach/BudgetSection";
@@ -38,13 +39,15 @@ export default async function CampDetail({ params, searchParams }: { params: Pro
   const planning = (camp.planning as PlanningChecklist | null) ?? {};
   const totals = budgetTotals(expenses, roster);
   const byCat = expensesByCategory(expenses);
-  const [kpis, branches, diseases, localPatients] = await Promise.all([
+  const [kpis, branches, diseases, staff, localPatients] = await Promise.all([
     computeOutreachKpis("camp", id),
     prisma.branch.findMany(),
     prisma.diseaseMaster.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    prisma.staffUser.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     camp.location ? prisma.patient.findMany({ where: { place: { contains: camp.location, mode: "insensitive" } }, take: 50 }) : Promise.resolve([]),
   ]);
   const branchName = (bid: string) => branches.find((b) => b.id === bid)?.name ?? bid;
+  const staffName = (sid: string | null) => staff.find((s) => s.id === sid)?.name ?? "—";
 
   return (
     <div>
@@ -65,6 +68,11 @@ export default async function CampDetail({ params, searchParams }: { params: Pro
           branches={branches} diseases={diseases} canEdit={canEdit} />
         <LocalPatients eventType="camp" id={id} location={camp.location} patients={localPatients.map((p) => ({ mrd: p.mrd, name: p.name, phone: p.phone, place: p.place }))} canEdit={canEdit} />
         <RoiSummary plannedTotal={totals.plannedTotal} actualTotal={totals.actualTotal} onSite={onSiteRevenue(revenueLines)} kpis={kpis} branchName={branchName} />
+        <Card>
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Conversion funnel</h3>
+          <LeadFunnelChart stages={outreachFunnel(kpis)} />
+          <p className="mt-2 text-xs text-slate-400">Screened → recommended → appointment → consulted → treatment → admitted (traced from this camp&apos;s leads).</p>
+        </Card>
         <div className="grid gap-6 lg:grid-cols-2">
           <PlanningSection eventType="camp" id={id} planning={planning} canEdit={canEdit} />
           <RosterSection eventType="camp" id={id} roster={roster} canEdit={canEdit} />
@@ -82,10 +90,11 @@ export default async function CampDetail({ params, searchParams }: { params: Pro
             <label className="text-xs font-medium text-slate-600">Age<input type="number" name="age" className={input} /></label>
             <label className="text-xs font-medium text-slate-600">Gender<select name="gender" className={input}><option value="">—</option><option value="male">male</option><option value="female">female</option><option value="other">other</option></select></label>
             <label className="text-xs font-medium text-slate-600">Complaint<input name="complaint" className={input} /></label>
-            <label className="flex items-center gap-2 pt-5 text-xs font-medium text-slate-600"><input type="checkbox" name="recommendedVisit" className="h-4 w-4" /> Recommend hospital visit</label>
+            <label className="text-xs font-medium text-slate-600">Risk category<select name="riskCategory" className={input}>{SCREENING_RISKS.map((r) => <option key={r} value={r}>{SCREENING_RISK_LABELS[r]}</option>)}</select></label>
+            <label className="text-xs font-medium text-slate-600">Screened by<select name="screenedById" className={input}><option value="">— me —</option>{staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
             <div className="col-span-2 sm:col-span-4"><SubmitButton>Add screening</SubmitButton></div>
           </form>
-          <p className="mt-2 text-xs text-slate-400">Recommended-visit screenings with a phone number become leads automatically.</p>
+          <p className="mt-2 text-xs text-slate-400">Any risk above &ldquo;normal&rdquo; recommends a hospital visit and (with a phone) becomes a camp-tagged lead automatically.</p>
         </Card>
       )}
 
@@ -93,14 +102,15 @@ export default async function CampDetail({ params, searchParams }: { params: Pro
 
       <div className="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 dark:bg-slate-900 dark:text-slate-400"><tr><th className="px-4 py-2">Name</th><th className="px-4 py-2">Phone</th><th className="px-4 py-2">Complaint</th><th className="px-4 py-2">Visit?</th></tr></thead>
+          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 dark:bg-slate-900 dark:text-slate-400"><tr><th className="px-4 py-2">Name</th><th className="px-4 py-2">Phone</th><th className="px-4 py-2">Complaint</th><th className="px-4 py-2">Risk</th><th className="px-4 py-2">Screened by</th></tr></thead>
           <tbody>
-            {shown.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">No screenings{onlyRecommended ? " recommended for a visit" : " yet"}.</td></tr>}
+            {shown.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-400">No screenings{onlyRecommended ? " recommended for a visit" : " yet"}.</td></tr>}
             {shown.map((p) => (
               <tr key={p.id} className="border-t border-slate-100 dark:border-slate-700">
                 <td className="px-4 py-2">{p.contactName}</td><td className="px-4 py-2 text-slate-600 dark:text-slate-300">{p.phone ?? "—"}</td>
                 <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{p.complaint ?? "—"}</td>
-                <td className="px-4 py-2">{p.recommendedVisit ? <Badge tone="green">recommended</Badge> : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
+                <td className="px-4 py-2"><Badge tone={riskTone(p.riskCategory as ScreeningRisk)}>{SCREENING_RISK_LABELS[p.riskCategory as ScreeningRisk]}</Badge></td>
+                <td className="px-4 py-2 text-slate-500">{staffName(p.screenedById)}</td>
               </tr>
             ))}
           </tbody>

@@ -344,7 +344,14 @@ export async function transitionBooking(id: string, to: BookingStatus): Promise<
     }
   });
 
-  if (to === "no_show") await runAutomation("appointment_no_show", { patientMrd: b.patientMrd, bookingId: id });
+  if (to === "no_show") {
+    await runAutomation("appointment_no_show", { patientMrd: b.patientMrd, bookingId: id });
+    // Missed appointment → a review follow-up so the desk re-engages the patient (Module 9).
+    await prisma.followUp.create({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: { patientMrd: b.patientMrd, type: "consultation_review" as any, dueDate: new Date(new Date().toISOString().slice(0, 10)), doctorId: b.doctorId, originBookingId: id, ownerId: user.id, desk: "front_office", notes: "Missed appointment — re-engage" },
+    });
+  }
 
   await writeStatusHistory(id, from, to, null, user.id);
   await writeAudit({ actorId: user.id, action: "booking.transition", entity: "op_booking", entityId: id, before: { status: from }, after: { status: to } });

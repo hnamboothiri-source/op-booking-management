@@ -3,7 +3,7 @@ import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { createCamp } from "@/lib/outreach/actions";
 import { can } from "@prm/core";
-import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
+import { PageHeader, Card, Badge, SubmitButton, LinkButton } from "@/components/ui";
 import { DRILL, listFilters } from "@/lib/drill/registry";
 import { DrillCount } from "@/components/drill/DrillCount";
 import { ActiveFilters } from "@/components/drill/ActiveFilters";
@@ -24,7 +24,7 @@ export default async function Camps({ searchParams }: { searchParams: Promise<Re
 
   return (
     <div>
-      <PageHeader title="Camps" subtitle="Outreach camps — screened → converted → revenue (Module 7)" />
+      <PageHeader title="Camps" subtitle="Outreach camps — screened → converted → revenue (Module 7)" action={<LinkButton href="/outreach" tone="ghost">Outreach dashboard</LinkButton>} />
       {can(user.role, "camps", "create") && (
         <Card>
           <h2 className="mb-3 font-semibold">New camp</h2>

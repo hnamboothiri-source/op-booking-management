@@ -56,3 +56,22 @@ describe("outreach cost-per-patient + grouping", () => {
     expect(g.food_consumables).toEqual({ planned: 200, actual: 0 });
   });
 });
+
+import { isActionableRisk, riskTone, SCREENING_RISKS, OUTREACH_FUNNEL_STAGES } from "./outreach";
+
+describe("screening risk", () => {
+  it("normal is not actionable; others are", () => {
+    expect(isActionableRisk("normal")).toBe(false);
+    expect(isActionableRisk("follow_up")).toBe(true);
+    expect(isActionableRisk("high_priority")).toBe(true);
+    expect(isActionableRisk("admission_candidate")).toBe(true);
+  });
+  it("tones escalate with risk", () => {
+    expect(riskTone("normal")).toBe("slate");
+    expect(riskTone("admission_candidate")).toBe("red");
+  });
+  it("has 4 risks and a 6-stage funnel", () => {
+    expect(SCREENING_RISKS).toHaveLength(4);
+    expect(OUTREACH_FUNNEL_STAGES).toHaveLength(6);
+  });
+});

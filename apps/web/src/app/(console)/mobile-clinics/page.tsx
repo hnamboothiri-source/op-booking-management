@@ -3,7 +3,7 @@ import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { createMobileClinic } from "@/lib/outreach/actions";
 import { can } from "@prm/core";
-import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
+import { PageHeader, Card, Badge, SubmitButton, LinkButton } from "@/components/ui";
 import { DRILL, listFilters } from "@/lib/drill/registry";
 import { DrillCount } from "@/components/drill/DrillCount";
 import { ActiveFilters } from "@/components/drill/ActiveFilters";
@@ -23,7 +23,7 @@ export default async function MobileClinics({ searchParams }: { searchParams: Pr
 
   return (
     <div>
-      <PageHeader title="Mobile clinics" subtitle="Route-based screening & conversion (Module 8)" />
+      <PageHeader title="Mobile clinics" subtitle="Route-based screening & conversion (Module 8)" action={<LinkButton href="/outreach" tone="ghost">Outreach dashboard</LinkButton>} />
       {can(user.role, "mobile_clinics", "create") && (
         <Card>
           <h2 className="mb-3 font-semibold">New route</h2>

@@ -298,10 +298,10 @@ export const DRILL: Record<DrillEntity, DrillDef> = {
   referrals: {
     resource: "referrals",
     branchScoped: false,
-    filters: ["status", "type", "patientMrd", "organizationId"],
+    filters: ["status", "type", "patientMrd", "organizationId", "referrerId"],
     listPath: "/referrals",
     buildWhere: (f) => {
-      const w = simpleWhere(f, ["status", "type", "organizationId"]);
+      const w = simpleWhere(f, ["status", "type", "organizationId", "referrerId"]);
       // A patient can appear as referrer or referred.
       if (f.patientMrd) w.OR = [{ referrerPatientMrd: f.patientMrd }, { referredPatientMrd: f.patientMrd }];
       return w;
@@ -318,6 +318,30 @@ export const DRILL: Record<DrillEntity, DrillDef> = {
           title: humanize(r.type),
           subtitle: [r.referrerPatient?.name && `from ${r.referrerPatient.name}`, r.referredPatient?.name && `→ ${r.referredPatient.name}`].filter(Boolean).join(" "),
           badge: humanize(r.status),
+        })),
+      };
+    },
+  },
+  referrers: {
+    resource: "referrals",
+    branchScoped: false,
+    filters: ["type", "relationManagerId", "active"],
+    listPath: "/referrals/referrers",
+    buildWhere: (f) => simpleWhere(f, ["type", "relationManagerId", "active"]),
+    label: (f) => (f.type ? `Referrers · ${humanize(f.type)}` : "Referrers"),
+    listHref: () => "/referrals/referrers",
+    preview: async (where, take) => {
+      const [rows, total] = await Promise.all([
+        prisma.referrer.findMany({ where, orderBy: { score: "desc" }, take }),
+        prisma.referrer.count({ where }),
+      ]);
+      return {
+        total,
+        rows: rows.map((r) => ({
+          title: r.name as string,
+          subtitle: humanize(r.type as string),
+          badge: `score ${r.score}`,
+          href: `/referrals/referrers/${r.id}`,
         })),
       };
     },
@@ -373,9 +397,9 @@ export const DRILL: Record<DrillEntity, DrillDef> = {
   retention: {
     resource: "retention",
     branchScoped: false,
-    filters: ["category"],
+    filters: ["category", "successOwnerId"],
     listPath: "/retention",
-    buildWhere: (f) => simpleWhere(f, ["category"]),
+    buildWhere: (f) => simpleWhere(f, ["category", "successOwnerId"]),
     label: (f) => (f.category ? `Retention · ${humanize(f.category)}` : "Retention"),
     preview: async (where, take) => {
       const [rows, total] = await Promise.all([
@@ -387,7 +411,31 @@ export const DRILL: Record<DrillEntity, DrillDef> = {
         rows: rows.map((r) => ({
           title: r.patient.name,
           subtitle: `${humanize(r.category)} · risk ${r.riskScore}`,
-          href: `/patients/${encodeURIComponent(r.patientMrd)}`,
+          href: `/retention/${encodeURIComponent(r.patientMrd)}`,
+        })),
+      };
+    },
+  },
+
+  retentionActivities: {
+    resource: "retention",
+    branchScoped: false,
+    filters: ["patientMrd", "outcome", "campaignId"],
+    listPath: "/retention",
+    buildWhere: (f) => simpleWhere(f, ["patientMrd", "outcome", "campaignId"]),
+    label: (f) => (f.outcome ? `Reactivation · ${humanize(f.outcome)}` : "Reactivation attempts"),
+    preview: async (where, take) => {
+      const [rows, total] = await Promise.all([
+        prisma.retentionActivity.findMany({ where, include: { patient: true }, orderBy: { contactDate: "desc" }, take }),
+        prisma.retentionActivity.count({ where }),
+      ]);
+      return {
+        total,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        rows: rows.map((r: any) => ({
+          title: r.patient?.name ?? r.patientMrd,
+          subtitle: `${humanize(r.outcome)} · ${r.contactMode}`,
+          href: `/retention/${encodeURIComponent(r.patientMrd)}`,
         })),
       };
     },

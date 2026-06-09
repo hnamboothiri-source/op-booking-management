@@ -143,6 +143,26 @@ enum ReferralType {
   camp
   corporate
   institutional
+  ayurveda_practitioner
+}
+
+enum ReferrerType {
+  doctor
+  hospital
+  ayurveda_practitioner
+  corporate
+  institutional
+}
+
+enum ReferrerInteractionType {
+  visit
+  call
+  meeting
+  cme
+  thank_you
+  proposal
+  feedback
+  other
 }
 
 enum ReferralStatus {
@@ -163,6 +183,7 @@ enum FollowUpType {
   annual_checkup
   dormant_reactivation
   ip_readmission
+  therapy
 }
 
 enum FollowUpStatus {
@@ -172,6 +193,43 @@ enum FollowUpStatus {
   overdue
   missed
   cancelled
+}
+
+// Follow-up contact-attempt outcome (Module 9 — incl. Ayurveda-specific outcomes)
+enum FollowUpOutcome {
+  appointment_booked
+  will_call_back
+  call_later
+  not_reachable
+  switched_off
+  wrong_number
+  not_interested
+  treated_elsewhere
+  medicine_refill_required
+  therapy_booked
+  admission_accepted
+  admission_rejected
+  escalated_to_doctor
+  medicine_taken_regularly
+  medicine_stopped
+  diet_not_followed
+  lifestyle_not_followed
+  therapy_completed
+  therapy_missed
+  panchakarma_postponed
+  wants_online_advice
+  needs_medicine_courier
+  side_effect_reported
+  improvement_reported
+  no_improvement_reported
+}
+
+enum FollowUpContactMode {
+  call
+  whatsapp
+  sms
+  visit
+  email
 }
 
 // M5 Treatment plan lifecycle (Treatment Conversion / Module 17)
@@ -267,6 +325,7 @@ enum TaskType {
   camp_follow_up
   doctor_referral_follow_up
   module_activity
+  panchakarma_renewal
 }
 
 // Module-level planning (every module's "Plan" page)
@@ -305,6 +364,14 @@ enum CampStatus {
   in_progress
   completed
   cancelled
+}
+
+// Screening risk category (M7/M8 outreach acquisition funnel)
+enum ScreeningRisk {
+  normal
+  follow_up
+  high_priority
+  admission_candidate
 }
 
 // Outreach budget + implementation model (M7/M8)
@@ -456,6 +523,7 @@ model StaffUser {
   ownedLeads    Lead[]         @relation("LeadOwner")
   assignedTasks Task[]         @relation("TaskAssignee")
   auditEvents   AuditLog[]
+  managedReferrers Referrer[]  @relation("ReferrerManager")
 
   @@index([role])
   @@map("staff_users")
@@ -651,6 +719,7 @@ model Patient {
   admissionRecs   AdmissionRecommendation[]
   scores          PatientScore[]
   retention       RetentionStatus?
+  retentionActivities RetentionActivity[] @relation("RetentionActivityPatient")
   family          FamilyMember[]
   documents       PatientDocument[]
   campPatients    CampPatient[]
@@ -744,6 +813,7 @@ model MedicationCourse {
   doctorId       String?                @map("doctor_id")
   medicine       String
   durationDays   Int                    @map("duration_days")
+  cost           Int?                   // medicine cost in paise (PLV)
   startDate      DateTime               @map("start_date") @db.Date
   status         MedicationCourseStatus @default(active)
   adherence      AdherenceState         @default(unknown)
@@ -787,6 +857,7 @@ model TherapyPlan {
   therapyType    TherapyType       @map("therapy_type")
   name           String?
   totalSessions  Int               @map("total_sessions")
+  cost           Int?              // therapy/package cost in paise (PLV)
   status         TherapyPlanStatus @default(planned)
   startDate      DateTime          @map("start_date") @db.Date
   notes          String?
@@ -1119,6 +1190,7 @@ model Consultation {
   departmentId  String              @map("department_id")
   branchId      String?             @map("branch_id")
   diseaseId     String?             @map("disease_id")
+  fee           Int?                // consultation fee in paise (PLV)
   notes         String?
   diagnosis     String?
   advice        String?
@@ -1128,6 +1200,8 @@ model Consultation {
   weightKg      Int?                @map("weight_kg")
   spo2          Int?
   staffRemarks  String?             @map("staff_remarks") // for call centre / front office
+  referredDepartmentId String?      @map("referred_department_id") // outcome referred_to_department (bare FK)
+  referredDoctorId     String?      @map("referred_doctor_id")
   createdAt     DateTime            @default(now()) @map("created_at")
 
   booking          OpBooking                 @relation(fields: [bookingId], references: [id])
@@ -1242,19 +1316,66 @@ model Referral {
   referredPatientMrd String?        @map("referred_patient_mrd")
   consultationId     String?        @map("consultation_id")
   branchId           String?        @map("branch_id")
+  referrerId         String?        @map("referrer_id")        // external Referrer profile
+  referredLeadId     String?        @map("referred_lead_id")   // bare FK for ROI tracing (see CampPatient.leadId)
   status             ReferralStatus @default(pending)
   rewardEligible     Boolean        @default(false) @map("reward_eligible")
-  revenue            Int            @default(0) // paise attributed
+  revenue            Int            @default(0) // paise attributed (manual override; tracer is source of truth on reports)
   createdAt          DateTime       @default(now()) @map("created_at")
 
   referrerPatient Patient?      @relation("ReferrerPatient", fields: [referrerPatientMrd], references: [mrd])
   referredPatient Patient?      @relation("ReferredPatient", fields: [referredPatientMrd], references: [mrd])
   organization    Organization? @relation(fields: [organizationId], references: [id])
   consultation    Consultation? @relation("ConsultationReferral", fields: [consultationId], references: [id])
+  referrer        Referrer?     @relation(fields: [referrerId], references: [id])
 
   @@index([type, status])
   planRef            String?        @map("plan_ref")
   @@map("referrals")
+}
+
+model Referrer {
+  id                String       @id @default(uuid())
+  type              ReferrerType
+  name              String
+  specialty         String?
+  hospitalName      String?      @map("hospital_name")
+  phone             String?
+  email             String?
+  location          String?
+  relationManagerId String?      @map("relation_manager_id")
+  lastMeetingDate   DateTime?    @map("last_meeting_date") @db.Date
+  nextFollowUp      DateTime?    @map("next_follow_up") @db.Date
+  score             Int          @default(0)
+  scoreFactors      Json?        @map("score_factors")
+  active            Boolean      @default(true)
+  notes             String?
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  relationManager StaffUser?            @relation("ReferrerManager", fields: [relationManagerId], references: [id])
+  referrals       Referral[]
+  interactions    ReferrerInteraction[]
+
+  @@index([type, active])
+  @@map("referrers")
+}
+
+model ReferrerInteraction {
+  id           String                  @id @default(uuid())
+  referrerId   String                  @map("referrer_id")
+  type         ReferrerInteractionType
+  outcome      String
+  notes        String?
+  actorId      String?                 @map("actor_id")
+  at           DateTime                @default(now())
+  nextFollowUp DateTime?               @map("next_follow_up") @db.Date
+  createdAt    DateTime                @default(now()) @map("created_at")
+
+  referrer Referrer @relation(fields: [referrerId], references: [id])
+
+  @@index([referrerId, at])
+  @@map("referrer_interactions")
 }
 
 // ===========================================================================
@@ -1277,6 +1398,8 @@ model FollowUp {
   completedAt     DateTime?      @map("completed_at")
   callOutcome     CallOutcome?   @map("call_outcome")
   closureReason   String?        @map("closure_reason")
+  nextAction      String?        @map("next_action")
+  escalationLevel Int            @default(0) @map("escalation_level")
   desk            String?        // call-centre desk: front_office (patient review)
   notes           String?
   createdAt       DateTime       @default(now()) @map("created_at")
@@ -1287,11 +1410,47 @@ model FollowUp {
   consultation Consultation? @relation(fields: [consultationId], references: [id])
   origin       OpBooking?    @relation(fields: [originBookingId], references: [id])
   tasks        Task[]
+  activities   FollowUpActivity[]
+  escalations  FollowUpEscalation[]
 
   planRef         String?        @map("plan_ref")
   @@index([dueDate, status])
   @@index([ownerId])
   @@map("follow_ups")
+}
+
+model FollowUpActivity {
+  id               String              @id @default(uuid())
+  followUpId       String              @map("follow_up_id")
+  contactDate      DateTime            @default(now()) @map("contact_date")
+  contactMode      FollowUpContactMode @map("contact_mode")
+  outcome          FollowUpOutcome
+  remarks          String?
+  nextFollowUpDate DateTime?           @map("next_follow_up_date") @db.Date
+  nextAction       String?             @map("next_action")
+  actorId          String?             @map("actor_id")
+  createdAt        DateTime            @default(now()) @map("created_at")
+
+  followUp FollowUp @relation(fields: [followUpId], references: [id])
+
+  @@index([followUpId, contactDate])
+  @@map("follow_up_activities")
+}
+
+model FollowUpEscalation {
+  id            String   @id @default(uuid())
+  followUpId    String   @map("follow_up_id")
+  level         Int
+  escalatedToId String?  @map("escalated_to_id")
+  reason        String?
+  status        String   @default("open") // open | closed
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  followUp FollowUp @relation(fields: [followUpId], references: [id])
+
+  @@index([followUpId])
+  @@index([status])
+  @@map("follow_up_escalations")
 }
 
 // ===========================================================================
@@ -1434,6 +1593,7 @@ model Campaign {
   id             String       @id @default(uuid())
   name           String
   type           CampaignType
+  program        String?      // reactivation program tag (annual_wellness | panchakarma_renewal | ...)
   budget         Int          @default(0) // paise
   sourceId       String?      @map("source_id")
   startDate      DateTime?    @map("start_date") @db.Date
@@ -1555,6 +1715,7 @@ model Camp {
   id             String       @id @default(uuid())
   name           String
   location       String?                                // locality / town
+  district       String?                                // district (geo performance)
   venue          String?                                // auditorium / place name
   venueCapacity  Int?         @map("venue_capacity")
   branchId       String?      @map("branch_id")        // owning branch (main hospital or a branch)
@@ -1596,6 +1757,8 @@ model CampPatient {
   gender          Gender?
   complaint       String?
   diseaseId       String?  @map("disease_id")
+  riskCategory    ScreeningRisk @default(normal) @map("risk_category")
+  screenedById    String?  @map("screened_by_id")  // staff who screened (attribution)
   recommendedVisit Boolean @default(false) @map("recommended_visit")
   bookingId       String?  @map("booking_id")
   leadId          String?  @map("lead_id")  // the auto-created lead (downstream ROI tracing)
@@ -1611,6 +1774,7 @@ model MobileClinic {
   id            String     @id @default(uuid())
   routeName     String     @map("route_name")
   location      String?
+  district      String?
   venue         String?
   venueCapacity Int?       @map("venue_capacity")
   branchId      String?    @map("branch_id")
@@ -1646,6 +1810,8 @@ model MobileClinicPatient {
   gender          Gender?
   complaint       String?
   diseaseId       String?  @map("disease_id")
+  riskCategory    ScreeningRisk @default(normal) @map("risk_category")
+  screenedById    String?  @map("screened_by_id")
   referredToBranch Boolean @default(false) @map("referred_to_branch")
   bookingId       String?  @map("booking_id")
   leadId          String?  @map("lead_id")  // the auto-created lead (downstream ROI tracing)
@@ -1687,10 +1853,31 @@ model RetentionStatus {
   lastEvaluatedAt DateTime          @default(now()) @map("last_evaluated_at")
 
   patient Patient @relation(fields: [patientMrd], references: [mrd])
+  activities RetentionActivity[] @relation("RetentionStatusActivities")
 
   @@index([category])
   planRef       String?  @map("plan_ref")
   @@map("retention_status")
+}
+
+// One reactivation outreach attempt against a patient (Module 12 activity log).
+model RetentionActivity {
+  id              String              @id @default(uuid())
+  patientMrd      String              @map("patient_mrd")
+  contactDate     DateTime            @default(now()) @map("contact_date")
+  contactMode     FollowUpContactMode @map("contact_mode")
+  outcome         String              // RETENTION_OUTCOMES (core)
+  remarks         String?
+  nextContactDate DateTime?           @map("next_contact_date") @db.Date
+  actorId         String?             @map("actor_id")
+  campaignId      String?             @map("campaign_id")
+  createdAt       DateTime            @default(now()) @map("created_at")
+
+  patient Patient          @relation("RetentionActivityPatient", fields: [patientMrd], references: [mrd], map: "retention_activity_patient_fkey")
+  status  RetentionStatus? @relation("RetentionStatusActivities", fields: [patientMrd], references: [patientMrd], map: "retention_activity_status_fkey")
+
+  @@index([patientMrd, contactDate])
+  @@map("retention_activities")
 }
 
 model PatientSegment {

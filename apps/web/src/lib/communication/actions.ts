@@ -33,11 +33,12 @@ function consentOk(channel: Channel, p: { consentWhatsapp: boolean; consentSms: 
   return true;
 }
 
-export async function deliver(channel: Channel, to: string, templateName: string, body: string | null, patientMrd: string | null, templateId: string | null) {
+export async function deliver(channel: Channel, to: string, templateName: string, body: string | null, patientMrd: string | null, templateId: string | null, campaignId: string | null = null) {
   const res = await sendMessage({ channel, to, template: templateName, body: body ?? undefined });
   await prisma.communicationLog.create({
     data: {
       patientMrd,
+      campaignId,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       channel: channel as any,
       templateId,

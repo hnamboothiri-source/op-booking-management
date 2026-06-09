@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import {
   rupeesToPaise,
   PLANNING_STEPS,
+  isActionableRisk,
+  type ScreeningRisk,
   type OutreachExpenseLine,
   type OutreachStaffLine,
   type OutreachRevenueLine,
@@ -236,12 +238,14 @@ export async function addCampPatient(campId: string, fd: FormData): Promise<void
   const contactName = str(fd, "contactName");
   const phone = str(fd, "phone");
   if (!contactName) throw new Error("Patient name is required");
-  const recommendedVisit = fd.get("recommendedVisit") === "on";
+  const riskCategory = (str(fd, "riskCategory") ?? "normal") as ScreeningRisk;
+  const recommendedVisit = isActionableRisk(riskCategory);
+  const screenedById = str(fd, "screenedById") ?? user.id;
 
   const cp = await prisma.$transaction(async (tx) => {
     const created = await tx.campPatient.create({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data: { campId, contactName, phone, age: num(fd, "age"), gender: (str(fd, "gender") as any) ?? null, diseaseId: str(fd, "diseaseId"), complaint: str(fd, "complaint"), recommendedVisit },
+      data: { campId, contactName, phone, age: num(fd, "age"), gender: (str(fd, "gender") as any) ?? null, diseaseId: str(fd, "diseaseId"), complaint: str(fd, "complaint"), riskCategory: riskCategory as any, screenedById, recommendedVisit },
     });
     await tx.camp.update({ where: { id: campId }, data: { patientsScreened: { increment: 1 } } });
     return created;
@@ -291,12 +295,14 @@ export async function addMobilePatient(clinicId: string, fd: FormData): Promise<
   const contactName = str(fd, "contactName");
   const phone = str(fd, "phone");
   if (!contactName) throw new Error("Patient name is required");
-  const referredToBranch = fd.get("referredToBranch") === "on";
+  const riskCategory = (str(fd, "riskCategory") ?? "normal") as ScreeningRisk;
+  const referredToBranch = isActionableRisk(riskCategory);
+  const screenedById = str(fd, "screenedById") ?? user.id;
 
   const mp = await prisma.$transaction(async (tx) => {
     const created = await tx.mobileClinicPatient.create({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data: { mobileClinicId: clinicId, contactName, phone, age: num(fd, "age"), gender: (str(fd, "gender") as any) ?? null, diseaseId: str(fd, "diseaseId"), complaint: str(fd, "complaint"), referredToBranch },
+      data: { mobileClinicId: clinicId, contactName, phone, age: num(fd, "age"), gender: (str(fd, "gender") as any) ?? null, diseaseId: str(fd, "diseaseId"), complaint: str(fd, "complaint"), riskCategory: riskCategory as any, screenedById, referredToBranch },
     });
     await tx.mobileClinic.update({ where: { id: clinicId }, data: { patientsScreened: { increment: 1 } } });
     return created;

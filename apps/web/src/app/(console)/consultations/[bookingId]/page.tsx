@@ -20,9 +20,11 @@ export default async function ConsultPage({ params }: { params: Promise<{ bookin
   });
   if (!booking) notFound();
 
-  const [diseases, packages] = await Promise.all([
+  const [diseases, packages, departments, doctors] = await Promise.all([
     prisma.diseaseMaster.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.admissionPackageMaster.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    prisma.department.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    prisma.doctor.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
 
   if (booking.consultation) {
@@ -33,6 +35,9 @@ export default async function ConsultPage({ params }: { params: Promise<{ bookin
           <p className="text-sm">A consultation is already recorded for this booking (outcome: <Badge tone="green">{booking.consultation.outcome.replace(/_/g, " ")}</Badge>).</p>
           {(booking.consultation.bp || booking.consultation.pulseBpm || booking.consultation.weightKg || booking.consultation.spo2) && (
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Vitals: {[booking.consultation.bp && `BP ${booking.consultation.bp}`, booking.consultation.pulseBpm && `Pulse ${booking.consultation.pulseBpm}`, booking.consultation.weightKg && `Wt ${booking.consultation.weightKg}kg`, booking.consultation.spo2 && `SpO₂ ${booking.consultation.spo2}%`].filter(Boolean).join(" · ")}</p>
+          )}
+          {booking.consultation.staffRemarks && (
+            <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200"><span className="font-medium">Doctor remarks for desk:</span> {booking.consultation.staffRemarks}</p>
           )}
         </Card>
         <div className="mt-4"><Link href={`/patients/${encodeURIComponent(booking.patientMrd)}`} className="text-sm text-rose-700 hover:underline dark:text-rose-300">View patient →</Link></div>
@@ -70,6 +75,15 @@ export default async function ConsultPage({ params }: { params: Promise<{ bookin
           <label className="text-sm font-medium text-slate-700">Optometry referral (reason)<input name="optometryReason" className={input} /></label>
         </div>
         <label className="block text-sm font-medium text-slate-700">Treatment plan<textarea name="treatmentPlan" rows={2} className={input} /></label>
+
+        <Card>
+          <h3 className="mb-2 text-sm font-semibold">Refer to another department / doctor</h3>
+          <p className="mb-2 text-xs text-slate-500">Use with the <em>referred to department</em> outcome — feeds the doctor-referral pattern report.</p>
+          <div className="grid grid-cols-2 gap-4">
+            <label className="text-sm text-slate-700">Department<select name="referredDepartmentId" className={input}><option value="">—</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+            <label className="text-sm text-slate-700">Doctor<select name="referredDoctorId" className={input}><option value="">—</option>{doctors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+          </div>
+        </Card>
 
         <Card>
           <h3 className="mb-2 text-sm font-semibold">Follow-up recommendation</h3>

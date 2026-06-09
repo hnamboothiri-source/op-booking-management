@@ -11,7 +11,7 @@ import { PlanActivitySelect } from "@/components/planning/PlanActivitySelect";
 
 export const dynamic = "force-dynamic";
 
-const FU_TYPES = ["consultation_review", "medicine", "test", "admission", "surgery_procedure", "long_term_treatment", "annual_checkup", "dormant_reactivation"];
+const FU_TYPES = ["consultation_review", "medicine", "therapy", "test", "admission", "surgery_procedure", "long_term_treatment", "annual_checkup", "dormant_reactivation"];
 const input = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm";
 
 function Row({ f, canEdit }: { f: { id: string; type: string; dueDate: Date; status: string; patientMrd: string; patient: { name: string } }; canEdit: boolean }) {
@@ -23,6 +23,7 @@ function Row({ f, canEdit }: { f: { id: string; type: string; dueDate: Date; sta
       </span>
       <div className="flex items-center gap-2">
         <Badge tone={f.status === "done" ? "green" : f.status === "missed" ? "red" : "blue"}>{f.status}</Badge>
+        <LinkButton href={`/follow-ups/${f.id}`} tone="ghost">Open</LinkButton>
         {canEdit && f.status !== "done" && (
           <>
             <LinkButton href={`/appointments/book?mrd=${encodeURIComponent(f.patientMrd)}`} tone="ghost">Book</LinkButton>
@@ -64,7 +65,11 @@ export default async function FollowUps({ searchParams }: { searchParams: Promis
 
   return (
     <div>
-      <PageHeader title="Follow-ups" subtitle="Make sure patients don't drop out (Module 9)" />
+      <PageHeader
+        title="Follow-ups"
+        subtitle="Make sure patients don't drop out (Module 9)"
+        action={<div className="flex gap-2"><LinkButton href={`/follow-ups?ownerId=${user.id}`} tone="ghost">My worklist</LinkButton><LinkButton href="/follow-ups/escalations" tone="ghost">Escalations</LinkButton><LinkButton href="/follow-ups/reports" tone="ghost">Reports</LinkButton></div>}
+      />
 
       <div className="mb-6 grid grid-cols-3 gap-3">
         <DrillStat label="Review appointments" value={reviewOpen} entity="followups" filters={{ type: "consultation_review" }} sub="Open consultation reviews" />

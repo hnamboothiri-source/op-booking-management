@@ -34,12 +34,19 @@ export async function prescribeMedicine(patientMrd: string, fd: FormData): Promi
       notes: str(fd, "notes"), status: "active", adherence: "unknown",
     },
   });
-  for (const cp of medicationCheckpoints(startISO, durationDays)) {
+  const checkpoints = medicationCheckpoints(startISO, durationDays);
+  for (const cp of checkpoints) {
     await prisma.medicationReminder.create({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: { courseId: course.id as string, patientMrd, kind: cp.kind as any, dueDate: new Date(cp.dueDate), status: "scheduled" },
     });
   }
+  // A refill follow-up (Module 9) for the refill checkpoint so the desk chases medicine continuity.
+  const refill = checkpoints.find((c) => c.kind === "refill") ?? checkpoints[checkpoints.length - 1];
+  await prisma.followUp.create({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: { patientMrd, type: "medicine" as any, dueDate: new Date(refill.dueDate), ownerId: user.id, desk: "front_office", notes: `Refill check · ${medicine}` },
+  });
   await writeAudit({ actorId: user.id, action: "medicine.prescribe", entity: "medication_course", entityId: course.id as string, after: { patientMrd, medicine } });
   revalidatePatient(patientMrd);
 }
@@ -132,6 +139,13 @@ export async function markSession(sessionId: string, status: "completed" | "miss
   const planStatus = finished && done > 0 ? "completed" : done > 0 ? "in_progress" : "planned";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await prisma.therapyPlan.update({ where: { id: session.planId as string }, data: { status: planStatus as any } });
+  // A missed therapy session raises a therapy follow-up so the coordinator re-books it.
+  if (status === "missed") {
+    await prisma.followUp.create({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: { patientMrd, type: "therapy" as any, dueDate: new Date(new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10)), ownerId: user.id, desk: "front_office", notes: `Missed therapy session #${session.sessionNo}` },
+    });
+  }
   await writeAudit({ actorId: user.id, action: "therapy.session", entity: "therapy_session", entityId: sessionId, after: { status, planStatus } });
   revalidatePatient(patientMrd);
 }

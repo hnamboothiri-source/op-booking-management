@@ -152,3 +152,43 @@ export function expensesByCategory(expenses: OutreachExpenseLine[] = []): Record
   }
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// Acquisition-funnel: screening risk category + funnel stages (M7/M8 expansion)
+// ---------------------------------------------------------------------------
+
+export type ScreeningRisk = "normal" | "follow_up" | "high_priority" | "admission_candidate";
+export const SCREENING_RISKS: ScreeningRisk[] = ["normal", "follow_up", "high_priority", "admission_candidate"];
+export const SCREENING_RISK_LABELS: Record<ScreeningRisk, string> = {
+  normal: "Normal — no action",
+  follow_up: "Follow-up recommended",
+  high_priority: "High priority",
+  admission_candidate: "Admission candidate",
+};
+
+/** Actionable risk (not "normal") → recommend a hospital visit + auto-create a lead. */
+export function isActionableRisk(risk: ScreeningRisk): boolean {
+  return risk !== "normal";
+}
+
+/** Badge tone for a screening risk level. */
+export function riskTone(risk: ScreeningRisk): "slate" | "green" | "amber" | "red" | "blue" {
+  switch (risk) {
+    case "admission_candidate": return "red";
+    case "high_priority": return "amber";
+    case "follow_up": return "blue";
+    default: return "slate";
+  }
+}
+
+/** Ordered stages of the outreach acquisition funnel. */
+export const OUTREACH_FUNNEL_STAGES = ["screened", "recommended", "appointment", "consultation", "treatment", "admission"] as const;
+export type OutreachFunnelStage = (typeof OUTREACH_FUNNEL_STAGES)[number];
+export const OUTREACH_FUNNEL_LABELS: Record<OutreachFunnelStage, string> = {
+  screened: "Screened",
+  recommended: "Recommended",
+  appointment: "Appointment booked",
+  consultation: "Consulted",
+  treatment: "Treatment started",
+  admission: "Admitted",
+};

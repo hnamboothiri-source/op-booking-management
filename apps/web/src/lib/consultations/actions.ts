@@ -54,6 +54,8 @@ export async function createConsultation(bookingId: string, fd: FormData): Promi
         weightKg: num(fd, "weightKg"),
         spo2: num(fd, "spo2"),
         staffRemarks: str(fd, "staffRemarks"),
+        referredDepartmentId: str(fd, "referredDepartmentId"),
+        referredDoctorId: str(fd, "referredDoctorId"),
       },
     });
     if (prescriptionSummary) await tx.prescription.create({ data: { consultationId: c.id, summary: prescriptionSummary } });

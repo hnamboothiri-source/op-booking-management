@@ -69,6 +69,7 @@ export const ROLE_GRANTS: Record<RoleName, Grant[]> = {
     { resource: "admissions", actions: RO },
     { resource: "campaigns", actions: RO },
     { resource: "retention", actions: RO },
+    { resource: "referrals", actions: RO },
   ],
 
   call_center_executive: [
@@ -132,6 +133,8 @@ export const ROLE_GRANTS: Record<RoleName, Grant[]> = {
     { resource: "campaigns", actions: ALL },
     { resource: "leads", actions: RO },
     { resource: "communication", actions: RW },
+    { resource: "referrals", actions: RW },
+    { resource: "organizations", actions: RW },
     { resource: "reports", actions: RO },
     { resource: "dashboards", actions: RO },
   ],

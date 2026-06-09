@@ -37,14 +37,19 @@ const DEFAULTS: Record<string, Row> = {
   treatmentPlan: { status: "planned", startedAt: null, completedAt: null },
   task: { status: "open", priority: "medium" },
   referral: { status: "pending", revenue: 0, rewardEligible: false },
+  referrer: { score: 0, scoreFactors: null, active: true, referrals: [], interactions: [] },
+  referrerInteraction: { notes: null, nextFollowUp: null },
   communicationLog: { status: "queued" },
   waitlistEntry: { status: "waiting", priority: 0 },
+  retentionStatus: { category: "active", riskScore: 0, successOwnerId: null, reactivationMethod: null, reactivationResult: null, reactivationNote: null, reactivatedAt: null, planRef: null, activities: [] },
+  patientScore: { kind: "retention", factors: null },
+  retentionActivity: { remarks: null, nextContactDate: null, actorId: null, campaignId: null },
   patient: { category: "new_patient", lifetimeVisits: 0, lifetimeRevenue: 0, isNew: true, consentWhatsapp: false, consentSms: false, consentEmail: false, bookings: [], leads: [], followUps: [], communications: [], admissionRecs: [], referralsGiven: [], referralsGot: [], consultations: [], documents: [], retention: null },
   camp: { status: "planned", revenue: 0, patientsScreened: 0, isRecurring: false, venue: null, venueCapacity: null, expectedPatients: null, expectedAdmissions: null, branchId: null, diseaseId: null, expenses: [], staffRoster: [], revenueLines: [], planning: {}, _count: { campPatients: 0 }, campPatients: [] },
   campPatient: { recommendedVisit: false, leadId: null },
   mobileClinic: { status: "planned", patientsScreened: 0, isRecurring: false, venue: null, venueCapacity: null, expectedPatients: null, expectedAdmissions: null, branchId: null, diseaseId: null, expenses: [], staffRoster: [], revenueLines: [], planning: {}, _count: { patients: 0 }, patients: [] },
   mobileClinicPatient: { referredToBranch: false, leadId: null },
-  campaign: { budget: 0, active: true },
+  campaign: { budget: 0, active: true, program: null, status: "planned", launchedAt: null },
   organization: { active: true, _count: { camps: 0, referrals: 0 }, camps: [], referrals: [] },
   consultation: {},
 };
@@ -92,6 +97,9 @@ function hydrate(row: Row) {
   link("referredPatientMrd", "patient", "referredPatient", "mrd");
   link("courseId", "medicationCourse", "course");
   link("planId", "therapyPlan", "plan");
+  link("referrerId", "referrer", "referrer");
+  link("followUpId", "followUp", "followUp");
+  link("relationManagerId", "staffUser", "relationManager");
 }
 const isObj = (v: unknown): v is Row => typeof v === "object" && v !== null && !(v instanceof Date);
 

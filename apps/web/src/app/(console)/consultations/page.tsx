@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { branchScopeWhere } from "@prm/core";
-import { PageHeader, Badge } from "@/components/ui";
+import { PageHeader, Badge, LinkButton } from "@/components/ui";
 import { DRILL, listFilters } from "@/lib/drill/registry";
 import { ActiveFilters } from "@/components/drill/ActiveFilters";
 
@@ -27,7 +27,11 @@ export default async function ConsultationsPage({ searchParams }: { searchParams
 
   return (
     <div>
-      <PageHeader title="Consultations" subtitle={`${consultations.length} consultation${consultations.length === 1 ? "" : "s"} (Module 5)`} />
+      <PageHeader
+        title="Consultations"
+        subtitle={`${consultations.length} consultation${consultations.length === 1 ? "" : "s"} (Module 5)`}
+        action={<div className="flex gap-2"><LinkButton href="/queue" tone="ghost">Queue</LinkButton><LinkButton href="/consultations/doctor" tone="ghost">Doctor dashboard</LinkButton><LinkButton href="/consultations/reports" tone="ghost">Reports</LinkButton></div>}
+      />
 
       <ActiveFilters filters={filters} basePath="/consultations" />
 

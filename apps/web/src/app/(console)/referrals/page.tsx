@@ -3,7 +3,7 @@ import { requireCan } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { createReferral, updateReferralStatus } from "@/lib/referrals/actions";
 import { can } from "@prm/core";
-import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
+import { PageHeader, Card, Badge, SubmitButton, LinkButton } from "@/components/ui";
 import { DRILL, listFilters } from "@/lib/drill/registry";
 import { DrillStat } from "@/components/drill/DrillStat";
 import { PlanActivitySelect } from "@/components/planning/PlanActivitySelect";
@@ -12,7 +12,7 @@ import { ActiveFilters } from "@/components/drill/ActiveFilters";
 
 export const dynamic = "force-dynamic";
 
-const TYPES = ["patient_to_patient", "doctor", "hospital", "branch", "camp", "corporate", "institutional"];
+const TYPES = ["patient_to_patient", "doctor", "hospital", "branch", "camp", "corporate", "institutional", "ayurveda_practitioner"];
 const STATUSES = ["pending", "consulted", "admitted", "lost"];
 const input = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm";
 
@@ -21,9 +21,10 @@ export default async function Referrals({ searchParams }: { searchParams: Promis
   const canEdit = can(user.role, "referrals", "edit");
   const filters = listFilters("referrals", await searchParams);
 
-  const [refs, orgs, topReferrers, statusGroups, revAgg] = await Promise.all([
-    prisma.referral.findMany({ where: DRILL.referrals.buildWhere(filters), include: { referrerPatient: true, referredPatient: true, organization: true }, orderBy: { createdAt: "desc" }, take: 200 }),
+  const [refs, orgs, referrers, topReferrers, statusGroups, revAgg] = await Promise.all([
+    prisma.referral.findMany({ where: DRILL.referrals.buildWhere(filters), include: { referrerPatient: true, referredPatient: true, organization: true, referrer: true }, orderBy: { createdAt: "desc" }, take: 200 }),
     prisma.organization.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    prisma.referrer.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.referral.groupBy({ by: ["referrerPatientMrd"], _count: { _all: true }, where: { referrerPatientMrd: { not: null } } }),
     prisma.referral.groupBy({ by: ["status"], _count: { _all: true } }),
     prisma.referral.aggregate({ _sum: { revenue: true } }),
@@ -36,7 +37,11 @@ export default async function Referrals({ searchParams }: { searchParams: Promis
 
   return (
     <div>
-      <PageHeader title="Referral management" subtitle="Track patient & doctor referrals and conversion (Module 6)" />
+      <PageHeader
+        title="Referral management"
+        subtitle="Track referral sources, conversion & revenue (Module 6)"
+        action={<div className="flex gap-2"><LinkButton href="/referrals/referrers" tone="ghost">Referrers</LinkButton><LinkButton href="/referrals/reports" tone="ghost">Reports</LinkButton></div>}
+      />
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <DrillStat label="Referrals" value={total} entity="referrals" filters={{}} />
@@ -53,7 +58,8 @@ export default async function Referrals({ searchParams }: { searchParams: Promis
           <form action={createReferral} className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <label className="text-xs font-medium text-slate-600">Type<select name="type" className={input}>{TYPES.map((t) => <option key={t} value={t}>{t.replace(/_/g, " ")}</option>)}</select></label>
             <label className="text-xs font-medium text-slate-600">Referrer patient MRD<input name="referrerPatientMrd" className={input} /></label>
-            <label className="text-xs font-medium text-slate-600">External referrer name<input name="referrerName" placeholder="doctor / contact" className={input} /></label>
+            <label className="text-xs font-medium text-slate-600">Referrer profile<select name="referrerId" className={input}><option value="">— external referrer —</option>{referrers.map((rf) => <option key={rf.id} value={rf.id}>{rf.name} ({String(rf.type).replace(/_/g, " ")})</option>)}</select></label>
+            <label className="text-xs font-medium text-slate-600">External referrer name<input name="referrerName" placeholder="if not a profile" className={input} /></label>
             <label className="text-xs font-medium text-slate-600">Organization<select name="organizationId" className={input}><option value="">—</option>{orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select></label>
             <label className="text-xs font-medium text-slate-600">Referred patient MRD<input name="referredPatientMrd" className={input} /></label>
             <label className="flex items-center gap-2 pt-5 text-xs font-medium text-slate-600"><input type="checkbox" name="rewardEligible" className="h-4 w-4" /> Reward eligible</label>
@@ -72,7 +78,7 @@ export default async function Referrals({ searchParams }: { searchParams: Promis
               {refs.map((r) => (
                 <tr key={r.id} className="border-t border-slate-100">
                   <td className="px-4 py-2 text-slate-600">{r.type.replace(/_/g, " ")}</td>
-                  <td className="px-4 py-2">{r.referrerPatient?.name ?? r.referrerName ?? r.organization?.name ?? "—"}</td>
+                  <td className="px-4 py-2">{r.referrer ? <Link href={`/referrals/referrers/${r.referrerId}`} className="text-rose-700 hover:underline dark:text-rose-400">{r.referrer.name}</Link> : (r.referrerPatient?.name ?? r.referrerName ?? r.organization?.name ?? "—")}</td>
                   <td className="px-4 py-2">{r.referredPatient?.name ?? (r.referredPatientMrd ?? "—")}</td>
                   <td className="px-4 py-2"><Badge tone={r.status === "admitted" ? "green" : r.status === "lost" ? "red" : "blue"}>{r.status}</Badge></td>
                   {canEdit && (

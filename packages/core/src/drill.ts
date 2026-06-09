@@ -25,12 +25,14 @@ export type DrillEntity =
   | "communications"
   | "waitlist"
   | "retention"
+  | "retentionActivities"
   | "calls"
   | "campPatients"
   | "mobileClinicPatients"
   | "camps"
   | "mobileClinics"
-  | "organizations";
+  | "organizations"
+  | "referrers";
 
 /** One preview row in the drill drawer. */
 export interface DrillRow {
