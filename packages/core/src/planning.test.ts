@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { planProgressPct, activitiesBudget, activityRollup, canVerify, canApprove, nextStep, separationOk } from "./planning";
+import { planProgressPct, activitiesBudget, activityRollup, approvalRollup, canVerify, canApprove, nextStep, separationOk, scopeCovers } from "./planning";
 
 describe("planning helpers", () => {
   it("computes progress %", () => {
@@ -19,6 +19,55 @@ describe("planning helpers", () => {
       { title: "d", status: "done" },
     ]);
     expect(r).toEqual({ total: 4, done: 2, inProgress: 1, planned: 1 });
+  });
+});
+
+describe("planning approval rollup", () => {
+  it("counts by approval step, defaulting missing approval to entered", () => {
+    const r = approvalRollup([
+      { title: "a", status: "planned" }, // no approval object
+      { title: "b", status: "planned", approval: { status: "entered" } },
+      { title: "c", status: "in_progress", approval: { status: "verified" } },
+      { title: "d", status: "done", approval: { status: "approved" } },
+      { title: "e", status: "planned", approval: { status: "rejected" } },
+      { title: "f", status: "done", approval: { status: "approved" } },
+    ]);
+    expect(r).toEqual({ entered: 2, verified: 1, approved: 2, rejected: 1 });
+  });
+  it("handles empty input", () => {
+    expect(approvalRollup()).toEqual({ entered: 0, verified: 0, approved: 0, rejected: 0 });
+    expect(approvalRollup([])).toEqual({ entered: 0, verified: 0, approved: 0, rejected: 0 });
+  });
+});
+
+describe("planning org scope (scopeCovers)", () => {
+  const chennaiMgr = { role: "branch_manager" as const, branchId: "br-che", companyId: "co-saec" };
+  const saecMgr = { role: "company_manager" as const, branchId: null, companyId: "co-saec" };
+  const groupAdmin = { role: "administrator" as const, branchId: "br-main", companyId: "co-saeh" };
+  const chennaiPlan = { branchId: "br-che", companyId: "co-saec" };
+  const ekmPlan = { branchId: "br-koc", companyId: "co-saec" };
+  const saecPlan = { branchId: null, companyId: "co-saec" };
+  const groupPlan = { branchId: null, companyId: null };
+
+  it("centre staff cover only their own centre's plans", () => {
+    expect(scopeCovers(chennaiMgr, chennaiPlan)).toBe(true);
+    expect(scopeCovers(chennaiMgr, ekmPlan)).toBe(false);
+    expect(scopeCovers(chennaiMgr, saecPlan)).toBe(false);
+  });
+  it("company managers cover their company's plans and its centres' plans", () => {
+    expect(scopeCovers(saecMgr, chennaiPlan)).toBe(true);
+    expect(scopeCovers(saecMgr, ekmPlan)).toBe(true);
+    expect(scopeCovers(saecMgr, saecPlan)).toBe(true);
+    expect(scopeCovers(saecMgr, { branchId: "br-main", companyId: "co-saeh" })).toBe(false);
+  });
+  it("group roles cover everything", () => {
+    expect(scopeCovers(groupAdmin, chennaiPlan)).toBe(true);
+    expect(scopeCovers(groupAdmin, saecPlan)).toBe(true);
+    expect(scopeCovers(groupAdmin, groupPlan)).toBe(true);
+  });
+  it("legacy group plans stay open to all ranks", () => {
+    expect(scopeCovers(chennaiMgr, groupPlan)).toBe(true);
+    expect(scopeCovers(saecMgr, groupPlan)).toBe(true);
   });
 });
 

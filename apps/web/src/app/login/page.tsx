@@ -27,8 +27,25 @@ function managerLogins() {
     }));
 }
 
+// Org-scope logins: group (management), company managers and a centre manager —
+// demos group / company / centre consolidation scopes.
+function orgLogins() {
+  const company = (id: string | null) => (store.company ?? []).find((c) => c.id === id)?.shortName ?? null;
+  const branch = (id: string | null) => (store.branch ?? []).find((b) => b.id === id)?.name ?? null;
+  return (store.staffUser ?? [])
+    .filter((s) => s.role === "company_manager" || s.role === "branch_manager")
+    .map((s) => ({
+      id: s.id as string,
+      label: s.name as string,
+      blurb: s.role === "company_manager"
+        ? `Company — ${company(s.companyId as string) ?? "all centres"}`
+        : `Centre — ${branch(s.branchId as string) ?? "own centre"}`,
+    }));
+}
+
 export default async function LoginPage() {
   const managers = managerLogins();
+  const orgUsers = orgLogins();
   return (
     <main className="relative mx-auto flex min-h-screen max-w-lg flex-col justify-center overflow-hidden px-6 py-16">
       <DottedAccent className="opacity-60" />
@@ -57,6 +74,24 @@ export default async function LoginPage() {
               </form>
             ))}
           </div>
+
+          {orgUsers.length > 0 && (
+            <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-700">
+              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Group &amp; company managers</h2>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Company-wide or single-centre consolidation scope.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {orgUsers.map((m) => (
+                  <form key={m.id} action={loginAsStaff}>
+                    <input type="hidden" name="staffId" value={m.id} />
+                    <button type="submit" className="w-full rounded-lg border border-slate-200 p-3 text-left transition-colors hover:border-rose-300 hover:bg-rose-50 dark:border-slate-700 dark:hover:border-rose-700 dark:hover:bg-rose-950/40">
+                      <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">{m.label}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">{m.blurb}</div>
+                    </button>
+                  </form>
+                ))}
+              </div>
+            </div>
+          )}
 
           {managers.length > 0 && (
             <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-700">

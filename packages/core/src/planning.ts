@@ -4,6 +4,8 @@
  * live KPI (by label) so the page can show target vs actual.
  */
 
+import { isBranchScoped, isCompanyScoped, type RoleName } from "./rbac";
+
 export type PlanStatus = "draft" | "active" | "closed";
 export const PLAN_STATUSES: PlanStatus[] = ["draft", "active", "closed"];
 
@@ -55,6 +57,30 @@ export function separationOk(step: "verify" | "approve", userId: string, a: Appr
   if (isAdmin) return true;
   if (step === "verify") return a.enteredById !== userId;
   return a.enteredById !== userId && a.verifiedById !== userId;
+}
+
+// ----- Org scope (multi-centre planning) -----
+/** Plan scope: branchId set = centre plan; companyId only = company plan; both null = group plan. */
+export interface PlanScope {
+  branchId?: string | null;
+  companyId?: string | null;
+}
+
+/**
+ * May this user act on (edit/verify/approve) a plan with the given scope?
+ * Centre-pinned roles cover only their own centre's plans; company-scoped roles
+ * cover their company's (and its centres') plans; group roles cover everything.
+ * Legacy group plans (both null) stay open to all ranks — rank + separation
+ * rules still apply on top.
+ */
+export function scopeCovers(
+  user: { role: RoleName; branchId: string | null; companyId: string | null },
+  plan: PlanScope,
+): boolean {
+  if (!plan.branchId && !plan.companyId) return true; // group/global plan
+  if (isBranchScoped(user.role)) return plan.branchId != null && plan.branchId === user.branchId;
+  if (isCompanyScoped(user.role)) return plan.companyId != null && plan.companyId === user.companyId;
+  return true; // group-level roles
 }
 
 export interface TargetLine {
@@ -110,4 +136,12 @@ export function activityRollup(activities: ActivityLine[] = []): { total: number
     inProgress: activities.filter((a) => a.status === "in_progress").length,
     planned: activities.filter((a) => a.status === "planned").length,
   };
+}
+
+/** Counts of activities by approval step (no approval object counts as `entered`). */
+export interface ApprovalRollup { entered: number; verified: number; approved: number; rejected: number }
+export function approvalRollup(activities: ActivityLine[] = []): ApprovalRollup {
+  const out: ApprovalRollup = { entered: 0, verified: 0, approved: 0, rejected: 0 };
+  for (const a of activities) out[a.approval?.status ?? "entered"] += 1;
+  return out;
 }

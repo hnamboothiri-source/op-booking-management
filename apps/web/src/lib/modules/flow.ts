@@ -54,7 +54,7 @@ export async function resolveFlow(def: ModuleDef, steps: FlowStep[], user: FlowU
   const resolved = await Promise.all(
     steps.map(async (step) => {
       const kpi = flowStepKpi(def, step);
-      const count = kpi ? await drillCount(kpi.entity, resolveFilters(kpi.filters), user.role, user.branchId) : undefined;
+      const count = kpi ? await drillCount(kpi.entity, resolveFilters(kpi.filters), user) : undefined;
       const link = def.links.find((l) => l.href === step.href);
       const visible = !link || effectiveCan(user, link.resource, link.action ?? "view");
       const blocked = flowPhaseBlocked(step.phase, readiness.required, readiness.ready);

@@ -3,7 +3,7 @@
  * Idempotent: uses upserts / stable IDs where practical so it can re-run.
  * Run: npm run db:seed   (after db:up and db:migrate)
  */
-import { PrismaClient, Role, ReasonCategory, FollowUpType, TaskType, CampaignType } from "@prisma/client";
+import { PrismaClient, Role, BranchType, ReasonCategory, FollowUpType, TaskType, CampaignType } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -12,17 +12,56 @@ const prisma = new PrismaClient();
 const DEMO_PASSWORD = "Sreedhareeyam@1";
 
 async function main() {
-  // --- Branches ---
+  // --- Companies (group = two legal entities) ---
+  const saeh = await prisma.company.upsert({
+    where: { code: "SAEH" },
+    update: {},
+    create: { name: "Sreedhareeyam Ayurvedic Eye Hospital and Research Centre Pvt Ltd", shortName: "Eye Hospital & Research Centre", code: "SAEH" },
+  });
+  const saec = await prisma.company.upsert({
+    where: { code: "SAEC" },
+    update: {},
+    create: { name: "Sreedhareeyam Ayurvedic Eye Clinic and Panchakarma Centre Pvt Ltd", shortName: "Eye Clinic & Panchakarma", code: "SAEC" },
+  });
+
+  // --- Branches (centres) ---
+  // Module allotment per centre type (empty = ALL modules; flagship runs everything).
+  const OP_MODULES = ["leads", "call-center", "appointments", "consultations", "follow-ups", "patients", "communication"];
+  const HOSPITAL_MODULES = [...OP_MODULES, "camps", "mobile-clinics", "admissions", "retention", "referrals", "conversion"];
   const main = await prisma.branch.upsert({
     where: { name: "Main Hospital" },
-    update: {},
-    create: { name: "Main Hospital", code: "MAIN", location: "Koothattukulam" },
+    update: { companyId: saeh.id, type: BranchType.flagship_hospital, enabledModules: [] },
+    create: { name: "Main Hospital", code: "MAIN", location: "Koothattukulam", companyId: saeh.id, type: BranchType.flagship_hospital, enabledModules: [] },
   });
-  await prisma.branch.upsert({
-    where: { name: "Kochi Branch" },
-    update: {},
-    create: { name: "Kochi Branch", code: "KOC", location: "Ernakulam" },
-  });
+  // The legacy "Kochi Branch" row is the SAEC Ernakulam hospital.
+  const legacyKochi = await prisma.branch.findUnique({ where: { code: "KOC" } });
+  if (legacyKochi) {
+    await prisma.branch.update({ where: { id: legacyKochi.id }, data: { name: "Ernakulam Hospital", companyId: saec.id, type: BranchType.hospital, enabledModules: HOSPITAL_MODULES } });
+  } else {
+    await prisma.branch.upsert({
+      where: { name: "Ernakulam Hospital" },
+      update: { companyId: saec.id, type: BranchType.hospital, enabledModules: HOSPITAL_MODULES },
+      create: { name: "Ernakulam Hospital", code: "KOC", location: "Ernakulam", companyId: saec.id, type: BranchType.hospital, enabledModules: HOSPITAL_MODULES },
+    });
+  }
+  const saecCentres: [string, string, string, BranchType][] = [
+    ["Kannur Hospital", "KNR", "Kannur", BranchType.hospital],
+    ["Bangalore Hospital", "BLR", "Bangalore", BranchType.hospital],
+    ["New Delhi Hospital", "DEL", "New Delhi", BranchType.hospital],
+    ["Visakhapatnam Hospital", "VSK", "Visakhapatnam", BranchType.hospital],
+    ["Mumbai Hospital", "MUM", "Mumbai", BranchType.hospital],
+    ["Chennai Hospital", "CHE", "Chennai", BranchType.hospital],
+    ["Kottayam OP Centre", "KTM-OP", "Kottayam", BranchType.op_centre],
+    ["Trivandrum OP Centre", "TVM-OP", "Trivandrum", BranchType.op_centre],
+  ];
+  for (const [name, code, location, type] of saecCentres) {
+    const enabledModules = type === BranchType.op_centre ? OP_MODULES : HOSPITAL_MODULES;
+    await prisma.branch.upsert({
+      where: { name },
+      update: { companyId: saec.id, type, enabledModules },
+      create: { name, code, location, companyId: saec.id, type, enabledModules },
+    });
+  }
 
   // --- Departments (aligned with hospital list) ---
   const departments = [
@@ -158,8 +197,20 @@ async function main() {
   for (const [name, email, role] of staff) {
     await prisma.staffUser.upsert({
       where: { email },
-      update: { passwordHash },
-      create: { name, email, role, branchId: main.id, passwordHash },
+      update: { passwordHash, companyId: saeh.id },
+      create: { name, email, role, branchId: main.id, companyId: saeh.id, passwordHash },
+    });
+  }
+  // Company managers (one per company — company-wide consolidation scope).
+  const companyManagers: [string, string, string][] = [
+    ["Devi (SAEH Company Mgr)", "saeh.manager@sreedhareeyam.test", saeh.id],
+    ["Hari (SAEC Company Mgr)", "saec.manager@sreedhareeyam.test", saec.id],
+  ];
+  for (const [name, email, companyId] of companyManagers) {
+    await prisma.staffUser.upsert({
+      where: { email },
+      update: { passwordHash, companyId },
+      create: { name, email, role: Role.company_manager, companyId, planRank: "manager", passwordHash },
     });
   }
   const callExec = await prisma.staffUser.findUniqueOrThrow({ where: { email: "callexec@sreedhareeyam.test" } });

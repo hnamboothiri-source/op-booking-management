@@ -22,10 +22,29 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
   const today = day(0);
 
   // --- Masters ---
-  const branches: Row[] = [
-    { id: "br-main", name: "Main Hospital", code: "MAIN", location: "Koothattukulam", active: true },
-    { id: "br-koc", name: "Kochi Branch", code: "KOC", location: "Ernakulam", active: true },
+  // Group org structure: two legal companies, each owning a set of centres.
+  const companies: Row[] = [
+    { id: "co-saeh", name: "Sreedhareeyam Ayurvedic Eye Hospital and Research Centre Pvt Ltd", shortName: "Eye Hospital & Research Centre", code: "SAEH", active: true },
+    { id: "co-saec", name: "Sreedhareeyam Ayurvedic Eye Clinic and Panchakarma Centre Pvt Ltd", shortName: "Eye Clinic & Panchakarma", code: "SAEC", active: true },
   ];
+  // Index order is load-bearing: fixtures below reference branches[0] (flagship)
+  // and branches[1] (Ernakulam — keeps the legacy "br-koc" id used by rules).
+  // Module allotment per centre type. Empty = all modules (flagship).
+  const OP_MODULES = ["leads", "call-center", "appointments", "consultations", "follow-ups", "patients", "communication"];
+  const HOSPITAL_MODULES = [...OP_MODULES, "camps", "mobile-clinics", "admissions", "retention", "referrals", "conversion"];
+  const branches: Row[] = [
+    { id: "br-main", name: "Main Hospital", code: "MAIN", location: "Koothattukulam", companyId: "co-saeh", type: "flagship_hospital", enabledModules: [], active: true },
+    { id: "br-koc", name: "Ernakulam Hospital", code: "EKM", location: "Ernakulam", companyId: "co-saec", type: "hospital", enabledModules: HOSPITAL_MODULES, active: true },
+    { id: "br-knr", name: "Kannur Hospital", code: "KNR", location: "Kannur", companyId: "co-saec", type: "hospital", enabledModules: HOSPITAL_MODULES, active: true },
+    { id: "br-blr", name: "Bangalore Hospital", code: "BLR", location: "Bangalore", companyId: "co-saec", type: "hospital", enabledModules: HOSPITAL_MODULES, active: true },
+    { id: "br-del", name: "New Delhi Hospital", code: "DEL", location: "New Delhi", companyId: "co-saec", type: "hospital", enabledModules: HOSPITAL_MODULES, active: true },
+    { id: "br-vsk", name: "Visakhapatnam Hospital", code: "VSK", location: "Visakhapatnam", companyId: "co-saec", type: "hospital", enabledModules: HOSPITAL_MODULES, active: true },
+    { id: "br-mum", name: "Mumbai Hospital", code: "MUM", location: "Mumbai", companyId: "co-saec", type: "hospital", enabledModules: HOSPITAL_MODULES, active: true },
+    { id: "br-che", name: "Chennai Hospital", code: "CHE", location: "Chennai", companyId: "co-saec", type: "hospital", enabledModules: HOSPITAL_MODULES, active: true },
+    { id: "br-ktm-op", name: "Kottayam OP Centre", code: "KTM-OP", location: "Kottayam", companyId: "co-saec", type: "op_centre", enabledModules: OP_MODULES, active: true },
+    { id: "br-tvm-op", name: "Trivandrum OP Centre", code: "TVM-OP", location: "Trivandrum", companyId: "co-saec", type: "op_centre", enabledModules: OP_MODULES, active: true },
+  ];
+  branches.forEach((b) => { b.company = companies.find((c) => c.id === b.companyId) ?? null; });
   const departments: Row[] = ["General", "Ophthalmology", "Skin & Allergy", "Orthopedic", "Gynecology"].map((name, i) => ({ id: `dep-${i}`, name, active: true }));
   // --- Real Sreedhareeyam doctor roster (chiefs first so doctors[0..2] resolve) ---
   const oph = departments[1].id; // Ophthalmology / Ayurveda OP
@@ -117,14 +136,18 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
 
   // --- Staff ---
   const staffUsers: Row[] = [
-    { id: "stf-admin", name: "Admin User", email: "admin@sreedhareeyam.test", role: "administrator", branchId: branches[0].id, active: true, managedModules: [], planRank: "manager" },
-    { id: "stf-callexec", name: "Call Exec", email: "callexec@sreedhareeyam.test", role: "call_center_executive", branchId: branches[0].id, active: true, managedModules: [], planRank: "staff" },
-    { id: "stf-front", name: "Front Desk", email: "front@sreedhareeyam.test", role: "front_office", branchId: branches[0].id, active: true, managedModules: [], planRank: "staff" },
-    { id: "stf-menon", name: "Dr. Menon", email: "menon@sreedhareeyam.test", role: "doctor", branchId: branches[0].id, active: true, managedModules: [], planRank: "staff" },
-    { id: "stf-superv", name: "Suma (Supervisor)", email: "supervisor@sreedhareeyam.test", role: "call_center_manager", branchId: branches[0].id, active: true, managedModules: [], planRank: "supervisor" },
+    { id: "stf-admin", name: "Admin User", email: "admin@sreedhareeyam.test", role: "administrator", branchId: branches[0].id, companyId: "co-saeh", active: true, managedModules: [], planRank: "manager" },
+    { id: "stf-callexec", name: "Call Exec", email: "callexec@sreedhareeyam.test", role: "call_center_executive", branchId: branches[0].id, companyId: "co-saeh", active: true, managedModules: [], planRank: "staff" },
+    { id: "stf-front", name: "Front Desk", email: "front@sreedhareeyam.test", role: "front_office", branchId: branches[0].id, companyId: "co-saeh", active: true, managedModules: [], planRank: "staff" },
+    { id: "stf-menon", name: "Dr. Menon", email: "menon@sreedhareeyam.test", role: "doctor", branchId: branches[0].id, companyId: "co-saeh", active: true, managedModules: [], planRank: "staff" },
+    { id: "stf-superv", name: "Suma (Supervisor)", email: "supervisor@sreedhareeyam.test", role: "call_center_manager", branchId: branches[0].id, companyId: "co-saeh", active: true, managedModules: [], planRank: "supervisor" },
     // Department managers (Module Workspaces): confined to the modules they own.
-    { id: "stf-clinmgr", name: "Dr. Priya (Clinical Mgr)", email: "clinical.manager@sreedhareeyam.test", role: "module_manager", branchId: branches[0].id, active: true, managedModules: ["consultations", "follow-ups", "conversion"], planRank: "manager" },
-    { id: "stf-outmgr", name: "Rahul (Outreach Mgr)", email: "outreach.manager@sreedhareeyam.test", role: "module_manager", branchId: branches[0].id, active: true, managedModules: ["camps", "mobile-clinics"], planRank: "manager" },
+    { id: "stf-clinmgr", name: "Dr. Priya (Clinical Mgr)", email: "clinical.manager@sreedhareeyam.test", role: "module_manager", branchId: branches[0].id, companyId: "co-saeh", active: true, managedModules: ["consultations", "follow-ups", "conversion"], planRank: "manager" },
+    { id: "stf-outmgr", name: "Rahul (Outreach Mgr)", email: "outreach.manager@sreedhareeyam.test", role: "module_manager", branchId: branches[0].id, companyId: "co-saeh", active: true, managedModules: ["camps", "mobile-clinics"], planRank: "manager" },
+    // Org-scope logins: company managers (whole company) and a centre-pinned branch manager.
+    { id: "stf-saehmgr", name: "Devi (SAEH Company Mgr)", email: "saeh.manager@sreedhareeyam.test", role: "company_manager", branchId: null, companyId: "co-saeh", active: true, managedModules: [], planRank: "manager" },
+    { id: "stf-saecmgr", name: "Hari (SAEC Company Mgr)", email: "saec.manager@sreedhareeyam.test", role: "company_manager", branchId: null, companyId: "co-saec", active: true, managedModules: [], planRank: "manager" },
+    { id: "stf-chembr", name: "Lakshmi (Chennai Centre Mgr)", email: "chennai.manager@sreedhareeyam.test", role: "branch_manager", branchId: "br-che", companyId: "co-saec", active: true, managedModules: [], planRank: "supervisor" },
   ];
 
   // --- Patients ---
@@ -499,6 +522,25 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
       planning: { locationIdentified: true, venueBooked: false, existingPatientsContacted: false, adsReleased: false },
       expenses: [{ category: "venue_rent", planned: 350000, actual: null }, { category: "marketing_ads", planned: 300000, actual: null }],
       staffRoster: [], revenueLines: [] },
+    // Completed SAEC camp with actuals so the Ernakulam cost centre has real spend + on-site revenue.
+    { id: "cmp-3", name: "Netra Camp Ernakulam", location: "Ernakulam", district: "Ernakulam", venue: "Parish Hall", venueCapacity: 100, branchId: branches[1].id, diseaseId: diseases[0].id,
+      organizerId: null, status: "completed", isRecurring: false, expectedPatients: 60, expectedAdmissions: 4, revenue: 90000, createdAt: day(-14),
+      planning: { locationIdentified: true, venueBooked: true, existingPatientsContacted: true, adsReleased: true, staffArranged: true },
+      expenses: [
+        { category: "venue_rent", planned: 400000, actual: 380000 },
+        { category: "transport_driver", planned: 200000, actual: 210000 },
+        { category: "marketing_ads", planned: 250000, actual: 200000 },
+      ],
+      staffRoster: [
+        { role: "doctor", name: "Dr. Pillai", honorarium: 300000 },
+        { role: "optometrist", name: "Meera", honorarium: 120000 },
+      ],
+      revenueLines: [
+        { kind: "registration", amount: 150000 },
+        { kind: "optometry_checkup", amount: 240000 },
+        { kind: "medicine_sales", amount: 510000 },
+      ],
+    },
   ];
   const campPatients: Row[] = [
     { id: "cp-1", campId: "cmp-1", contactName: "Ramesh", phone: "9847090001", complaint: "Blurred vision", riskCategory: "admission_candidate", screenedById: "stf-menon", recommendedVisit: true, leadId: "lead-camp1", createdAt: day(-20) },
@@ -529,10 +571,32 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     { id: "bk-camp1", bookingRef: "OP-CAMP1", patientMrd: "MRD-1003", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[1].id, appointmentDate: day(-10), startTime: "10:00", status: "completed", source: "camp", appointmentType: "camp_follow_up", bookedAt: day(-12), bookedBy: "stf-callexec", leadId: "lead-camp1", completedAt: day(-10) },
   );
   consultations.push(
-    { id: "cons-camp1", bookingId: "bk-camp1", patientMrd: "MRD-1003", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[1].id, diseaseId: diseases[0].id, outcome: "admission_advised", diagnosis: "Cataract — camp referral", createdAt: day(-10) },
+    { id: "cons-camp1", bookingId: "bk-camp1", patientMrd: "MRD-1003", doctorId: doctors[1].id, departmentId: departments[0].id, branchId: branches[1].id, diseaseId: diseases[0].id, fee: 3000_00, outcome: "admission_advised", diagnosis: "Cataract — camp referral", createdAt: day(-10) },
   );
   admissions.push(
     { id: "adm-camp1", patientMrd: "MRD-1003", consultationId: "cons-camp1", doctorId: doctors[1].id, packageId: admissionPackages[2].id, estimatedCost: 5000000, status: "admitted", createdAt: day(-9), updatedAt: day(-8) },
+  );
+
+  // Multi-centre activity (SAEC network) so company/group consolidation has
+  // real per-centre numbers beyond the flagship.
+  leads.push(
+    { id: "lead-che1", leadNumber: "LEAD-2026-000012", contactName: "Karthik Subramanian", phone: "9884010001", gender: "male", age: 64, city: "Chennai", district: "Chennai", chiefComplaint: "Cataract enquiry", diseaseId: diseases[0].id, stage: "converted_to_patient", sourceId: leadSources[2].id, ownerId: "stf-chembr", branchId: "br-che", patientMrd: "MRD-1006", mergedIntoId: null, desk: "back_office", createdAt: day(-9) },
+    { id: "lead-che2", leadNumber: "LEAD-2026-000013", contactName: "Revathi Iyer", phone: "9884010002", gender: "female", age: 58, city: "Chennai", district: "Chennai", chiefComplaint: "Dry eye, screen strain", diseaseId: diseases[2].id, stage: "contacted", sourceId: leadSources[0].id, ownerId: "stf-chembr", branchId: "br-che", mergedIntoId: null, desk: "back_office", lastContactAt: day(-1), createdAt: day(-4) },
+    { id: "lead-blr1", leadNumber: "LEAD-2026-000014", contactName: "Manjunath R", phone: "9900010003", gender: "male", age: 49, city: "Bangalore", district: "Bangalore Urban", chiefComplaint: "Diabetic retinopathy screening", diseaseId: diseases[4].id, stage: "interested", sourceId: leadSources[1].id, ownerId: null, branchId: "br-blr", mergedIntoId: null, desk: "back_office", createdAt: day(-6) },
+    { id: "lead-knr1", leadNumber: "LEAD-2026-000015", contactName: "Sajna K", phone: "9745010004", gender: "female", age: 41, city: "Kannur", district: "Kannur", chiefComplaint: "Allergic conjunctivitis", diseaseId: diseases[3].id, stage: "new_lead", sourceId: leadSources[9].id, ownerId: null, branchId: "br-knr", mergedIntoId: null, desk: "reception", createdAt: day(-1) },
+    { id: "lead-ktm1", leadNumber: "LEAD-2026-000016", contactName: "Joseph Chacko", phone: "9447010005", gender: "male", age: 55, city: "Kottayam", district: "Kottayam", chiefComplaint: "Glaucoma review enquiry", diseaseId: diseases[1].id, stage: "appointment_booked", sourceId: leadSources[3].id, ownerId: null, branchId: "br-ktm-op", mergedIntoId: null, desk: "reception", createdAt: day(-2) },
+  );
+  bookings.push(
+    { id: "bk-che1", bookingRef: "OP-CHE1", patientMrd: "MRD-1006", doctorId: doctors[3].id, departmentId: departments[1].id, branchId: "br-che", appointmentDate: day(-7), startTime: "10:00", status: "completed", source: "call_centre", appointmentType: "regular", bookedAt: day(-8), bookedBy: "stf-chembr", leadId: "lead-che1", completedAt: day(-7) },
+    { id: "bk-che2", bookingRef: "OP-CHE2", patientMrd: "MRD-1007", doctorId: doctors[3].id, departmentId: departments[1].id, branchId: "br-che", appointmentDate: today, startTime: "11:30", status: "booked", source: "front_desk", appointmentType: "regular", bookedAt: day(-1), bookedBy: "stf-chembr" },
+    { id: "bk-blr1", bookingRef: "OP-BLR1", patientMrd: "MRD-1005", doctorId: doctors[4].id, departmentId: departments[1].id, branchId: "br-blr", appointmentDate: day(-3), startTime: "09:30", status: "completed", source: "online", appointmentType: "regular", bookedAt: day(-5), bookedBy: "stf-callexec", completedAt: day(-3) },
+  );
+  consultations.push(
+    { id: "cons-che1", bookingId: "bk-che1", patientMrd: "MRD-1006", doctorId: doctors[3].id, departmentId: departments[1].id, branchId: "br-che", diseaseId: diseases[0].id, fee: 5000_00, outcome: "admission_advised", diagnosis: "Cataract (R)", advice: "Panchakarma + surgery counselling", createdAt: day(-7) },
+    { id: "cons-blr1", bookingId: "bk-blr1", patientMrd: "MRD-1005", doctorId: doctors[4].id, departmentId: departments[1].id, branchId: "br-blr", diseaseId: diseases[4].id, fee: 4000_00, outcome: "medicine_prescribed", diagnosis: "Early diabetic retinopathy", advice: "Internal medication + 3-month review", createdAt: day(-3) },
+  );
+  admissions.push(
+    { id: "adm-che1", patientMrd: "MRD-1006", consultationId: "cons-che1", doctorId: doctors[3].id, packageId: admissionPackages[0].id, estimatedCost: 2500000, status: "counselled", createdAt: day(-6), updatedAt: day(-5) },
   );
 
   // --- Audit ---
@@ -664,8 +728,11 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
       { at: isoDay(-8), byId: staffUsers[0].id, byRank: "manager", action: "approved" },
     ],
   });
-  const mkPlan = (slug: string, title: string, acts: Row[], budget = 0, targets: Row[] = []): Row => ({
-    id: `plan-${slug}`, moduleSlug: slug, title, period: "2026-Q3", periodStart: day(-30), periodEnd: day(60),
+  // Scope: branchId set => centre plan; companyId only => company plan; both null => group plan.
+  const mkPlan = (slug: string, title: string, acts: Row[], budget = 0, targets: Row[] = [], scope: { branchId?: string | null; companyId?: string | null } = {}): Row => ({
+    id: scope.branchId ? `plan-${slug}-${scope.branchId}` : scope.companyId ? `plan-${slug}-${scope.companyId}` : `plan-${slug}`,
+    moduleSlug: slug, title, period: "2026-Q3", periodStart: day(-30), periodEnd: day(60),
+    branchId: scope.branchId ?? null, companyId: scope.companyId ?? null,
     objective: `${title} objectives.`, status: "active", ownerId: staffUsers[0].id, plannedBudget: budget, targets, activities: acts, createdAt: day(-30), updatedAt: day(-2),
   });
   // A mid-workflow (entered, awaiting verification) activity to demo the 3 steps on the leads plan.
@@ -688,6 +755,23 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     mkPlan("communication", "Engagement — Q3", [appr("message_blast", "Reactivation blasts", 3)]),
     mkPlan("retention", "Retention — Q3", [appr("reactivation_drive", "Reactivation drive", 30)]),
     mkPlan("organizations", "Partnerships — Q3", [appr("engagement_plan", "Engagement plan", 12)]),
+    // Company business plan (SAEC): governs centres without their own plan.
+    mkPlan("leads", "SAEC — Lead Generation FY Plan", [appr("generate_leads", "Network-wide lead programme", 300)], 6000000, [
+      { kpiLabel: "New leads", label: "New leads", target: 300, unit: "" },
+      { kpiLabel: "Converted", label: "Converted", target: 60, unit: "" },
+    ], { companyId: "co-saec" }),
+    // Centre-scoped plans (per-centre planning demo): each centre plans separately.
+    mkPlan("leads", "Chennai — Leads Q3", [appr("generate_leads", "Chennai lead drive", 40)], 1200000, [
+      { kpiLabel: "New leads", label: "New leads", target: 40, unit: "" },
+      { kpiLabel: "Converted", label: "Converted", target: 8, unit: "" },
+    ], { branchId: "br-che", companyId: "co-saec" }),
+    mkPlan("leads", "Ernakulam — Leads Q3", [appr("generate_leads", "Ernakulam lead drive", 60)], 1800000, [
+      { kpiLabel: "New leads", label: "New leads", target: 60, unit: "" },
+      { kpiLabel: "Converted", label: "Converted", target: 12, unit: "" },
+    ], { branchId: "br-koc", companyId: "co-saec" }),
+    mkPlan("camps", "Ernakulam — Camps Q3", [appr("conduct_camp", "Conduct 2 district camps", 2)], 3000000, [
+      { kpiLabel: "All camps", label: "Camps", target: 2, unit: "" },
+    ], { branchId: "br-koc", companyId: "co-saec" }),
   ];
 
   // ---- Module configuration: per-module masters, custom records, plan configs ----
@@ -781,7 +865,7 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
   const store: Record<string, Row[]> = {
     moduleMaster: moduleMasters, customRecord: customRecords, planConfig: planConfigs,
     medicationCourse: medicationCourses, medicationReminder: medicationReminders, therapyPlan: therapyPlans, therapySession: therapySessions,
-    branch: branches, department: departments, doctor: doctors, consultationRoom: consultationRooms,
+    company: companies, branch: branches, department: departments, doctor: doctors, consultationRoom: consultationRooms,
     staffUser: staffUsers, leadSourceMaster: leadSources, diseaseMaster: diseases, serviceMaster: services,
     referralSourceMaster: referralSources, admissionPackageMaster: admissionPackages, followUpTypeMaster: followUpTypes,
     taskTypeMaster: taskTypes, reasonMaster: reasons, communicationTemplate: communicationTemplates,

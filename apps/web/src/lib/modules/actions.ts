@@ -36,3 +36,30 @@ export async function setManagedModules(fd: FormData): Promise<void> {
   revalidatePath("/module-access/managers");
   revalidatePath("/module-access");
 }
+
+/**
+ * Allot the modules a centre runs (Branch.enabledModules). Admin-only.
+ * An EMPTY selection means ALL modules — un-ticking everything re-opens the
+ * full registry rather than locking the centre out.
+ */
+export async function setBranchModules(fd: FormData): Promise<void> {
+  const user = await requireCan("masters", "edit");
+  const branchId = fd.get("branchId")?.toString();
+  if (!branchId) throw new Error("branchId is required");
+
+  const slugs = fd.getAll("modules").map((v) => v.toString()).filter((s) => getModuleBySlug(s));
+
+  const branch = await prisma.branch.findUnique({ where: { id: branchId } });
+  if (!branch) throw new Error("Centre not found");
+
+  const before = { enabledModules: (branch.enabledModules as string[] | undefined) ?? [] };
+  await prisma.branch.update({
+    where: { id: branchId },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: { enabledModules: slugs as any },
+  });
+  await writeAudit({ actorId: user.id, action: "branch.modules", entity: "branch", entityId: branchId, before, after: { enabledModules: slugs } });
+  revalidatePath("/module-access/branches");
+  revalidatePath("/module-access");
+  revalidatePath("/", "layout");
+}

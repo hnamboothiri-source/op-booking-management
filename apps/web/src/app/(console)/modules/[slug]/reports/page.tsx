@@ -24,7 +24,7 @@ export default async function ModuleReports({ params }: { params: Promise<{ slug
     Promise.all(
       def.kpis.map(async (k) => {
         const filters = resolveFilters(k.filters);
-        const value = await drillCount(k.entity, filters, user.role, user.branchId);
+        const value = await drillCount(k.entity, filters, user);
         return { label: k.label, value, entity: k.entity, filters };
       }),
     ),

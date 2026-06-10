@@ -2,8 +2,10 @@ import Link from "next/link";
 import { MODULE_DASHBOARDS, resolveFilters } from "@/lib/modules/registry";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { can, conversionRate, roiPct, branchScopeWhere, type DrillEntity, type DrillFilters, type RoleName } from "@prm/core";
+import { can, conversionRate, roiPct, type DrillEntity, type DrillFilters } from "@prm/core";
+import { userScopeWhere } from "@/lib/scope";
 import { accessibleModules, isModuleManager } from "@/lib/modules/access";
+import { allowedModuleSlugsFor } from "@/lib/modules/allotment";
 import type { CurrentUser } from "@/lib/session";
 import { DrillStat } from "@/components/drill/DrillStat";
 import { DrillCount } from "@/components/drill/DrillCount";
@@ -18,8 +20,8 @@ import { drillCount } from "@/lib/drill/count";
 
 const money = (p: number | null) => (p === null ? "—" : `₹${(p / 100).toLocaleString("en-IN")}`);
 
-async function ManagementKpis({ role, branchId }: { role: RoleName; branchId: string | null }) {
-  const scope = branchScopeWhere(role, branchId);
+async function ManagementKpis({ user }: { user: CurrentUser }) {
+  const scope = await userScopeWhere(user);
   const todayStr = new Date().toISOString().slice(0, 10);
   const today = new Date(todayStr);
   const [totalLeads, converted, apptToday, completed, admissionsRec, pendingFu, dormant] = await Promise.all([
@@ -51,12 +53,12 @@ async function ManagementKpis({ role, branchId }: { role: RoleName; branchId: st
 }
 
 async function Departments({ user }: { user: CurrentUser }) {
-  const visible = accessibleModules(user);
+  const visible = accessibleModules(user, await allowedModuleSlugsFor(user));
   // Resolve up to 3 KPIs per module in one parallel pass.
   const cards = await Promise.all(
     visible.map(async (m) => {
       const picks = m.kpis.slice(0, 3);
-      const values = await Promise.all(picks.map((k) => drillCount(k.entity, resolveFilters(k.filters), user.role, user.branchId)));
+      const values = await Promise.all(picks.map((k) => drillCount(k.entity, resolveFilters(k.filters), user)));
       return { def: m, kpis: picks.map((k, i) => ({ label: k.label, value: values[i] })) };
     }),
   );
@@ -70,11 +72,14 @@ async function Departments({ user }: { user: CurrentUser }) {
   );
 }
 
-async function Performance({ role, branchId }: { role: RoleName; branchId: string | null }) {
-  const scope = branchScopeWhere(role, branchId);
+async function Performance({ user }: { user: CurrentUser }) {
+  const scope = await userScopeWhere(user);
+  // The branch table follows the same org scope (one centre, a company's
+  // centres, or all centres).
+  const branchWhere = scope.branchId ? { active: true, id: scope.branchId } : { active: true };
   const [stages, branches, retention, campaigns] = await Promise.all([
     leadFunnel(scope),
-    prisma.branch.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    prisma.branch.findMany({ where: branchWhere, orderBy: { name: "asc" } }),
     prisma.retentionStatus.groupBy({ by: ["category"], _count: { _all: true } }),
     prisma.campaign.findMany(),
   ]);
@@ -201,10 +206,10 @@ export default async function Dashboard() {
         </p>
       </header>
 
-      {showOrgRollup && <ManagementKpis role={user.role} branchId={user.branchId} />}
+      {showOrgRollup && <ManagementKpis user={user} />}
       {user.role === "doctor" && <DoctorToday />}
       <Departments user={user} />
-      {showOrgRollup && <Performance role={user.role} branchId={user.branchId} />}
+      {showOrgRollup && <Performance user={user} />}
     </main>
   );
 }

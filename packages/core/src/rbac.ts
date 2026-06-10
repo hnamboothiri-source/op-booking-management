@@ -21,6 +21,7 @@ export type RoleName =
   | "patient_success_executive"
   | "marketing_team"
   | "branch_manager"
+  | "company_manager"
   | "camp_coordinator"
   | "mobile_clinic_coordinator"
   | "module_manager";
@@ -149,6 +150,22 @@ export const ROLE_GRANTS: Record<RoleName, Grant[]> = {
     { resource: "tasks", actions: RO },
   ],
 
+  // Company-level oversight: like `management` but pinned to one company's
+  // centres (org scoping is orthogonal — see orgScopeWhere).
+  company_manager: [
+    { resource: "dashboards", actions: RO },
+    { resource: "reports", actions: RO },
+    { resource: "leads", actions: RO },
+    { resource: "appointments", actions: RO },
+    { resource: "consultations", actions: RO },
+    { resource: "admissions", actions: RO },
+    { resource: "campaigns", actions: RO },
+    { resource: "retention", actions: RO },
+    { resource: "referrals", actions: RO },
+    { resource: "follow_ups", actions: RO },
+    { resource: "tasks", actions: RO },
+  ],
+
   camp_coordinator: [
     { resource: "camps", actions: ALL },
     { resource: "leads", actions: ["view", "create"] },
@@ -210,6 +227,48 @@ export function isBranchScoped(role: RoleName): boolean {
 export function branchScopeWhere(role: RoleName, branchId: string | null): { branchId?: string } {
   if (isBranchScoped(role) && branchId) return { branchId };
   return {};
+}
+
+/** Roles scoped to one company's centres (the caller resolves the centre list). */
+export function isCompanyScoped(role: RoleName): boolean {
+  return role === "company_manager";
+}
+
+export type OrgScopeWhere = { branchId?: string | { in: string[] } };
+
+/**
+ * Org-aware scope `where` fragment. Three tiers:
+ *  - group roles (administrator, management, …) → no constraint;
+ *  - company-scoped roles → pinned to the company's centres (`branchId IN`);
+ *  - branch-scoped roles → pinned to their own centre.
+ * `companyBranchIds` is resolved by the caller (kept pure / DB-free here). An
+ * `activeBranchId` narrows a company/group user to one centre when they pick
+ * one in the centre switcher.
+ */
+export function orgScopeWhere(
+  role: RoleName,
+  branchId: string | null,
+  companyBranchIds: string[] | null,
+  activeBranchId?: string | null,
+): OrgScopeWhere {
+  if (isBranchScoped(role)) return branchId ? { branchId } : {};
+  if (isCompanyScoped(role)) {
+    if (activeBranchId && (companyBranchIds ?? []).includes(activeBranchId)) return { branchId: activeBranchId };
+    return companyBranchIds && companyBranchIds.length ? { branchId: { in: companyBranchIds } } : {};
+  }
+  // Group-level roles: unconstrained unless they picked a centre.
+  if (activeBranchId) return { branchId: activeBranchId };
+  return {};
+}
+
+/**
+ * Module allotment per centre: is `slug` one of the modules this centre runs?
+ * An empty / missing list means ALL modules are enabled (backward compatible —
+ * un-configured centres lose nothing).
+ */
+export function branchModuleEnabled(enabledModules: string[] | null | undefined, slug: string): boolean {
+  if (!enabledModules || enabledModules.length === 0) return true;
+  return enabledModules.includes(slug);
 }
 
 /**

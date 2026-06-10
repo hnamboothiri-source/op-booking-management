@@ -37,9 +37,17 @@ enum Role {
   patient_success_executive
   marketing_team
   branch_manager
+  company_manager
   camp_coordinator
   mobile_clinic_coordinator
   module_manager
+}
+
+// Org hierarchy: Company (legal entity) → Branch (centre). The group is the tenant.
+enum BranchType {
+  flagship_hospital
+  hospital
+  op_centre
 }
 
 enum Gender {
@@ -428,15 +436,36 @@ enum ReasonCategory {
 // CORE / MASTER DATA
 // ===========================================================================
 
-model Branch {
+// Legal entity owning a set of centres, e.g. SAEH (flagship) and SAEC (clinics).
+model Company {
   id        String   @id @default(uuid())
   name      String   @unique
-  code      String?  @unique
-  location  String?
+  shortName String?  @map("short_name")
+  code      String?  @unique // "SAEH", "SAEC"
   active    Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  branches Branch[]
+  staff    StaffUser[]
+
+  @@map("companies")
+}
+
+model Branch {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  code      String?    @unique
+  location  String?
+  companyId String?    @map("company_id")
+  type      BranchType @default(hospital)
+  // Module slugs this centre runs (module allotment). EMPTY = ALL modules enabled.
+  enabledModules String[] @default([]) @map("enabled_modules")
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  company          Company?       @relation(fields: [companyId], references: [id])
   doctorsSchedules DoctorSchedule[]
   timeSlots        TimeSlot[]
   bookings         OpBooking[]
@@ -444,6 +473,7 @@ model Branch {
   consultations    Consultation[]
   staff            StaffUser[]
 
+  @@index([companyId])
   @@map("branches")
 }
 
@@ -511,6 +541,7 @@ model StaffUser {
   email        String   @unique
   role         Role
   branchId     String?  @map("branch_id")
+  companyId    String?  @map("company_id")
   passwordHash String?  @map("password_hash")
   active       Boolean  @default(true)
   // Module slugs this user is a department manager of (orthogonal scope; see rbac.effectiveCan).
@@ -520,6 +551,7 @@ model StaffUser {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   branch        Branch?        @relation(fields: [branchId], references: [id])
+  company       Company?       @relation(fields: [companyId], references: [id])
   ownedLeads    Lead[]         @relation("LeadOwner")
   assignedTasks Task[]         @relation("TaskAssignee")
   auditEvents   AuditLog[]
@@ -1487,9 +1519,13 @@ model Task {
 }
 
 // Department/module-level plan — objectives, targets, budget, time frame, activities.
+// Scope: branchId set => centre plan; companyId set (branchId null) => company plan;
+// both null => group/global plan (legacy rows).
 model ModulePlan {
   id            String     @id @default(uuid())
   moduleSlug    String     @map("module_slug")
+  branchId      String?    @map("branch_id")
+  companyId     String?    @map("company_id")
   title         String
   period        String?                              // e.g. "2026-Q3"
   periodStart   DateTime?  @map("period_start") @db.Date
@@ -1505,6 +1541,7 @@ model ModulePlan {
   updatedAt     DateTime   @updatedAt @map("updated_at")
 
   @@index([moduleSlug, status])
+  @@index([moduleSlug, status, branchId, companyId])
   @@map("module_plans")
 }
 
