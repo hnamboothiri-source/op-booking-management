@@ -1,8 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { store } from "./mock/dataset";
-import { setSession, setSessionUser, clearSession } from "./session";
+import { setSession, setSessionUser, setActiveBranchCookie, clearSession } from "./session";
 
 /**
  * PROTOTYPE login: no password. The login role-picker posts a `role`; an email
@@ -33,6 +34,13 @@ export async function loginAsStaff(fd: FormData): Promise<void> {
   // Managers land in their first owned department; others at the consolidation home.
   const slugs = (staff!.managedModules as string[]) ?? [];
   redirect(slugs.length ? `/modules/${slugs[0]}` : "/");
+}
+
+/** Centre switcher: pin the session to one centre ("" = all centres in scope). */
+export async function setActiveBranch(fd: FormData): Promise<void> {
+  const branchId = fd.get("branchId")?.toString() ?? "";
+  await setActiveBranchCookie(branchId || null);
+  revalidatePath("/", "layout");
 }
 
 export async function logout(): Promise<void> {

@@ -23,8 +23,9 @@ const DEFAULTS: Record<string, Row> = {
   opBooking: { status: "booked", noPreference: false, requestedDoctorId: null },
   doctor: { active: true, opDoctor: true, newTargetPct: 70, followupTargetPct: 30 },
   admissionRecommendation: { status: "recommended" },
-  staffUser: { active: true, managedModules: [] },
-  modulePlan: { status: "draft", plannedBudget: 0, targets: [], activities: [], budgetBreakdown: null },
+  staffUser: { active: true, managedModules: [], companyId: null },
+  branch: { active: true, companyId: null, type: "hospital" },
+  modulePlan: { status: "draft", plannedBudget: 0, targets: [], activities: [], budgetBreakdown: null, branchId: null, companyId: null },
   moduleMaster: { active: true, fields: [], listColumns: [] },
   customRecord: { data: {} },
   planConfig: { cadence: "quarterly", monthlyBudget: false, entryFields: [], reportColumns: [], flowSteps: [] },
@@ -81,6 +82,7 @@ function hydrate(row: Row) {
   link("doctorId", "doctor", "doctor");
   link("departmentId", "department", "department");
   link("branchId", "branch", "branch");
+  link("companyId", "company", "company");
   link("roomId", "consultationRoom", "room");
   link("leadId", "lead", "lead");
   link("ownerId", "staffUser", "owner");

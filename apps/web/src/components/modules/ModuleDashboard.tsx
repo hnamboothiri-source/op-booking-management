@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { branchScopeWhere, can, formatINR, type RoleName, type TargetLine } from "@prm/core";
+import { can, formatINR, type TargetLine } from "@prm/core";
 import { PageHeader, Card } from "@/components/ui";
 import { DrillStat } from "@/components/drill/DrillStat";
 import { LeadFunnelChart } from "@/components/charts/LeadFunnelChart";
 import { BarChartCard } from "@/components/charts/BarChartCard";
 import { leadFunnel } from "@/lib/leads/funnel";
 import { drillCount } from "@/lib/drill/count";
+import { userScopeWhere } from "@/lib/scope";
 import { prisma } from "@/lib/db";
 import { resolveFilters, type ModuleDef } from "@/lib/modules/registry";
 import { getModuleFlow } from "@/lib/config/actions";
@@ -33,9 +34,9 @@ async function PlanBanner({ def }: { def: ModuleDef }) {
   );
 }
 
-async function FeatureSection({ def, role, branchId }: { def: ModuleDef; role: RoleName; branchId: string | null }) {
+async function FeatureSection({ def, user }: { def: ModuleDef; user: CurrentUser }) {
   if (def.feature === "leadFunnel") {
-    const stages = await leadFunnel(branchScopeWhere(role, branchId));
+    const stages = await leadFunnel(await userScopeWhere(user));
     return (
       <section className="mb-8">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Lead conversion funnel</h2>
@@ -49,9 +50,9 @@ async function FeatureSection({ def, role, branchId }: { def: ModuleDef; role: R
   if (def.feature === "apptFlow") {
     const today = resolveFilters({ date: "$today" });
     const [booked, arrivedAll, completed] = await Promise.all([
-      drillCount("appointments", { ...today, status: "booked,confirmed" }, role, branchId),
-      drillCount("appointments", { ...today, status: "arrived,waiting,in_consultation,completed" }, role, branchId),
-      drillCount("appointments", { ...today, status: "completed" }, role, branchId),
+      drillCount("appointments", { ...today, status: "booked,confirmed" }, user),
+      drillCount("appointments", { ...today, status: "arrived,waiting,in_consultation,completed" }, user),
+      drillCount("appointments", { ...today, status: "completed" }, user),
     ]);
     return (
       <section className="mb-8">
@@ -67,9 +68,9 @@ async function FeatureSection({ def, role, branchId }: { def: ModuleDef; role: R
 
 /** Generic per-module dashboard: KPI tiles + optional feature chart + workspace cards. */
 export async function ModuleDashboard({ def, user }: { def: ModuleDef; user: CurrentUser }) {
-  const { role, branchId } = user;
+  const { role } = user;
   const [kpiValues, flow] = await Promise.all([
-    Promise.all(def.kpis.map((k) => drillCount(k.entity, resolveFilters(k.filters), role, branchId))),
+    Promise.all(def.kpis.map((k) => drillCount(k.entity, resolveFilters(k.filters), user))),
     getModuleFlow(def.slug).then((steps) => resolveFlow(def, steps, user)),
   ]);
   const cards = def.links.filter((c) => can(role, c.resource, c.action ?? "view"));
@@ -90,7 +91,7 @@ export async function ModuleDashboard({ def, user }: { def: ModuleDef; user: Cur
         </div>
       )}
 
-      <FeatureSection def={def} role={role} branchId={branchId} />
+      <FeatureSection def={def} user={user} />
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Workspaces</h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

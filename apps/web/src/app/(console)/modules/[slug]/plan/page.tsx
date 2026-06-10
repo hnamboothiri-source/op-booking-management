@@ -8,9 +8,11 @@ import { drillCount } from "@/lib/drill/count";
 import { getPlanConfig } from "@/lib/config/actions";
 import {
   planProgressPct, activitiesBudget, formatINR, canVerify, canApprove, separationOk,
-  cadencePeriods, monthlyBuckets, type Cadence,
+  cadencePeriods, monthlyBuckets, isBranchScoped, isCompanyScoped, type Cadence,
   type TargetLine, type ActivityLine,
 } from "@prm/core";
+import { activePlan as governingPlan } from "@/lib/planning/gate";
+import { assertModuleAllotted } from "@/lib/modules/allotment";
 import { PageHeader, Card, Badge, SubmitButton } from "@/components/ui";
 import { FieldInput } from "@/components/masters/FieldInput";
 import {
@@ -29,14 +31,34 @@ export default async function ModulePlanPage({ params }: { params: Promise<{ slu
   const def = getModuleBySlug(slug);
   if (!def) notFound();
   const user = await requireCan(def.resource, "view");
+  await assertModuleAllotted(user, slug);
   const canEdit = effectiveCan(user, def.resource, "edit");
 
-  const [plans, staff, kpiActuals, cfg] = await Promise.all([
-    prisma.modulePlan.findMany({ where: { moduleSlug: slug }, orderBy: { createdAt: "desc" } }),
+  // Planning scope: centre staff plan for their own centre; company/group users
+  // plan for the centre picked in the switcher, else at company/group level.
+  const scopeBranchId = isBranchScoped(user.role) ? user.branchId : user.activeBranchId;
+  const planWhere = scopeBranchId
+    ? { moduleSlug: slug, branchId: scopeBranchId }
+    : isCompanyScoped(user.role)
+      ? { moduleSlug: slug, branchId: null, companyId: user.companyId }
+      : { moduleSlug: slug, branchId: null, companyId: null };
+
+  const [plans, staff, kpiActuals, cfg, scopeBranch] = await Promise.all([
+    prisma.modulePlan.findMany({ where: planWhere, orderBy: { createdAt: "desc" } }),
     prisma.staffUser.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
-    Promise.all(def.kpis.map((k) => drillCount(k.entity, resolveFilters(k.filters), user.role, user.branchId))),
+    Promise.all(def.kpis.map((k) => drillCount(k.entity, resolveFilters(k.filters), user))),
     getPlanConfig(slug),
+    scopeBranchId ? prisma.branch.findUnique({ where: { id: scopeBranchId } }) : Promise.resolve(null),
   ]);
+  const scopeLabel = scopeBranch
+    ? `Centre plan — ${scopeBranch.name}`
+    : isCompanyScoped(user.role)
+      ? "Company plan"
+      : "Group plan — all centres";
+  // When this centre has no active plan, show which plan currently governs it.
+  const governing = scopeBranchId
+    ? await governingPlan(slug, { branchId: scopeBranchId, companyId: (scopeBranch?.companyId as string | null) ?? user.companyId })
+    : null;
   // Cadence-driven period options for the current + next year (custom → free-form).
   const thisYear = new Date().getFullYear();
   const periodOptions = cfg.cadence === "custom" ? [] : [...cadencePeriods(cfg.cadence as Cadence, thisYear), ...cadencePeriods(cfg.cadence as Cadence, thisYear + 1)];
@@ -49,10 +71,19 @@ export default async function ModulePlanPage({ params }: { params: Promise<{ slu
   return (
     <div>
       <PageHeader title={`Plan · ${def.name}`} subtitle="Objectives, targets, budget, time frame & activities for this department" />
-      <div className="mb-4"><Link href={`/modules/${slug}`} className="text-sm text-slate-500 hover:underline">← {def.name} dashboard</Link></div>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Link href={`/modules/${slug}`} className="text-sm text-slate-500 hover:underline">← {def.name} dashboard</Link>
+        <Badge tone={scopeBranch ? "blue" : "slate"}>{scopeLabel}</Badge>
+        {!scopeBranch && !isBranchScoped(user.role) && <span className="text-xs text-slate-400">Pick a centre in the header switcher to plan for one centre.</span>}
+      </div>
 
       {!active ? (
         <Card accent>
+          {governing && (
+            <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              No active plan for this centre yet — it is currently governed by the {governing.branchId ? "centre" : governing.companyId ? "company" : "group"} plan <b>{governing.title}</b>. Create one below to plan separately.
+            </p>
+          )}
           <h2 className="mb-3 font-semibold">Create the first plan</h2>
           {canEdit ? (
             periodOptions.length > 0 ? (

@@ -58,11 +58,16 @@ export function canConfigureModule(user: Principal, slug: string): boolean {
 
 /**
  * Modules the user may enter. Confined managers see ONLY the modules they own;
- * everyone else sees the registry filtered by role view-permission.
+ * everyone else sees the registry filtered by role view-permission. An optional
+ * `allowedSlugs` list (the centre's module allotment, resolved by the caller —
+ * see lib/modules/allotment.ts) further confines the result; null = no filter.
  */
-export function accessibleModules(user: Principal): ModuleDef[] {
-  if (isModuleManager(user)) return MODULE_DASHBOARDS.filter((m) => user.managedModules.includes(m.slug));
-  return MODULE_DASHBOARDS.filter((m) => can(user.role, m.resource, "view"));
+export function accessibleModules(user: Principal, allowedSlugs?: string[] | null): ModuleDef[] {
+  const base = isModuleManager(user)
+    ? MODULE_DASHBOARDS.filter((m) => user.managedModules.includes(m.slug))
+    : MODULE_DASHBOARDS.filter((m) => can(user.role, m.resource, "view"));
+  if (!allowedSlugs) return base;
+  return base.filter((m) => allowedSlugs.includes(m.slug));
 }
 
 function matchesPrefix(pathname: string, prefix: string): boolean {

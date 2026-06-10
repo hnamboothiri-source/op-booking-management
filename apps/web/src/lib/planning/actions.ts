@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { rupeesToPaise, canVerify, canApprove, separationOk, cadencePeriods, type Cadence, type TargetLine, type ActivityLine, type Approval, type ChangeEntry, type PlanStatus } from "@prm/core";
+import { rupeesToPaise, branchModuleEnabled, canVerify, canApprove, separationOk, scopeCovers, isBranchScoped, isCompanyScoped, cadencePeriods, type Cadence, type TargetLine, type ActivityLine, type Approval, type ChangeEntry, type PlanStatus } from "@prm/core";
 import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
@@ -32,7 +32,31 @@ async function planGuard(planId: string, action: "view" | "edit"): Promise<{ use
   const def = getModuleBySlug(plan.moduleSlug);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const user = await requireCan((def?.resource ?? "dashboards") as any, action);
+  // Org scope: a centre's plan can only be edited by its own centre / company /
+  // group staff — never by another centre.
+  if (action === "edit" && !scopeCovers(user, { branchId: plan.branchId ?? null, companyId: plan.companyId ?? null })) {
+    throw new Error("This plan belongs to another centre — you can view it but not change it.");
+  }
   return { user, slug: plan.moduleSlug };
+}
+
+/**
+ * The scope new plans are stamped with. Centre-pinned staff plan for their own
+ * centre. Company/group users plan for the centre picked in the switcher; with
+ * no centre picked, a company user creates a company plan and a group user a
+ * group plan.
+ */
+async function planScopeFor(user: CurrentUser, slug?: string): Promise<{ branchId: string | null; companyId: string | null }> {
+  const branchId = isBranchScoped(user.role) ? user.branchId : user.activeBranchId;
+  if (branchId) {
+    const branch = await prisma.branch.findUnique({ where: { id: branchId } });
+    // Module allotment: a centre can only plan for modules it actually runs.
+    if (slug && !branchModuleEnabled((branch?.enabledModules as string[] | undefined) ?? [], slug)) {
+      throw new Error(`${branch?.name ?? "This centre"} does not run the "${slug}" module — change its allotment under Module access → Branches first.`);
+    }
+    return { branchId, companyId: (branch?.companyId as string | null) ?? user.companyId ?? null };
+  }
+  return { branchId: null, companyId: isCompanyScoped(user.role) ? user.companyId : null };
 }
 
 async function patchPlan(planId: string, action: string, data: Record<string, unknown>): Promise<string> {
@@ -50,9 +74,12 @@ export async function createModulePlan(slug: string, fd: FormData): Promise<void
   const title = str(fd, "title") ?? `${def?.name ?? slug} plan`;
   const ps = str(fd, "periodStart");
   const pe = str(fd, "periodEnd");
+  const scope = await planScopeFor(user, slug);
   const created = await prisma.modulePlan.create({
     data: {
       moduleSlug: slug,
+      branchId: scope.branchId,
+      companyId: scope.companyId,
       title,
       period: str(fd, "period"),
       periodStart: ps ? new Date(ps) : null,
@@ -89,9 +116,12 @@ export async function createPlanForPeriod(slug: string, fd: FormData): Promise<v
     const match = cadencePeriods(cfg.cadence as Cadence, Number.isFinite(year) ? year : new Date().getFullYear()).find((p) => p.label === periodKey);
     if (match) { period = match.label; periodStart = new Date(match.start); periodEnd = new Date(match.end); }
   }
+  const scope = await planScopeFor(user, slug);
   const created = await prisma.modulePlan.create({
     data: {
       moduleSlug: slug,
+      branchId: scope.branchId,
+      companyId: scope.companyId,
       title: str(fd, "title") ?? `${def?.name ?? slug} — ${period ?? "plan"}`,
       period,
       periodStart,
@@ -136,9 +166,14 @@ export async function updateModulePlan(planId: string, fd: FormData): Promise<vo
 
 export async function setPlanStatus(planId: string, status: PlanStatus): Promise<void> {
   const { slug } = await planGuard(planId, "edit");
-  // Only one active plan per module.
+  // Only one active plan per module *per scope* (centre / company / group):
+  // activating a plan closes others with the same (branchId, companyId).
   if (status === "active") {
-    await prisma.modulePlan.updateMany({ where: { moduleSlug: slug, status: "active" }, data: { status: "closed" } });
+    const plan = await prisma.modulePlan.findUnique({ where: { id: planId } });
+    await prisma.modulePlan.updateMany({
+      where: { moduleSlug: slug, status: "active", branchId: plan?.branchId ?? null, companyId: plan?.companyId ?? null },
+      data: { status: "closed" },
+    });
   }
   await patchPlan(planId, "plan.status", { status });
 }

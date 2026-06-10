@@ -8,8 +8,10 @@ import { Badge } from "@/components/ui";
 import { DrillProvider } from "@/components/drill/DrillProvider";
 import { NavIcon, type IconName } from "./NavIcon";
 import { DepartmentRail, type RailModule, type UtilityItem } from "./DepartmentRail";
+import { CentreSwitcher, type CentreGroup } from "./CentreSwitcher";
 
 export type { RailModule, UtilityItem } from "./DepartmentRail";
+export type { CentreGroup } from "./CentreSwitcher";
 
 const GROUP_ORDER = ["Overview", "Engagement", "Clinical", "Outreach", "Growth", "Workflow", "Admin"];
 
@@ -122,12 +124,16 @@ export function AppShell({
   utilities,
   user,
   todayLabel,
+  centreGroups = [],
+  activeBranchId = null,
   children,
 }: {
   modules: RailModule[];
   utilities: UtilityItem[];
   user: { name: string; role: string };
   todayLabel: string;
+  centreGroups?: CentreGroup[];
+  activeBranchId?: string | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -181,6 +187,7 @@ export function AppShell({
           <span className="rounded-full bg-gold-100 px-2 py-0.5 text-[11px] font-medium text-gold-700 dark:bg-gold-700/30 dark:text-gold-300" title="Prototype — data is sample data and resets on restart">Prototype · mock data</span>
           <div className="ml-auto flex items-center gap-3 text-sm">
             <span className="hidden text-slate-400 sm:inline dark:text-slate-500">Today: {todayLabel}</span>
+            {centreGroups.length > 0 && <CentreSwitcher groups={centreGroups} active={activeBranchId} />}
             <span className="text-slate-600 dark:text-slate-300">{user.name}</span>
             <Badge tone="blue">{user.role.replace(/_/g, " ")}</Badge>
             <form action={logout}>

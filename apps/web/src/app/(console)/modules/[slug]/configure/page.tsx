@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { canConfigureModule } from "@/lib/modules/access";
+import { assertModuleAllotted } from "@/lib/modules/allotment";
 import { getModuleBySlug } from "@/lib/modules/registry";
 import { getPlanConfig, getModuleFlow, savePlanConfig, addConfigField, removeConfigField, addFlowStep, updateFlowStep, removeFlowStep, moveFlowStep, resetFlow } from "@/lib/config/actions";
 import { cadencePeriods, CADENCES, CADENCE_LABELS, type Cadence } from "@prm/core";
@@ -19,6 +20,7 @@ export default async function ConfigurePage({ params }: { params: Promise<{ slug
   if (!def) notFound();
   const user = await requireUser();
   if (!canConfigureModule(user, slug)) redirect("/forbidden");
+  await assertModuleAllotted(user, slug);
 
   const cfg = await getPlanConfig(slug);
   const flow = await getModuleFlow(slug);

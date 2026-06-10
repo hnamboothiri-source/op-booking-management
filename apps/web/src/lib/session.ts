@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { type Action, type Resource, type RoleName, type PlanRank } from "@prm/core";
+import { isBranchScoped, isCompanyScoped, type Action, type Resource, type RoleName, type PlanRank } from "@prm/core";
 import { store } from "./mock/dataset";
 import { effectiveCan } from "./modules/access";
 
@@ -13,6 +13,7 @@ function rankForRole(role: RoleName): PlanRank {
 
 const COOKIE = "prm_role";
 const UID_COOKIE = "prm_uid";
+const BRANCH_COOKIE = "prm_branch";
 
 export interface CurrentUser {
   id: string;
@@ -20,6 +21,10 @@ export interface CurrentUser {
   email: string;
   role: RoleName;
   branchId: string | null;
+  /** Home company (company_manager scope; derived from branch for centre staff). */
+  companyId: string | null;
+  /** Centre selected in the switcher (company/group users); centre-pinned roles always get their own. */
+  activeBranchId: string | null;
   /** Module slugs this user manages (department-manager scope). */
   managedModules: string[];
   /** Maker-checker-approver tier. */
@@ -34,13 +39,22 @@ export interface CurrentUser {
  * unchanged for roles; module managers gain CRUD on their owned modules via
  * `effectiveCan`. Real auth returns in the backend phase.
  */
+function companyOfBranch(branchId: string | null): string | null {
+  if (!branchId) return null;
+  const branch = (store.branch ?? []).find((b) => b.id === branchId);
+  return (branch?.companyId as string) ?? null;
+}
+
 function toUser(staff: Record<string, unknown>): CurrentUser {
+  const branchId = (staff.branchId as string) ?? null;
   return {
     id: staff.id as string,
     name: staff.name as string,
     email: staff.email as string,
     role: staff.role as RoleName,
-    branchId: (staff.branchId as string) ?? null,
+    branchId,
+    companyId: (staff.companyId as string) ?? companyOfBranch(branchId),
+    activeBranchId: branchId,
     managedModules: (staff.managedModules as string[]) ?? [],
     planRank: (staff.planRank as PlanRank) ?? rankForRole(staff.role as RoleName),
   };
@@ -50,7 +64,7 @@ function mockUserForRole(role: RoleName): CurrentUser {
   const staff = (store.staffUser ?? []).find((s) => s.role === role);
   if (staff) return toUser(staff);
   const title = role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  return { id: `mock-${role}`, name: title, email: `${role}@demo.test`, role, branchId: null, managedModules: [], planRank: rankForRole(role) };
+  return { id: `mock-${role}`, name: title, email: `${role}@demo.test`, role, branchId: null, companyId: null, activeBranchId: null, managedModules: [], planRank: rankForRole(role) };
 }
 
 function mockUserById(id: string): CurrentUser | null {
@@ -58,16 +72,31 @@ function mockUserById(id: string): CurrentUser | null {
   return staff ? toUser(staff) : null;
 }
 
+/**
+ * Apply the centre-switcher cookie. Centre-pinned roles always keep their own
+ * branch; company users may only pick a centre of their company; group users
+ * may pick any centre (or none = all centres).
+ */
+function withActiveBranch(user: CurrentUser, picked: string | null | undefined): CurrentUser {
+  if (isBranchScoped(user.role)) return user; // pinned — switcher never applies
+  if (!picked) return { ...user, activeBranchId: null };
+  const branch = (store.branch ?? []).find((b) => b.id === picked && b.active !== false);
+  if (!branch) return { ...user, activeBranchId: null };
+  if (isCompanyScoped(user.role) && branch.companyId !== user.companyId) return { ...user, activeBranchId: null };
+  return { ...user, activeBranchId: picked };
+}
+
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   const jar = await cookies();
+  const picked = jar.get(BRANCH_COOKIE)?.value || null;
   const uid = jar.get(UID_COOKIE)?.value;
   if (uid) {
     const byId = mockUserById(uid);
-    if (byId) return byId;
+    if (byId) return withActiveBranch(byId, picked);
   }
   const role = jar.get(COOKIE)?.value as RoleName | undefined;
   if (!role) return null;
-  return mockUserForRole(role);
+  return withActiveBranch(mockUserForRole(role), picked);
 }
 
 /** Require a logged-in user or redirect to /login. */
@@ -98,8 +127,16 @@ export async function setSessionUser(staffId: string): Promise<void> {
   jar.delete(COOKIE);
 }
 
+/** Persist the centre-switcher selection (empty = all centres in scope). */
+export async function setActiveBranchCookie(branchId: string | null): Promise<void> {
+  const jar = await cookies();
+  if (branchId) jar.set(BRANCH_COOKIE, branchId, { httpOnly: true, sameSite: "lax", path: "/" });
+  else jar.delete(BRANCH_COOKIE);
+}
+
 export async function clearSession(): Promise<void> {
   const jar = await cookies();
   jar.delete(COOKIE);
   jar.delete(UID_COOKIE);
+  jar.delete(BRANCH_COOKIE);
 }

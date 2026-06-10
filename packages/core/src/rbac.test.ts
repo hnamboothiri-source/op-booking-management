@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { can, visibleResources, isBranchScoped, branchScopeWhere, effectiveCan } from "./rbac";
+import { can, visibleResources, isBranchScoped, isCompanyScoped, branchScopeWhere, orgScopeWhere, effectiveCan, branchModuleEnabled } from "./rbac";
 
 describe("rbac.can", () => {
   it("administrator can do anything", () => {
@@ -51,6 +51,45 @@ describe("rbac branch scoping", () => {
     expect(branchScopeWhere("branch_manager", "b1")).toEqual({ branchId: "b1" });
     expect(branchScopeWhere("administrator", "b1")).toEqual({});
     expect(branchScopeWhere("branch_manager", null)).toEqual({});
+  });
+});
+
+describe("rbac org scoping (orgScopeWhere)", () => {
+  const centres = ["b1", "b2", "b3"];
+  it("group roles see everything", () => {
+    expect(orgScopeWhere("administrator", "b1", null)).toEqual({});
+    expect(orgScopeWhere("management", null, null)).toEqual({});
+  });
+  it("group roles narrow to a picked centre", () => {
+    expect(orgScopeWhere("administrator", "b1", null, "b2")).toEqual({ branchId: "b2" });
+  });
+  it("company_manager is pinned to the company's centres", () => {
+    expect(isCompanyScoped("company_manager")).toBe(true);
+    expect(orgScopeWhere("company_manager", null, centres)).toEqual({ branchId: { in: centres } });
+  });
+  it("company_manager narrows to a picked centre only within the company", () => {
+    expect(orgScopeWhere("company_manager", null, centres, "b2")).toEqual({ branchId: "b2" });
+    expect(orgScopeWhere("company_manager", null, centres, "other")).toEqual({ branchId: { in: centres } });
+  });
+  it("branch-scoped roles stay pinned to their own centre regardless of switcher", () => {
+    expect(orgScopeWhere("branch_manager", "b1", centres, "b2")).toEqual({ branchId: "b1" });
+    expect(orgScopeWhere("front_office", null, null, "b2")).toEqual({});
+  });
+  it("company_manager without a resolved centre list is unconstrained (fail-open for group fallback)", () => {
+    expect(orgScopeWhere("company_manager", null, null)).toEqual({});
+  });
+});
+
+describe("rbac module allotment (branchModuleEnabled)", () => {
+  it("empty or missing list means all modules enabled", () => {
+    expect(branchModuleEnabled([], "camps")).toBe(true);
+    expect(branchModuleEnabled(null, "camps")).toBe(true);
+    expect(branchModuleEnabled(undefined, "camps")).toBe(true);
+  });
+  it("a non-empty list restricts to its slugs", () => {
+    const op = ["leads", "appointments", "consultations"];
+    expect(branchModuleEnabled(op, "appointments")).toBe(true);
+    expect(branchModuleEnabled(op, "camps")).toBe(false);
   });
 });
 

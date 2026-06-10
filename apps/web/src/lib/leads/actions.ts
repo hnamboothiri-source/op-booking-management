@@ -64,7 +64,10 @@ export async function createLead(fd: FormData): Promise<void> {
   const phone = str(fd, "phone");
   if (!contactName || !phone) throw new Error("Name and phone are required");
   const planRef = str(fd, "planRef");
-  await assertPlannedActivity("leads", "generate_leads", planRef);
+  // Gate against the actor's own centre's plan (falls back company → group).
+  await assertPlannedActivity("leads", "generate_leads", planRef, {
+    scope: { branchId: user.activeBranchId ?? user.branchId, companyId: user.companyId },
+  });
 
   // Auto-route to a call-centre desk by the lead's source (Reception vs Back Office).
   const sourceId = str(fd, "sourceId");

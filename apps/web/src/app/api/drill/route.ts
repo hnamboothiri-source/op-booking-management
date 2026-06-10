@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { can, branchScopeWhere, pickAllowedFilters, type DrillEntity, type DrillFilters, type DrillResult } from "@prm/core";
+import { can, pickAllowedFilters, type DrillEntity, type DrillFilters, type DrillResult } from "@prm/core";
 import { getCurrentUser } from "@/lib/session";
+import { userScopeWhere } from "@/lib/scope";
 import { DRILL, drillListHref } from "@/lib/drill/registry";
 
 /**
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const takeParam = Number(req.nextUrl.searchParams.get("take"));
   const take = Number.isFinite(takeParam) ? Math.min(Math.max(takeParam, 1), 50) : 15;
 
-  const where = { ...def.buildWhere(filters), ...(def.branchScoped ? branchScopeWhere(user.role, user.branchId) : {}) };
+  const where = { ...def.buildWhere(filters), ...(def.branchScoped ? await userScopeWhere(user) : {}) };
   const { rows, total } = await def.preview(where, take);
 
   const result: DrillResult = { title: def.label(filters), total, listHref: drillListHref(entity, filters), rows };
