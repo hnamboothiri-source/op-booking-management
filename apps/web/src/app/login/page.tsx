@@ -27,6 +27,28 @@ function managerLogins() {
     }));
 }
 
+// Designation-hierarchy logins: one staff member per designation, sorted by
+// level — demos how a session follows the job title (rights, approvals, pages).
+function designationLogins() {
+  const designations = (store.designation ?? []).filter((d) => d.active).sort((a, b) => a.level - b.level);
+  const approverName = (d: Record<string, unknown>) => {
+    const id = (d.approverDesignationId ?? d.reportsToDesignationId) as string | null;
+    return id ? ((store.designation ?? []).find((x) => x.id === id)?.name as string) ?? null : null;
+  };
+  const out: { id: string; label: string; blurb: string }[] = [];
+  for (const d of designations) {
+    const holder = (store.staffUser ?? []).find((s) => s.designationId === d.id && s.active !== false);
+    if (!holder) continue;
+    const approver = approverName(d);
+    out.push({
+      id: holder.id as string,
+      label: holder.name as string,
+      blurb: `${d.name}${approver ? ` · authorised by ${approver}` : ""}`,
+    });
+  }
+  return out;
+}
+
 // Org-scope logins: group (management), company managers and a centre manager —
 // demos group / company / centre consolidation scopes.
 function orgLogins() {
@@ -46,6 +68,7 @@ function orgLogins() {
 export default async function LoginPage() {
   const managers = managerLogins();
   const orgUsers = orgLogins();
+  const designationUsers = designationLogins();
   return (
     <main className="relative mx-auto flex min-h-screen max-w-lg flex-col justify-center overflow-hidden px-6 py-16">
       <DottedAccent className="opacity-60" />
@@ -74,6 +97,24 @@ export default async function LoginPage() {
               </form>
             ))}
           </div>
+
+          {designationUsers.length > 0 && (
+            <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-700">
+              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Designations (hierarchy demo)</h2>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Top to bottom — each session carries that designation&apos;s rights, approval powers &amp; authorizer.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {designationUsers.map((m) => (
+                  <form key={m.id} action={loginAsStaff}>
+                    <input type="hidden" name="staffId" value={m.id} />
+                    <button type="submit" className="w-full rounded-lg border border-slate-200 p-3 text-left transition-colors hover:border-rose-300 hover:bg-rose-50 dark:border-slate-700 dark:hover:border-rose-700 dark:hover:bg-rose-950/40">
+                      <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">{m.label}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">{m.blurb}</div>
+                    </button>
+                  </form>
+                ))}
+              </div>
+            </div>
+          )}
 
           {orgUsers.length > 0 && (
             <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-700">

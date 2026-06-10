@@ -343,8 +343,10 @@ enum PlanStatus {
   closed
 }
 
-// Planning approval tier (maker-checker-approver on plan activities)
+// Planning approval tier (maker-checker-approver on plan activities).
+// read_only = may view plans but not enter/verify/approve anything.
 enum PlanRank {
+  read_only
   staff
   supervisor
   manager
@@ -446,8 +448,10 @@ model Company {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  branches Branch[]
-  staff    StaffUser[]
+  branches     Branch[]
+  staff        StaffUser[]
+  designations Designation[]
+  masterPlans  MasterPlan[]
 
   @@map("companies")
 }
@@ -535,14 +539,53 @@ model ConsultationRoom {
   @@map("consultation_rooms")
 }
 
+// Admin-configurable job title: RBAC base (roleTemplate), approval tier,
+// module + page access, reporting officer and authorizer. Catalogues are per
+// company (companyId null = group-level). Deactivate, never delete.
+model Designation {
+  id                     String   @id @default(uuid())
+  name                   String
+  companyId              String?  @map("company_id") // null = group-level
+  level                  Int // 1 = top of the org
+  roleTemplate           Role     @map("role_template")
+  planRank               PlanRank @default(staff) @map("plan_rank")
+  moduleSlugs            String[] @default([]) @map("module_slugs") // empty = role default
+  // Page-level rights per module: { [moduleSlug]: string[] of page hrefs }.
+  // Module key missing or [] = ALL pages of that module.
+  pageAccess             Json?    @map("page_access")
+  // Plan activity types the designation may perform per module:
+  // { [moduleSlug]: string[] of activity keys }. Missing/[] = all types.
+  activityTypes          Json?    @map("activity_types")
+  // Per-module approval override: { [moduleSlug]: PlanRank }. Missing = planRank.
+  moduleRanks            Json?    @map("module_ranks")
+  // Tool keys this designation may use (admin-granted). EMPTY = role default.
+  tools                  String[] @default([])
+  reportsToDesignationId String?  @map("reports_to_designation_id")
+  approverDesignationId  String?  @map("approver_designation_id") // null = reportsTo
+  active                 Boolean  @default(true)
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  company       Company?      @relation(fields: [companyId], references: [id])
+  reportsTo     Designation?  @relation("DesignationReports", fields: [reportsToDesignationId], references: [id])
+  directReports Designation[] @relation("DesignationReports")
+  approver      Designation?  @relation("DesignationApprover", fields: [approverDesignationId], references: [id])
+  authorizes    Designation[] @relation("DesignationApprover")
+  staff         StaffUser[]
+
+  @@unique([name, companyId])
+  @@map("designations")
+}
+
 model StaffUser {
-  id           String   @id @default(uuid())
-  name         String
-  email        String   @unique
-  role         Role
-  branchId     String?  @map("branch_id")
-  companyId    String?  @map("company_id")
-  passwordHash String?  @map("password_hash")
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  role          Role
+  branchId      String?  @map("branch_id")
+  companyId     String?  @map("company_id")
+  designationId String?  @map("designation_id")
+  passwordHash  String?  @map("password_hash")
   active       Boolean  @default(true)
   // Module slugs this user is a department manager of (orthogonal scope; see rbac.effectiveCan).
   managedModules String[] @default([]) @map("managed_modules")
@@ -552,6 +595,7 @@ model StaffUser {
 
   branch        Branch?        @relation(fields: [branchId], references: [id])
   company       Company?       @relation(fields: [companyId], references: [id])
+  designation   Designation?   @relation(fields: [designationId], references: [id])
   ownedLeads    Lead[]         @relation("LeadOwner")
   assignedTasks Task[]         @relation("TaskAssignee")
   auditEvents   AuditLog[]
@@ -1516,6 +1560,47 @@ model Task {
   @@index([assigneeId, status])
   @@index([dueDate, status])
   @@map("tasks")
+}
+
+// Activity catalogue for reverse planning: each activity is connected to a
+// module and carries per-unit expected return + cost. The master plan's
+// "activities" lines pick from this catalogue.
+model ActivityMaster {
+  id            String   @id @default(uuid())
+  name          String   @unique
+  moduleSlug    String   @map("module_slug")
+  expectedValue Int      @default(0) @map("expected_value") // paise per unit
+  expectedCost  Int      @default(0) @map("expected_cost") // paise per unit
+  description   String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("activity_masters")
+}
+
+// Master plan — the budgetary vision statement: expected business worth for a
+// year, allocated per module (MasterPlanLine[] JSON). companyId null = the
+// GROUP master plan; one row per (year, scope). Department plans adopt their
+// period allocation from here.
+model MasterPlan {
+  id        String   @id @default(uuid())
+  year      Int
+  companyId String?  @map("company_id")
+  title       String
+  vision      String? // the vision statement text
+  // The yearly TARGETED figure, entered first; module allotments distribute it.
+  targetValue Int     @default(0) @map("target_value") // paise
+  lines       Json? // MasterPlanLine[]
+  activities Json? // MasterPlanActivity[] — the reverse plan (how the worth is achieved)
+  ownerId    String?  @map("owner_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company Company? @relation(fields: [companyId], references: [id])
+
+  @@unique([year, companyId])
+  @@map("master_plans")
 }
 
 // Department/module-level plan — objectives, targets, budget, time frame, activities.

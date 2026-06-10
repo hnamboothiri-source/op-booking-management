@@ -201,19 +201,172 @@ async function main() {
       create: { name, email, role, branchId: main.id, companyId: saeh.id, passwordHash },
     });
   }
-  // Company managers (one per company — company-wide consolidation scope).
+  // --- Designations (per-company catalogues; group-level rows have companyId null) ---
+  // [name, companyId, level, roleTemplate, planRank, reportsToName, approverName, moduleSlugs]
+  type DesignationSeed = [string, string | null, number, Role, "staff" | "supervisor" | "manager", string | null, string | null, string[]];
+  const designationSeeds: DesignationSeed[] = [
+    ["Group Head / Directors", null, 1, Role.management, "manager", null, null, []],
+    // SAEC — full set
+    ["Executive Director / CEO", saec.id, 2, Role.company_manager, "manager", "Group Head / Directors", null, []],
+    ["Patient Relations Dept Head", saec.id, 3, Role.patient_success_executive, "manager", "Executive Director / CEO", null, []],
+    ["Senior Manager – Public Relations", saec.id, 4, Role.marketing_team, "manager", "Patient Relations Dept Head", null, []],
+    ["Manager – Patient Relations", saec.id, 5, Role.patient_success_executive, "supervisor", "Patient Relations Dept Head", "Patient Relations Dept Head", []],
+    ["Manager – Call Center", saec.id, 5, Role.call_center_manager, "supervisor", "Patient Relations Dept Head", null, []],
+    ["Asst Manager – Public Relations", saec.id, 6, Role.marketing_team, "supervisor", "Senior Manager – Public Relations", null, []],
+    ["Patient Relations Officer", saec.id, 6, Role.patient_success_executive, "staff", "Manager – Patient Relations", null, []],
+    ["Patient Relations Executive", saec.id, 7, Role.patient_success_executive, "staff", "Patient Relations Officer", "Manager – Patient Relations", ["follow-ups", "retention", "communication", "patients"]],
+    ["Public Relations Executive", saec.id, 7, Role.marketing_team, "staff", "Asst Manager – Public Relations", null, []],
+    // SAEH — trimmed starter set
+    ["Executive Director / CEO", saeh.id, 2, Role.company_manager, "manager", "Group Head / Directors", null, []],
+    ["Patient Relations Dept Head", saeh.id, 3, Role.patient_success_executive, "manager", "Executive Director / CEO", null, []],
+    ["Manager – Call Center", saeh.id, 5, Role.call_center_manager, "supervisor", "Patient Relations Dept Head", null, []],
+    ["Patient Relations Officer", saeh.id, 6, Role.patient_success_executive, "staff", "Manager – Call Center", null, []],
+  ];
+  // Two passes: create rows first, then wire reportsTo/approver by (name, companyId).
+  // Demo tool grants (admin-decided): CEOs get the org tools; Dept Heads get master plan + reports.
+  const toolsFor = (name: string) =>
+    name === "Executive Director / CEO" ? ["master-plan", "group", "analytics", "reports"]
+    : name === "Patient Relations Dept Head" ? ["master-plan", "reports"]
+    : [];
+  for (const [name, companyId, level, roleTemplate, planRank, , , moduleSlugs] of designationSeeds) {
+    const exists = await prisma.designation.findFirst({ where: { name, companyId } });
+    if (!exists) await prisma.designation.create({ data: { name, companyId, level, roleTemplate, planRank, moduleSlugs, tools: toolsFor(name) } });
+    else await prisma.designation.update({ where: { id: exists.id }, data: { level, roleTemplate, planRank, moduleSlugs, tools: toolsFor(name) } });
+  }
+  const findDesignation = async (name: string | null, companyId: string | null) => {
+    if (!name) return null;
+    // Parent designations live in the same company or at group level.
+    return (await prisma.designation.findFirst({ where: { name, companyId } }))
+      ?? (await prisma.designation.findFirst({ where: { name, companyId: null } }));
+  };
+  for (const [name, companyId, , , , reportsToName, approverName] of designationSeeds) {
+    const self = await prisma.designation.findFirst({ where: { name, companyId } });
+    if (!self) continue;
+    const reportsTo = await findDesignation(reportsToName, companyId);
+    const approver = await findDesignation(approverName, companyId);
+    await prisma.designation.update({
+      where: { id: self.id },
+      data: { reportsToDesignationId: reportsTo?.id ?? null, approverDesignationId: approver?.id ?? null },
+    });
+  }
+  // Per-module approval demo: Manager – Patient Relations verifies in her own
+  // modules but is read-only in Communication planning.
+  const mprDesignation = await prisma.designation.findFirst({ where: { name: "Manager – Patient Relations", companyId: saec.id } });
+  if (mprDesignation) {
+    await prisma.designation.update({ where: { id: mprDesignation.id }, data: { moduleRanks: { communication: "read_only" } } });
+  }
+
+  // Page-level demo: Patient Relations Executive limited to the retention worklist + reports.
+  const preDesignation = await prisma.designation.findFirst({ where: { name: "Patient Relations Executive", companyId: saec.id } });
+  if (preDesignation) {
+    await prisma.designation.update({
+      where: { id: preDesignation.id },
+      data: {
+        pageAccess: { retention: ["/retention/worklist", "/modules/retention/reports"] },
+        activityTypes: { "follow-ups": ["followup_drive"], retention: ["reactivation_drive"] },
+      },
+    });
+  }
+
+  // Company managers (one per company — company-wide consolidation scope) + CEO designation.
   const companyManagers: [string, string, string][] = [
     ["Devi (SAEH Company Mgr)", "saeh.manager@sreedhareeyam.test", saeh.id],
     ["Hari (SAEC Company Mgr)", "saec.manager@sreedhareeyam.test", saec.id],
   ];
   for (const [name, email, companyId] of companyManagers) {
+    const ceo = await prisma.designation.findFirst({ where: { name: "Executive Director / CEO", companyId } });
     await prisma.staffUser.upsert({
       where: { email },
-      update: { passwordHash, companyId },
-      create: { name, email, role: Role.company_manager, companyId, planRank: "manager", passwordHash },
+      update: { passwordHash, companyId, designationId: ceo?.id ?? null },
+      create: { name, email, role: Role.company_manager, companyId, designationId: ceo?.id ?? null, planRank: "manager", passwordHash },
+    });
+  }
+  // Designation-hierarchy demo staff (SAEC patient relations chain).
+  const demoStaff: [string, string, Role, string | null, string][] = [
+    ["Adv. Mohan (Group Director)", "group.director@sreedhareeyam.test", Role.management, null, "Group Head / Directors"],
+    ["Dr. Kavitha (PR Dept Head)", "pr.head@sreedhareeyam.test", Role.patient_success_executive, saec.id, "Patient Relations Dept Head"],
+    ["Anitha (Mgr – Patient Relations)", "pr.manager@sreedhareeyam.test", Role.patient_success_executive, saec.id, "Manager – Patient Relations"],
+    ["Vimal (Patient Relations Exec)", "pr.exec@sreedhareeyam.test", Role.patient_success_executive, saec.id, "Patient Relations Executive"],
+  ];
+  for (const [name, email, role, companyId, designationName] of demoStaff) {
+    const des = await prisma.designation.findFirst({ where: { name: designationName, companyId } });
+    await prisma.staffUser.upsert({
+      where: { email },
+      update: { passwordHash, companyId, designationId: des?.id ?? null },
+      create: { name, email, role, companyId, designationId: des?.id ?? null, passwordHash },
     });
   }
   const callExec = await prisma.staffUser.findUniqueOrThrow({ where: { email: "callexec@sreedhareeyam.test" } });
+
+  // --- Activity catalogue (reverse planning) ---
+  const activityMasterSeeds: [string, string, number, number, string][] = [
+    ["Eye screening camp", "camps", 20000_00, 8000_00, "One-day community screening camp"],
+    ["Mobile clinic route", "mobile-clinics", 12000_00, 5000_00, "One van route day"],
+    ["Festival lead drive", "leads", 10000_00, 2500_00, "Seasonal lead-generation push"],
+    ["Reactivation call drive", "retention", 6000_00, 1000_00, "Dormant-patient call drive"],
+    ["WhatsApp engagement blast", "communication", 4000_00, 800_00, "Broadcast to consented patients"],
+    ["Referrer CME meet", "referrals", 8000_00, 3000_00, "CME evening for referring doctors"],
+  ];
+  for (const [name, moduleSlug, expectedValue, expectedCost, description] of activityMasterSeeds) {
+    await prisma.activityMaster.upsert({
+      where: { name },
+      update: { moduleSlug, expectedValue, expectedCost, description },
+      create: { name, moduleSlug, expectedValue, expectedCost, description },
+    });
+  }
+
+  // --- Master plans (budgetary vision statements: group + SAEC) ---
+  const planYear = new Date().getUTCFullYear();
+  const masterPlanSeeds: { companyId: string | null; title: string; vision: string; targetValue: number; lines: object[] }[] = [
+    {
+      companyId: null,
+      targetValue: 1570000_00,
+      title: `Sreedhareeyam Group — Vision ${planYear}`,
+      vision: "Grow the group's patient-relations business with dignified Ayurvedic care: every department plans from this vision, every centre owns its share, and follow-through is measured quarter by quarter.",
+      lines: [
+        { moduleSlug: "leads", yearlyValue: 200000_00, yearlyTarget: 800, kpiLabel: "New leads", quarters: { q1: 40000_00, q2: 50000_00, q3: 50000_00, q4: 60000_00 } },
+        { moduleSlug: "appointments", yearlyValue: 150000_00 },
+        { moduleSlug: "consultations", yearlyValue: 300000_00 },
+        { moduleSlug: "camps", yearlyValue: 480000_00, yearlyTarget: 24, kpiLabel: "All camps", quarters: { q1: 90000_00, q2: 110000_00, q3: 120000_00, q4: 160000_00 } },
+        { moduleSlug: "retention", yearlyValue: 120000_00 },
+        { moduleSlug: "campaigns", yearlyValue: 320000_00 },
+      ],
+    },
+    {
+      companyId: saec.id,
+      targetValue: 300000_00,
+      title: `SAEC — Vision ${planYear}`,
+      vision: "Each hospital and OP centre is a cost centre: plan your share of the network's growth in leads, outreach and retention.",
+      lines: [
+        { moduleSlug: "leads", yearlyValue: 80000_00, yearlyTarget: 320, kpiLabel: "New leads" },
+        { moduleSlug: "camps", yearlyValue: 120000_00, yearlyTarget: 8, kpiLabel: "All camps" },
+        { moduleSlug: "retention", yearlyValue: 60000_00 },
+        { moduleSlug: "follow-ups", yearlyValue: 40000_00 },
+      ],
+    },
+  ];
+  for (const mp of masterPlanSeeds) {
+    const exists = await prisma.masterPlan.findFirst({ where: { year: planYear, companyId: mp.companyId } });
+    if (!exists) await prisma.masterPlan.create({ data: { year: planYear, ...mp } });
+    else await prisma.masterPlan.update({ where: { id: exists.id }, data: { title: mp.title, vision: mp.vision, targetValue: mp.targetValue, lines: mp.lines } });
+  }
+  // Reverse plan on the group vision: activities expected to achieve the worth.
+  const amId = async (name: string) => (await prisma.activityMaster.findUnique({ where: { name } }))?.id ?? null;
+  const groupMp = await prisma.masterPlan.findFirst({ where: { year: planYear, companyId: null } });
+  if (groupMp) {
+    await prisma.masterPlan.update({
+      where: { id: groupMp.id },
+      data: {
+        activities: [
+          { id: "mp-act-1", activityMasterId: await amId("Eye screening camp"), moduleSlug: "camps", name: "Eye screening camp", count: 24, expectedValue: 480000_00, expectedCost: 192000_00, quarter: null },
+          { id: "mp-act-2", activityMasterId: await amId("Festival lead drive"), moduleSlug: "leads", name: "Festival lead drive", count: 12, expectedValue: 120000_00, expectedCost: 30000_00, quarter: null },
+          { id: "mp-act-3", activityMasterId: await amId("Reactivation call drive"), moduleSlug: "retention", name: "Reactivation call drive", count: 12, expectedValue: 72000_00, expectedCost: 12000_00, quarter: null },
+          { id: "mp-act-4", activityMasterId: await amId("WhatsApp engagement blast"), moduleSlug: "communication", name: "WhatsApp engagement blast", count: 6, expectedValue: 24000_00, expectedCost: 4800_00, quarter: "Q2" },
+          { id: "mp-act-5", activityMasterId: await amId("Referrer CME meet"), moduleSlug: "referrals", name: "Referrer CME meet", count: 4, expectedValue: 32000_00, expectedCost: 12000_00, quarter: null },
+        ],
+      },
+    });
+  }
 
   // --- A campaign ---
   await prisma.campaign.create({

@@ -12,8 +12,9 @@ export const PLAN_STATUSES: PlanStatus[] = ["draft", "active", "closed"];
 export type ActivityStatus = "planned" | "in_progress" | "done";
 
 // ----- Maker-checker-approver -----
-export type PlanRank = "staff" | "supervisor" | "manager";
-export const RANK_ORDER: Record<PlanRank, number> = { staff: 0, supervisor: 1, manager: 2 };
+// read_only = may view plans but cannot enter, verify or approve.
+export type PlanRank = "read_only" | "staff" | "supervisor" | "manager";
+export const RANK_ORDER: Record<PlanRank, number> = { read_only: -1, staff: 0, supervisor: 1, manager: 2 };
 export type ApprovalStatus = "entered" | "verified" | "approved" | "rejected";
 
 export interface Approval {
@@ -35,6 +36,10 @@ export interface ChangeEntry {
   detail?: string | null;
 }
 
+/** Staff and above may enter/edit activities (read_only may not). */
+export function canEnter(rank: PlanRank | undefined | null): boolean {
+  return rank != null && RANK_ORDER[rank] >= RANK_ORDER.staff;
+}
 /** A supervisor (or higher) may verify. */
 export function canVerify(rank: PlanRank | undefined | null): boolean {
   return rank != null && RANK_ORDER[rank] >= RANK_ORDER.supervisor;
@@ -109,6 +114,8 @@ export interface ActivityLine {
   taskId?: string | null;
   /** Set once a draft entity is created from this activity. */
   draftEntityId?: string | null;
+  /** Links back to the master plan's vision activity (variance trail). */
+  masterActivityId?: string | null;
   /** Maker-checker-approver state. */
   approval?: Approval;
   /** Audit of supervisor/manager edits + step transitions. */

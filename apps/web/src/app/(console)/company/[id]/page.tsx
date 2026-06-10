@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { formatINR, isBranchScoped, isCompanyScoped, planProgressPct } from "@prm/core";
-import { requireCan } from "@/lib/session";
+import { requireUser } from "@/lib/session";
+import { canUseTool } from "@/lib/tools";
 import { prisma } from "@/lib/db";
 import { PageHeader, Card, Badge } from "@/components/ui";
 import { DrillStat } from "@/components/drill/DrillStat";
@@ -26,7 +27,8 @@ const TYPE_LABEL: Record<string, string> = {
  */
 export default async function CompanyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const user = await requireCan("dashboards", "view");
+  const user = await requireUser();
+  if (!canUseTool(user, "group", "dashboards")) redirect("/forbidden");
   // A company manager may only open their own company's consolidation; centre-
   // pinned roles have no company-level view.
   if (isCompanyScoped(user.role) && user.companyId && user.companyId !== id) redirect(`/company/${user.companyId}`);

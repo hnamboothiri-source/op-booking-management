@@ -10,6 +10,8 @@ export interface RailModule {
   group: string;
   match: string[];
   links: { label: string; href: string }[];
+  /** Designation page access for this module (hrefs); null/undefined = all pages. */
+  allowedPages?: string[] | null;
 }
 
 export interface UtilityItem {

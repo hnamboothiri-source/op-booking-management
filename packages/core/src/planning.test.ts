@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { planProgressPct, activitiesBudget, activityRollup, approvalRollup, canVerify, canApprove, nextStep, separationOk, scopeCovers } from "./planning";
+import { planProgressPct, activitiesBudget, activityRollup, approvalRollup, canEnter, canVerify, canApprove, nextStep, separationOk, scopeCovers } from "./planning";
 
 describe("planning helpers", () => {
   it("computes progress %", () => {
@@ -19,6 +19,20 @@ describe("planning helpers", () => {
       { title: "d", status: "done" },
     ]);
     expect(r).toEqual({ total: 4, done: 2, inProgress: 1, planned: 1 });
+  });
+});
+
+describe("planning read-only tier", () => {
+  it("read_only can view but not enter/verify/approve", () => {
+    expect(canEnter("read_only")).toBe(false);
+    expect(canVerify("read_only")).toBe(false);
+    expect(canApprove("read_only")).toBe(false);
+  });
+  it("staff and above can enter", () => {
+    expect(canEnter("staff")).toBe(true);
+    expect(canEnter("supervisor")).toBe(true);
+    expect(canEnter("manager")).toBe(true);
+    expect(canEnter(null)).toBe(false);
   });
 });
 

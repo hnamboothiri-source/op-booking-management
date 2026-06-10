@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { rupeesToPaise, branchModuleEnabled, canVerify, canApprove, separationOk, scopeCovers, isBranchScoped, isCompanyScoped, cadencePeriods, type Cadence, type TargetLine, type ActivityLine, type Approval, type ChangeEntry, type PlanStatus } from "@prm/core";
+import { rupeesToPaise, branchModuleEnabled, activityTypeAllowed, rankForModule, canEnter, canVerify, canApprove, separationOk, scopeCovers, isBranchScoped, isCompanyScoped, cadencePeriods, type Cadence, type TargetLine, type ActivityLine, type Approval, type ChangeEntry, type PlanStatus } from "@prm/core";
 import { prisma } from "../db";
 import { requireCan } from "../session";
 import { writeAudit } from "../audit";
@@ -12,6 +12,9 @@ import { buildData } from "../masters/coerce";
 import type { CurrentUser } from "../session";
 
 const nowIso = () => new Date().toISOString();
+
+/** The approval tier that applies for this user in this module (designation override ?? base). */
+const moduleRank = (user: CurrentUser, slug: string) => rankForModule(user.planRank, user.designationModuleRanks, slug);
 const readActivities = (plan: { activities: unknown } | null): ActivityLine[] =>
   Array.isArray(plan?.activities) ? [...(plan!.activities as unknown as ActivityLine[])] : [];
 
@@ -206,7 +209,13 @@ export async function saveActivity(planId: string, fd: FormData): Promise<void> 
   const { user, slug } = await planGuard(planId, "edit");
   const plan = await prisma.modulePlan.findUnique({ where: { id: planId } });
   const list = readActivities(plan);
+  // Per-module approval tier: read-only designations cannot enter activities.
+  if (!canEnter(moduleRank(user, slug))) throw new Error("Your designation is read-only in this module's planning.");
   const typeKey = str(fd, "typeKey");
+  // Designation activity-type rights: the UI filter is not trusted.
+  if (typeKey && !activityTypeAllowed(user.designationActivities, slug, typeKey)) {
+    throw new Error(`Your designation may not plan "${typeKey}" activities in this module.`);
+  }
   const cfg = await getPlanConfig(slug);
   const custom = buildData(cfg.entryFields, fd);
   const approval: Approval = { status: "entered", enteredById: user.id, enteredAt: nowIso() };
@@ -228,9 +237,44 @@ export async function saveActivity(planId: string, fd: FormData): Promise<void> 
   await patchPlan(planId, "plan.activity.enter", { activities: list });
 }
 
+/**
+ * Adopt a vision activity from the master plan into this module plan: creates
+ * an entered ActivityLine pre-filled with the director's count + expected cost,
+ * linked via masterActivityId. The manager may then amend it freely — the
+ * variance report reads master vs amended through the link.
+ */
+export async function adoptMasterActivity(planId: string, masterPlanId: string, rowId: string): Promise<void> {
+  const { user, slug } = await planGuard(planId, "edit");
+  if (!canEnter(moduleRank(user, slug))) throw new Error("Your designation is read-only in this module's planning.");
+  const masterPlan = await prisma.masterPlan.findUnique({ where: { id: masterPlanId } });
+  const visionActs = Array.isArray(masterPlan?.activities) ? (masterPlan!.activities as unknown as { id: string; moduleSlug: string; name: string; count: number; expectedCost: number }[]) : [];
+  const vision = visionActs.find((a) => a.id === rowId);
+  if (!vision) throw new Error("Vision activity not found on the master plan");
+  if (vision.moduleSlug !== slug) throw new Error("That vision activity belongs to another module");
+  const plan = await prisma.modulePlan.findUnique({ where: { id: planId } });
+  const list = readActivities(plan);
+  if (list.some((a) => a.masterActivityId === rowId)) throw new Error("Already adopted into this plan");
+  list.push({
+    title: vision.name,
+    typeKey: null,
+    target: vision.count,
+    ownerId: user.id,
+    dueDate: null,
+    budget: vision.expectedCost,
+    status: "planned",
+    taskId: null,
+    draftEntityId: null,
+    masterActivityId: rowId,
+    approval: { status: "entered", enteredById: user.id, enteredAt: nowIso() },
+    changeLog: [{ at: nowIso(), byId: user.id, byRank: user.planRank, action: "entered", detail: "adopted from master plan" }],
+  });
+  await patchPlan(planId, "plan.activity.adopt", { activities: list });
+}
+
 /** Edit an activity. Records the change and resets approval to `entered`. */
 export async function editActivity(planId: string, index: number, fd: FormData): Promise<void> {
   const { user, slug } = await planGuard(planId, "edit");
+  if (!canEnter(moduleRank(user, slug))) throw new Error("Your designation is read-only in this module's planning.");
   const plan = await prisma.modulePlan.findUnique({ where: { id: planId } });
   const list = readActivities(plan);
   const a = list[index];
@@ -255,12 +299,12 @@ export async function editActivity(planId: string, index: number, fd: FormData):
 
 /** Supervisor verifies (checker step). */
 export async function verifyActivity(planId: string, index: number): Promise<void> {
-  const { user } = await planGuard(planId, "edit");
+  const { user, slug } = await planGuard(planId, "edit");
   const plan = await prisma.modulePlan.findUnique({ where: { id: planId } });
   const list = readActivities(plan);
   const a = list[index];
   if (!a) throw new Error("Activity not found");
-  if (!canVerify(user.planRank)) throw new Error("Only a supervisor or manager can verify.");
+  if (!canVerify(moduleRank(user, slug))) throw new Error("Only a supervisor or manager (in this module) can verify.");
   if (!separationOk("verify", user.id, a.approval ?? { status: "entered" }, user.role === "administrator")) throw new Error("The person who entered an activity cannot verify it.");
   list[index] = {
     ...a,
@@ -272,12 +316,12 @@ export async function verifyActivity(planId: string, index: number): Promise<voi
 
 /** Manager approves (approver step) — unlocks execution. */
 export async function approveActivity(planId: string, index: number): Promise<void> {
-  const { user } = await planGuard(planId, "edit");
+  const { user, slug } = await planGuard(planId, "edit");
   const plan = await prisma.modulePlan.findUnique({ where: { id: planId } });
   const list = readActivities(plan);
   const a = list[index];
   if (!a) throw new Error("Activity not found");
-  if (!canApprove(user.planRank)) throw new Error("Only a manager can approve.");
+  if (!canApprove(moduleRank(user, slug))) throw new Error("Only a manager (in this module) can approve.");
   if (a.approval?.status !== "verified") throw new Error("Activity must be verified before approval.");
   if (!separationOk("approve", user.id, a.approval, user.role === "administrator")) throw new Error("The enterer/verifier cannot approve.");
   list[index] = {
@@ -290,8 +334,8 @@ export async function approveActivity(planId: string, index: number): Promise<vo
 
 /** Send an activity back (rejected → re-entry). */
 export async function rejectActivity(planId: string, index: number, fd: FormData): Promise<void> {
-  const { user } = await planGuard(planId, "edit");
-  if (!canVerify(user.planRank)) throw new Error("Only a supervisor or manager can reject.");
+  const { user, slug } = await planGuard(planId, "edit");
+  if (!canVerify(moduleRank(user, slug))) throw new Error("Only a supervisor or manager (in this module) can reject.");
   const plan = await prisma.modulePlan.findUnique({ where: { id: planId } });
   const list = readActivities(plan);
   const a = list[index];

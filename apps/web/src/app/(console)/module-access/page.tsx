@@ -24,6 +24,7 @@ export default async function ModuleAccess() {
       <div className="mb-4 flex flex-wrap gap-2">
         <Link href="/module-access/managers" className="inline-flex items-center gap-1 rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700">Appoint department managers →</Link>
         <Link href="/module-access/branches" className="inline-flex items-center gap-1 rounded-md border border-rose-300 px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50 dark:text-rose-300">Module allotment by centre →</Link>
+        <Link href="/designations" className="inline-flex items-center gap-1 rounded-md border border-rose-300 px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50 dark:text-rose-300">Designations &amp; hierarchy →</Link>
       </div>
 
       <div className="mb-6 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">

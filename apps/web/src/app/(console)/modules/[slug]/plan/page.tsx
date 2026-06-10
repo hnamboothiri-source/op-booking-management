@@ -7,8 +7,9 @@ import { effectiveCan } from "@/lib/modules/access";
 import { drillCount } from "@/lib/drill/count";
 import { getPlanConfig } from "@/lib/config/actions";
 import {
-  planProgressPct, activitiesBudget, formatINR, canVerify, canApprove, separationOk,
-  cadencePeriods, monthlyBuckets, isBranchScoped, isCompanyScoped, type Cadence,
+  planProgressPct, activitiesBudget, formatINR, canEnter, canVerify, canApprove, separationOk,
+  cadencePeriods, monthlyBuckets, isBranchScoped, isCompanyScoped, activityTypeAllowed, rankForModule,
+  allocationForPeriod, type Cadence, type MasterPlanLine, type MasterPlanActivity,
   type TargetLine, type ActivityLine,
 } from "@prm/core";
 import { activePlan as governingPlan } from "@/lib/planning/gate";
@@ -18,7 +19,7 @@ import { FieldInput } from "@/components/masters/FieldInput";
 import {
   createModulePlan, createPlanForPeriod, updateModulePlan, setPlanStatus, saveBudgetBreakdown,
   saveTarget, removeTarget, saveActivity, removeActivity, setActivityStatus, pushActivityToTask,
-  verifyActivity, approveActivity, rejectActivity, createDraftFromActivity,
+  verifyActivity, approveActivity, rejectActivity, createDraftFromActivity, adoptMasterActivity,
 } from "@/lib/planning/actions";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,9 @@ export default async function ModulePlanPage({ params }: { params: Promise<{ slu
   if (!def) notFound();
   const user = await requireCan(def.resource, "view");
   await assertModuleAllotted(user, slug);
-  const canEdit = effectiveCan(user, def.resource, "edit");
+  // The approval tier that applies in THIS module (designation override ?? base).
+  const effRank = rankForModule(user.planRank, user.designationModuleRanks, slug);
+  const canEdit = effectiveCan(user, def.resource, "edit") && canEnter(effRank);
 
   // Planning scope: centre staff plan for their own centre; company/group users
   // plan for the centre picked in the switcher, else at company/group level.
@@ -62,6 +65,24 @@ export default async function ModulePlanPage({ params }: { params: Promise<{ slu
   // Cadence-driven period options for the current + next year (custom → free-form).
   const thisYear = new Date().getFullYear();
   const periodOptions = cfg.cadence === "custom" ? [] : [...cadencePeriods(cfg.cadence as Cadence, thisYear), ...cadencePeriods(cfg.cadence as Cadence, thisYear + 1)];
+
+  // Master plan (budgetary vision): the department's allocation — company
+  // master plan for the effective company, else the group master plan.
+  const effectiveCompanyId = (scopeBranch?.companyId as string | null) ?? (isCompanyScoped(user.role) ? user.companyId : null);
+  const masterPlans = await prisma.masterPlan.findMany({ where: { year: thisYear } });
+  const masterPlan = (effectiveCompanyId ? masterPlans.find((m) => m.companyId === effectiveCompanyId) : null)
+    ?? masterPlans.find((m) => m.companyId === null)
+    ?? null;
+  const mpLine = masterPlan
+    ? (((masterPlan.lines as unknown as MasterPlanLine[] | null) ?? []).find((l) => l.moduleSlug === slug) ?? null)
+    : null;
+  const mpAllocFor = (period: string | null | undefined) => (mpLine ? allocationForPeriod(mpLine, thisYear, period) : null);
+  // Prefill for the create forms: the first period option's allocation (₹).
+  const mpPrefill = mpLine && periodOptions.length ? mpAllocFor(periodOptions[0].label) : null;
+  // Vision activities for THIS module (reverse plan) + adoption state in the active plan.
+  const visionActivities = masterPlan
+    ? (((masterPlan.activities as unknown as MasterPlanActivity[] | null) ?? []).filter((a) => a.moduleSlug === slug))
+    : [];
   const showMonthlyBudget = cfg.cadence === "yearly" && cfg.monthlyBudget;
   const actualByLabel: Record<string, number> = Object.fromEntries(def.kpis.map((k, i) => [k.label, kpiActuals[i]]));
   const active = plans.find((p) => p.status === "active") ?? plans[0] ?? null;
@@ -77,6 +98,41 @@ export default async function ModulePlanPage({ params }: { params: Promise<{ slu
         {!scopeBranch && !isBranchScoped(user.role) && <span className="text-xs text-slate-400">Pick a centre in the header switcher to plan for one centre.</span>}
       </div>
 
+      {mpLine && (
+        <div className="mb-4 rounded-md border border-gold-300 bg-gold-100/40 px-3 py-2 text-xs text-slate-700">
+          <Link href="/master-plan" className="font-semibold text-rose-800 hover:underline">Master plan {thisYear}</Link>
+          {": this department's allocation is "}
+          <b>{formatINR(mpLine.yearlyValue)}</b> for the year
+          {periodOptions.length > 0 && mpAllocFor(periodOptions[0].label) != null && <> · <b>{formatINR(mpAllocFor(periodOptions[0].label)!)}</b> for {periodOptions[0].label}</>}
+          {mpLine.yearlyTarget != null && mpLine.kpiLabel && <> · target {mpLine.yearlyTarget} {mpLine.kpiLabel.toLowerCase()}</>}
+          {masterPlan?.vision && <span className="text-slate-500"> — “{String(masterPlan.vision).slice(0, 110)}{String(masterPlan.vision).length > 110 ? "…" : ""}”</span>}
+          {active && mpAllocFor(active.period) != null && (
+            <span className="ml-1 font-medium">· this plan: master {formatINR(mpAllocFor(active.period)!)} / planned {formatINR(active.plannedBudget)} ({planProgressPct(active.plannedBudget, mpAllocFor(active.period)!)}%)</span>
+          )}
+          {visionActivities.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-gold-300/50 pt-2">
+              <span className="font-semibold">Vision activities:</span>
+              {visionActivities.map((va) => {
+                const adopted = active
+                  ? (((active.activities as ActivityLine[] | null) ?? []).some((a) => a.masterActivityId === va.id))
+                  : false;
+                return (
+                  <span key={va.id} className="inline-flex items-center gap-1.5 rounded-full border border-gold-300 bg-white/60 px-2 py-0.5">
+                    {va.name} × {va.count} ({formatINR(va.expectedCost)})
+                    {adopted
+                      ? <Badge tone="green">adopted</Badge>
+                      : active && canEdit && masterPlan
+                        ? <form action={adoptMasterActivity.bind(null, active.id, masterPlan.id, va.id)}><button className="rounded border border-rose-300 px-1.5 py-0.5 text-[11px] text-rose-700 hover:bg-rose-50">Adopt</button></form>
+                        : <Badge tone="amber">pending</Badge>}
+                  </span>
+                );
+              })}
+              <span className="text-slate-400">— adopt, then amend count/cost as you see fit; variance is tracked.</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {!active ? (
         <Card accent>
           {governing && (
@@ -91,7 +147,7 @@ export default async function ModulePlanPage({ params }: { params: Promise<{ slu
                 <label className={lab}>Title<input name="title" placeholder={`${def.name} plan`} className={input} /></label>
                 <label className={lab}>Period<select name="periodKey" className={input}>{periodOptions.map((p) => <option key={p.label} value={p.label}>{p.label}</option>)}</select></label>
                 <label className={`${lab} sm:col-span-2`}>Objective<input name="objective" placeholder="What this period aims to achieve" className={input} /></label>
-                <label className={lab}>Budget (₹)<input type="number" step="0.01" name="plannedBudget" className={input} /></label>
+                <label className={lab}>Budget (₹)<input type="number" step="0.01" name="plannedBudget" defaultValue={mpPrefill != null ? mpPrefill / 100 : undefined} className={input} /></label>
                 <div className="sm:col-span-4"><SubmitButton>Create plan</SubmitButton></div>
                 <p className={`${lab} sm:col-span-4 text-slate-400`}>Periods follow the <b>{cfg.cadence.replace("_", "-")}</b> cadence (set under Configure).</p>
               </form>
@@ -102,7 +158,7 @@ export default async function ModulePlanPage({ params }: { params: Promise<{ slu
                 <label className={lab}>From<input type="date" name="periodStart" className={input} /></label>
                 <label className={lab}>To<input type="date" name="periodEnd" className={input} /></label>
                 <label className={`${lab} sm:col-span-3`}>Objective<input name="objective" placeholder="What this period aims to achieve" className={input} /></label>
-                <label className={lab}>Budget (₹)<input type="number" step="0.01" name="plannedBudget" className={input} /></label>
+                <label className={lab}>Budget (₹)<input type="number" step="0.01" name="plannedBudget" defaultValue={mpPrefill != null ? mpPrefill / 100 : undefined} className={input} /></label>
                 <div className="sm:col-span-4"><SubmitButton>Create plan</SubmitButton></div>
               </form>
             )
@@ -206,7 +262,7 @@ export default async function ModulePlanPage({ params }: { params: Promise<{ slu
           <Card>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-semibold">Activities</h2>
-              <span className="text-sm text-slate-500">Planned budget {formatINR(activitiesBudget((active.activities as ActivityLine[] | null) ?? []))} · your rank: {user.planRank}</span>
+              <span className="text-sm text-slate-500">Planned budget {formatINR(activitiesBudget((active.activities as ActivityLine[] | null) ?? []))} · your rank here: {effRank.replace("_", " ")}{user.designation ? ` · ${user.designation.name} — authorised by ${user.designation.approverName ?? "reporting officer"}` : ""}</span>
             </div>
             <div className="space-y-2">
               {((active.activities as ActivityLine[] | null) ?? []).length === 0 && <p className="text-sm text-slate-400">No activities planned.</p>}
@@ -226,9 +282,9 @@ export default async function ModulePlanPage({ params }: { params: Promise<{ slu
                       </span>
                       {canEdit && (
                         <span className="flex flex-wrap items-center gap-1">
-                          {ap.status === "entered" && canVerify(user.planRank) && separationOk("verify", user.id, ap, isAdmin) && <form action={verifyActivity.bind(null, active.id, i)}><button className="rounded border border-blue-200 px-2 py-0.5 text-xs text-blue-700 hover:bg-blue-50">Verify</button></form>}
-                          {ap.status === "verified" && canApprove(user.planRank) && separationOk("approve", user.id, ap, isAdmin) && <form action={approveActivity.bind(null, active.id, i)}><button className="rounded border border-emerald-300 px-2 py-0.5 text-xs text-emerald-700 hover:bg-emerald-50">Approve</button></form>}
-                          {(ap.status === "entered" || ap.status === "verified") && canVerify(user.planRank) && <form action={rejectActivity.bind(null, active.id, i)}><button className="rounded border border-red-200 px-2 py-0.5 text-xs text-red-700 hover:bg-red-50">Reject</button></form>}
+                          {ap.status === "entered" && canVerify(effRank) && separationOk("verify", user.id, ap, isAdmin) && <form action={verifyActivity.bind(null, active.id, i)}><button className="rounded border border-blue-200 px-2 py-0.5 text-xs text-blue-700 hover:bg-blue-50">Verify</button></form>}
+                          {ap.status === "verified" && canApprove(effRank) && separationOk("approve", user.id, ap, isAdmin) && <form action={approveActivity.bind(null, active.id, i)}><button className="rounded border border-emerald-300 px-2 py-0.5 text-xs text-emerald-700 hover:bg-emerald-50">Approve</button></form>}
+                          {(ap.status === "entered" || ap.status === "verified") && canVerify(effRank) && <form action={rejectActivity.bind(null, active.id, i)}><button className="rounded border border-red-200 px-2 py-0.5 text-xs text-red-700 hover:bg-red-50">Reject</button></form>}
                           {ap.status === "approved" && type?.createHref && (type.draft
                             ? <form action={createDraftFromActivity.bind(null, active.id, i)}><button className="rounded border border-rose-300 px-2 py-0.5 text-xs text-rose-700 hover:bg-rose-50">Create draft →</button></form>
                             : <Link href={`${type.createHref}?planRef=${active.id}:${i}`} className="rounded border border-rose-300 px-2 py-0.5 text-xs text-rose-700 hover:bg-rose-50">Do now →</Link>)}
@@ -261,7 +317,7 @@ export default async function ModulePlanPage({ params }: { params: Promise<{ slu
             </div>
             {canEdit && (
               <form action={saveActivity.bind(null, active.id)} className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-6">
-                <select name="typeKey" className={input}><option value="">Free-form…</option>{planActivityTypes(slug).map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}</select>
+                <select name="typeKey" className={input}><option value="">Free-form…</option>{planActivityTypes(slug).filter((t) => activityTypeAllowed(user.designationActivities, slug, t.key)).map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}</select>
                 <input name="title" placeholder="Title (optional for typed)" className={`${input} sm:col-span-2`} />
                 <input name="target" type="number" placeholder="Target" className={input} />
                 <select name="ownerId" className={input}><option value="">Owner…</option>{staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
@@ -300,7 +356,7 @@ export default async function ModulePlanPage({ params }: { params: Promise<{ slu
                     <label className={lab}>Title<input name="title" className={input} /></label>
                     <label className={lab}>Period<select name="periodKey" className={input}>{periodOptions.map((p) => <option key={p.label} value={p.label}>{p.label}</option>)}</select></label>
                     <label className={`${lab} sm:col-span-2`}>Objective<input name="objective" className={input} /></label>
-                    <label className={lab}>Budget (₹)<input type="number" step="0.01" name="plannedBudget" className={input} /></label>
+                    <label className={lab}>Budget (₹)<input type="number" step="0.01" name="plannedBudget" defaultValue={mpPrefill != null ? mpPrefill / 100 : undefined} className={input} /></label>
                     <div className="sm:col-span-4"><SubmitButton>Create plan</SubmitButton></div>
                   </form>
                 ) : (
@@ -310,7 +366,7 @@ export default async function ModulePlanPage({ params }: { params: Promise<{ slu
                     <label className={lab}>From<input type="date" name="periodStart" className={input} /></label>
                     <label className={lab}>To<input type="date" name="periodEnd" className={input} /></label>
                     <label className={`${lab} sm:col-span-3`}>Objective<input name="objective" className={input} /></label>
-                    <label className={lab}>Budget (₹)<input type="number" step="0.01" name="plannedBudget" className={input} /></label>
+                    <label className={lab}>Budget (₹)<input type="number" step="0.01" name="plannedBudget" defaultValue={mpPrefill != null ? mpPrefill / 100 : undefined} className={input} /></label>
                     <div className="sm:col-span-4"><SubmitButton>Create plan</SubmitButton></div>
                   </form>
                 )}

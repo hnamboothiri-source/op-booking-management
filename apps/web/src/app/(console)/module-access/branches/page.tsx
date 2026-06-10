@@ -31,9 +31,11 @@ export default async function BranchModules() {
     <div>
       <PageHeader title="Module allotment by centre" subtitle="Allot the modules each hospital / OP centre runs — centre staff see only what their centre is allotted" />
 
-      <div className="mb-4 flex gap-4 text-sm">
+      <div className="mb-4 flex flex-wrap gap-4 text-sm">
         <Link href="/module-access" className="text-rose-700 hover:underline dark:text-rose-300">← Module access by role</Link>
         <Link href="/module-access/managers" className="text-rose-700 hover:underline dark:text-rose-300">Department managers →</Link>
+        <Link href="/masters/branches/new" className="text-rose-700 hover:underline dark:text-rose-300">＋ New centre</Link>
+        <Link href="/masters/departments/new" className="text-rose-700 hover:underline dark:text-rose-300">＋ New department</Link>
       </div>
 
       <div className="space-y-6">

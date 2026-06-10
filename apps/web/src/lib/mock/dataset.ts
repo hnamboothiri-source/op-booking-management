@@ -134,20 +134,47 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     { id: "tpl-thr", name: "therapy_reminder", channel: "whatsapp", body: "Hi {{first_name}}, your therapy session is scheduled. Please arrive 15 minutes early.", active: true },
   ];
 
+  // --- Designations (per-company catalogues; group-level rows have companyId null) ---
+  // roleTemplate = RBAC base; planRank = approval tier; moduleSlugs empty = role default;
+  // pageAccess { [moduleSlug]: hrefs } limits pages within a module (empty/missing = all).
+  const designations: Row[] = [
+    { id: "des-group-head", name: "Group Head / Directors", companyId: null, level: 1, roleTemplate: "management", planRank: "manager", moduleSlugs: [], pageAccess: null, reportsToDesignationId: null, approverDesignationId: null, active: true },
+    // SAEC — full set
+    { id: "des-saec-ceo", name: "Executive Director / CEO", companyId: "co-saec", level: 2, roleTemplate: "company_manager", planRank: "manager", moduleSlugs: [], pageAccess: null, tools: ["master-plan", "group", "analytics", "reports"], reportsToDesignationId: "des-group-head", approverDesignationId: null, active: true },
+    { id: "des-saec-prdh", name: "Patient Relations Dept Head", companyId: "co-saec", level: 3, roleTemplate: "patient_success_executive", planRank: "manager", moduleSlugs: [], pageAccess: null, tools: ["master-plan", "reports"], reportsToDesignationId: "des-saec-ceo", approverDesignationId: null, active: true },
+    { id: "des-saec-smpr", name: "Senior Manager – Public Relations", companyId: "co-saec", level: 4, roleTemplate: "marketing_team", planRank: "manager", moduleSlugs: [], pageAccess: null, reportsToDesignationId: "des-saec-prdh", approverDesignationId: null, active: true },
+    { id: "des-saec-mpr", name: "Manager – Patient Relations", companyId: "co-saec", level: 5, roleTemplate: "patient_success_executive", planRank: "supervisor", moduleSlugs: [], pageAccess: null, moduleRanks: { communication: "read_only" }, reportsToDesignationId: "des-saec-prdh", approverDesignationId: "des-saec-prdh", active: true },
+    { id: "des-saec-mcc", name: "Manager – Call Center", companyId: "co-saec", level: 5, roleTemplate: "call_center_manager", planRank: "supervisor", moduleSlugs: [], pageAccess: null, reportsToDesignationId: "des-saec-prdh", approverDesignationId: null, active: true },
+    { id: "des-saec-ampr", name: "Asst Manager – Public Relations", companyId: "co-saec", level: 6, roleTemplate: "marketing_team", planRank: "supervisor", moduleSlugs: [], pageAccess: null, reportsToDesignationId: "des-saec-smpr", approverDesignationId: null, active: true },
+    { id: "des-saec-pro", name: "Patient Relations Officer", companyId: "co-saec", level: 6, roleTemplate: "patient_success_executive", planRank: "staff", moduleSlugs: [], pageAccess: null, reportsToDesignationId: "des-saec-mpr", approverDesignationId: null, active: true },
+    { id: "des-saec-pre", name: "Patient Relations Executive", companyId: "co-saec", level: 7, roleTemplate: "patient_success_executive", planRank: "staff", moduleSlugs: ["follow-ups", "retention", "communication", "patients"], pageAccess: { retention: ["/retention/worklist", "/modules/retention/reports"] }, activityTypes: { "follow-ups": ["followup_drive"], retention: ["reactivation_drive"] }, reportsToDesignationId: "des-saec-pro", approverDesignationId: "des-saec-mpr", active: true },
+    { id: "des-saec-pue", name: "Public Relations Executive", companyId: "co-saec", level: 7, roleTemplate: "marketing_team", planRank: "staff", moduleSlugs: [], pageAccess: null, reportsToDesignationId: "des-saec-ampr", approverDesignationId: null, active: true },
+    // SAEH — trimmed starter set (admin adds more from /designations)
+    { id: "des-saeh-ceo", name: "Executive Director / CEO", companyId: "co-saeh", level: 2, roleTemplate: "company_manager", planRank: "manager", moduleSlugs: [], pageAccess: null, tools: ["master-plan", "group", "analytics", "reports"], reportsToDesignationId: "des-group-head", approverDesignationId: null, active: true },
+    { id: "des-saeh-prdh", name: "Patient Relations Dept Head", companyId: "co-saeh", level: 3, roleTemplate: "patient_success_executive", planRank: "manager", moduleSlugs: [], pageAccess: null, reportsToDesignationId: "des-saeh-ceo", approverDesignationId: null, active: true },
+    { id: "des-saeh-mcc", name: "Manager – Call Center", companyId: "co-saeh", level: 5, roleTemplate: "call_center_manager", planRank: "supervisor", moduleSlugs: [], pageAccess: null, reportsToDesignationId: "des-saeh-prdh", approverDesignationId: null, active: true },
+    { id: "des-saeh-pro", name: "Patient Relations Officer", companyId: "co-saeh", level: 6, roleTemplate: "patient_success_executive", planRank: "staff", moduleSlugs: [], pageAccess: null, reportsToDesignationId: "des-saeh-mcc", approverDesignationId: null, active: true },
+  ];
+
   // --- Staff ---
   const staffUsers: Row[] = [
     { id: "stf-admin", name: "Admin User", email: "admin@sreedhareeyam.test", role: "administrator", branchId: branches[0].id, companyId: "co-saeh", active: true, managedModules: [], planRank: "manager" },
     { id: "stf-callexec", name: "Call Exec", email: "callexec@sreedhareeyam.test", role: "call_center_executive", branchId: branches[0].id, companyId: "co-saeh", active: true, managedModules: [], planRank: "staff" },
     { id: "stf-front", name: "Front Desk", email: "front@sreedhareeyam.test", role: "front_office", branchId: branches[0].id, companyId: "co-saeh", active: true, managedModules: [], planRank: "staff" },
     { id: "stf-menon", name: "Dr. Menon", email: "menon@sreedhareeyam.test", role: "doctor", branchId: branches[0].id, companyId: "co-saeh", active: true, managedModules: [], planRank: "staff" },
-    { id: "stf-superv", name: "Suma (Supervisor)", email: "supervisor@sreedhareeyam.test", role: "call_center_manager", branchId: branches[0].id, companyId: "co-saeh", active: true, managedModules: [], planRank: "supervisor" },
+    { id: "stf-superv", name: "Suma (Supervisor)", email: "supervisor@sreedhareeyam.test", role: "call_center_manager", branchId: branches[0].id, companyId: "co-saeh", designationId: "des-saeh-mcc", active: true, managedModules: [], planRank: "supervisor" },
     // Department managers (Module Workspaces): confined to the modules they own.
     { id: "stf-clinmgr", name: "Dr. Priya (Clinical Mgr)", email: "clinical.manager@sreedhareeyam.test", role: "module_manager", branchId: branches[0].id, companyId: "co-saeh", active: true, managedModules: ["consultations", "follow-ups", "conversion"], planRank: "manager" },
     { id: "stf-outmgr", name: "Rahul (Outreach Mgr)", email: "outreach.manager@sreedhareeyam.test", role: "module_manager", branchId: branches[0].id, companyId: "co-saeh", active: true, managedModules: ["camps", "mobile-clinics"], planRank: "manager" },
     // Org-scope logins: company managers (whole company) and a centre-pinned branch manager.
-    { id: "stf-saehmgr", name: "Devi (SAEH Company Mgr)", email: "saeh.manager@sreedhareeyam.test", role: "company_manager", branchId: null, companyId: "co-saeh", active: true, managedModules: [], planRank: "manager" },
-    { id: "stf-saecmgr", name: "Hari (SAEC Company Mgr)", email: "saec.manager@sreedhareeyam.test", role: "company_manager", branchId: null, companyId: "co-saec", active: true, managedModules: [], planRank: "manager" },
+    { id: "stf-saehmgr", name: "Devi (SAEH Company Mgr)", email: "saeh.manager@sreedhareeyam.test", role: "company_manager", branchId: null, companyId: "co-saeh", designationId: "des-saeh-ceo", active: true, managedModules: [], planRank: "manager" },
+    { id: "stf-saecmgr", name: "Hari (SAEC Company Mgr)", email: "saec.manager@sreedhareeyam.test", role: "company_manager", branchId: null, companyId: "co-saec", designationId: "des-saec-ceo", active: true, managedModules: [], planRank: "manager" },
     { id: "stf-chembr", name: "Lakshmi (Chennai Centre Mgr)", email: "chennai.manager@sreedhareeyam.test", role: "branch_manager", branchId: "br-che", companyId: "co-saec", active: true, managedModules: [], planRank: "supervisor" },
+    // Designation-hierarchy demo staff (maker → checker → approver chain in SAEC patient relations).
+    { id: "stf-grouphead", name: "Adv. Mohan (Group Director)", email: "group.director@sreedhareeyam.test", role: "management", branchId: null, companyId: null, designationId: "des-group-head", active: true, managedModules: [], planRank: "manager" },
+    { id: "stf-prhead", name: "Dr. Kavitha (PR Dept Head)", email: "pr.head@sreedhareeyam.test", role: "patient_success_executive", branchId: null, companyId: "co-saec", designationId: "des-saec-prdh", active: true, managedModules: [], planRank: "staff" },
+    { id: "stf-prmgr", name: "Anitha (Mgr – Patient Relations)", email: "pr.manager@sreedhareeyam.test", role: "patient_success_executive", branchId: "br-koc", companyId: "co-saec", designationId: "des-saec-mpr", active: true, managedModules: [], planRank: "staff" },
+    { id: "stf-prexec", name: "Vimal (Patient Relations Exec)", email: "pr.exec@sreedhareeyam.test", role: "patient_success_executive", branchId: "br-koc", companyId: "co-saec", designationId: "des-saec-pre", active: true, managedModules: [], planRank: "staff" },
   ];
 
   // --- Patients ---
@@ -746,7 +773,8 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
       { kpiLabel: "New leads", label: "New leads", target: 200, unit: "" },
       { kpiLabel: "Converted", label: "Converted", target: 30, unit: "" },
     ]),
-    mkPlan("camps", "Outreach Camps — Q3", [appr("conduct_camp", "Conduct 6 camps", 6)], 12000000, [{ kpiLabel: "All camps", label: "Camps", target: 6, unit: "" }]),
+    // Camps plan adopts the vision's camp activity (amended: 6 camps at ₹60,000 vs master 24 @ ₹1,92,000 total) — feeds the variance report.
+    mkPlan("camps", "Outreach Camps — Q3", [{ ...appr("conduct_camp", "Conduct 6 camps", 6), budget: 60000_00, masterActivityId: "mp-act-1", draftEntityId: "cmp-1" }], 12000000, [{ kpiLabel: "All camps", label: "Camps", target: 6, unit: "" }]),
     mkPlan("mobile-clinics", "Mobile Routes — Q3", [appr("run_route", "Run 4 routes", 4)], 3000000),
     mkPlan("campaigns", "Campaigns — Q3", [appr("launch_campaign", "Launch 3 campaigns", 3)], 8000000),
     mkPlan("appointments", "Clinics — Q3", [appr("doctor_schedule", "Doctor schedules", 10)]),
@@ -772,6 +800,59 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     mkPlan("camps", "Ernakulam — Camps Q3", [appr("conduct_camp", "Conduct 2 district camps", 2)], 3000000, [
       { kpiLabel: "All camps", label: "Camps", target: 2, unit: "" },
     ], { branchId: "br-koc", companyId: "co-saec" }),
+  ];
+
+  // ---- Activity catalogue (reverse planning): per-unit expected return + cost ----
+  const activityMasters: Row[] = [
+    { id: "am-camp", name: "Eye screening camp", moduleSlug: "camps", expectedValue: 20000_00, expectedCost: 8000_00, description: "One-day community screening camp", active: true, createdAt: day(-50) },
+    { id: "am-mobile", name: "Mobile clinic route", moduleSlug: "mobile-clinics", expectedValue: 12000_00, expectedCost: 5000_00, description: "One van route day", active: true, createdAt: day(-50) },
+    { id: "am-leaddrive", name: "Festival lead drive", moduleSlug: "leads", expectedValue: 10000_00, expectedCost: 2500_00, description: "Seasonal lead-generation push", active: true, createdAt: day(-50) },
+    { id: "am-react", name: "Reactivation call drive", moduleSlug: "retention", expectedValue: 6000_00, expectedCost: 1000_00, description: "Dormant-patient call drive", active: true, createdAt: day(-50) },
+    { id: "am-blast", name: "WhatsApp engagement blast", moduleSlug: "communication", expectedValue: 4000_00, expectedCost: 800_00, description: "Broadcast to consented patients", active: true, createdAt: day(-50) },
+    { id: "am-cme", name: "Referrer CME meet", moduleSlug: "referrals", expectedValue: 8000_00, expectedCost: 3000_00, description: "CME evening for referring doctors", active: true, createdAt: day(-50) },
+  ];
+
+  // ---- Master plans: the budgetary vision statements (group + per company) ----
+  const planYear = today.getUTCFullYear();
+  const masterPlans: Row[] = [
+    {
+      id: "mp-group", year: planYear, companyId: null,
+      targetValue: 1570000_00, // the targeted figure entered first; lines below allot it fully
+      title: `Sreedhareeyam Group — Vision ${planYear}`,
+      vision: "Grow the group's patient-relations business with dignified Ayurvedic care: every department plans from this vision, every centre owns its share, and follow-through is measured quarter by quarter.",
+      ownerId: "stf-grouphead",
+      lines: [
+        { moduleSlug: "leads", yearlyValue: 200000_00, yearlyTarget: 800, kpiLabel: "New leads", quarters: { q1: 40000_00, q2: 50000_00, q3: 50000_00, q4: 60000_00 }, note: "Festival quarters heavier" },
+        { moduleSlug: "appointments", yearlyValue: 150000_00, yearlyTarget: null, kpiLabel: null, quarters: null },
+        { moduleSlug: "consultations", yearlyValue: 300000_00, yearlyTarget: null, kpiLabel: null, quarters: null },
+        { moduleSlug: "camps", yearlyValue: 480000_00, yearlyTarget: 24, kpiLabel: "All camps", quarters: { q1: 90000_00, q2: 110000_00, q3: 120000_00, q4: 160000_00 } },
+        { moduleSlug: "retention", yearlyValue: 120000_00, yearlyTarget: null, kpiLabel: null, quarters: null },
+        { moduleSlug: "campaigns", yearlyValue: 320000_00, yearlyTarget: null, kpiLabel: null, quarters: null },
+      ],
+      // Reverse plan: the activities expected to achieve the worth.
+      activities: [
+        { id: "mp-act-1", activityMasterId: "am-camp", moduleSlug: "camps", name: "Eye screening camp", count: 24, expectedValue: 480000_00, expectedCost: 192000_00, quarter: null },
+        { id: "mp-act-2", activityMasterId: "am-leaddrive", moduleSlug: "leads", name: "Festival lead drive", count: 12, expectedValue: 120000_00, expectedCost: 30000_00, quarter: null },
+        { id: "mp-act-3", activityMasterId: "am-react", moduleSlug: "retention", name: "Reactivation call drive", count: 12, expectedValue: 72000_00, expectedCost: 12000_00, quarter: null },
+        { id: "mp-act-4", activityMasterId: "am-blast", moduleSlug: "communication", name: "WhatsApp engagement blast", count: 6, expectedValue: 24000_00, expectedCost: 4800_00, quarter: "Q2" },
+        { id: "mp-act-5", activityMasterId: "am-cme", moduleSlug: "referrals", name: "Referrer CME meet", count: 4, expectedValue: 32000_00, expectedCost: 12000_00, quarter: null },
+      ],
+      createdAt: day(-40), updatedAt: day(-5),
+    },
+    {
+      id: "mp-saec", year: planYear, companyId: "co-saec",
+      targetValue: 300000_00,
+      title: `SAEC — Vision ${planYear}`,
+      vision: "Each hospital and OP centre is a cost centre: plan your share of the network's growth in leads, outreach and retention.",
+      ownerId: "stf-saecmgr",
+      lines: [
+        { moduleSlug: "leads", yearlyValue: 80000_00, yearlyTarget: 320, kpiLabel: "New leads", quarters: null },
+        { moduleSlug: "camps", yearlyValue: 120000_00, yearlyTarget: 8, kpiLabel: "All camps", quarters: null },
+        { moduleSlug: "retention", yearlyValue: 60000_00, yearlyTarget: null, kpiLabel: null, quarters: null },
+        { moduleSlug: "follow-ups", yearlyValue: 40000_00, yearlyTarget: null, kpiLabel: null, quarters: null },
+      ],
+      createdAt: day(-35), updatedAt: day(-3),
+    },
   ];
 
   // ---- Module configuration: per-module masters, custom records, plan configs ----
@@ -865,7 +946,7 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
   const store: Record<string, Row[]> = {
     moduleMaster: moduleMasters, customRecord: customRecords, planConfig: planConfigs,
     medicationCourse: medicationCourses, medicationReminder: medicationReminders, therapyPlan: therapyPlans, therapySession: therapySessions,
-    company: companies, branch: branches, department: departments, doctor: doctors, consultationRoom: consultationRooms,
+    company: companies, branch: branches, designation: designations, department: departments, doctor: doctors, consultationRoom: consultationRooms,
     staffUser: staffUsers, leadSourceMaster: leadSources, diseaseMaster: diseases, serviceMaster: services,
     referralSourceMaster: referralSources, admissionPackageMaster: admissionPackages, followUpTypeMaster: followUpTypes,
     taskTypeMaster: taskTypes, reasonMaster: reasons, communicationTemplate: communicationTemplates,
@@ -880,7 +961,7 @@ function buildStore(): { store: Record<string, Row[]>; counters: Record<string, 
     appointmentStatusHistory, appointmentReminder: appointmentReminders, doctorLeave: doctorLeaves,
     doctorSchedule: doctorSchedules, timeSlot: timeSlots,
     marketingChannelMaster: marketingChannels, channelSeasonalOffer: channelSeasonalOffers,
-    callChecklistItem: callChecklistItems, modulePlan: modulePlans,
+    callChecklistItem: callChecklistItems, modulePlan: modulePlans, masterPlan: masterPlans, activityMaster: activityMasters,
   };
   return { store, counters: {} };
 }

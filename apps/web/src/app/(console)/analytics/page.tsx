@@ -1,4 +1,6 @@
-import { requireCan } from "@/lib/session";
+import { requireUser } from "@/lib/session";
+import { canUseTool } from "@/lib/tools";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { recomputeKpis } from "@/lib/analytics/actions";
 import { computeCampaignKpis } from "@/lib/campaigns/metrics";
@@ -12,7 +14,7 @@ export const dynamic = "force-dynamic";
 const money = (p: number | null) => (p === null ? "—" : `₹${(p / 100).toLocaleString("en-IN")}`);
 
 export default async function Analytics() {
-  await requireCan("dashboards", "view");
+  { const u = await requireUser(); if (!canUseTool(u, "analytics", "dashboards")) redirect("/forbidden"); }
 
   const [branches, doctors, campaigns, retention, lastRollup] = await Promise.all([
     prisma.branch.findMany({ where: { active: true } }),

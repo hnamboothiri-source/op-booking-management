@@ -36,10 +36,10 @@ export async function getRow(key: string, id: string): Promise<Record<string, un
 }
 
 /** Options for a foreign-key `ref` field. */
-export async function refOptions(ref: "branch" | "department" | "marketingChannel"): Promise<{ value: string; label: string }[]> {
+export async function refOptions(ref: "branch" | "department" | "marketingChannel" | "company"): Promise<{ value: string; label: string }[]> {
   const model = ref === "marketingChannel" ? "marketingChannelMaster" : ref;
   const rows = await delegate(model).findMany({ where: { active: true }, orderBy: { name: "asc" } });
-  return rows.map((r) => ({ value: String(r.id), label: String(r.name) }));
+  return rows.map((r) => ({ value: String(r.id), label: String((r as { shortName?: string | null }).shortName ?? r.name) }));
 }
 
 export async function createRow(key: string, fd: FormData): Promise<void> {

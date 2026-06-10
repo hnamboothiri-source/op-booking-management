@@ -16,7 +16,7 @@ export interface FieldDef {
   type: FieldType;
   required?: boolean;
   options?: { value: string; label: string }[]; // for `select`
-  ref?: "branch" | "department" | "marketingChannel"; // for `ref`
+  ref?: "branch" | "department" | "marketingChannel" | "company"; // for `ref`
 }
 
 export interface MasterDef {
@@ -40,14 +40,16 @@ const opts = (...vals: string[]) => vals.map((v) => ({ value: v, label: v.replac
 
 export const MASTERS: MasterDef[] = [
   {
-    key: "branches", label: "Branch", model: "branch",
+    key: "branches", label: "Centre (Branch)", model: "branch",
     fields: [
       { name: "name", label: "Name", type: "text", required: true },
       { name: "code", label: "Code", type: "text" },
       { name: "location", label: "Location", type: "text" },
+      { name: "companyId", label: "Company", type: "ref", ref: "company", required: true },
+      { name: "type", label: "Centre type", type: "select", options: opts("hospital", "op_centre", "flagship_hospital") },
       { name: "active", label: "Active", type: "boolean" },
     ],
-    listColumns: ["name", "code", "location", "active"],
+    listColumns: ["name", "code", "location", "type", "active"],
   },
   {
     key: "departments", label: "Department", model: "department",

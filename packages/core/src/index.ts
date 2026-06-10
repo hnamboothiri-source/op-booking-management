@@ -25,3 +25,5 @@ export * from "./followup";
 export * from "./retention";
 export * from "./flow";
 export * from "./finance";
+export * from "./designation";
+export * from "./masterplan";

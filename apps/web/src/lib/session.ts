@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { isBranchScoped, isCompanyScoped, type Action, type Resource, type RoleName, type PlanRank } from "@prm/core";
+import { isBranchScoped, isCompanyScoped, effectiveIdentity, approverOf, type Action, type Resource, type RoleName, type PlanRank, type DesignationNode, type PageAccess, type ActivityAccess, type ModuleRanks } from "@prm/core";
 import { store } from "./mock/dataset";
 import { effectiveCan } from "./modules/access";
 
@@ -29,6 +29,18 @@ export interface CurrentUser {
   managedModules: string[];
   /** Maker-checker-approver tier. */
   planRank: PlanRank;
+  /** Job title (designation) the session derives from, when assigned. */
+  designation: { id: string; name: string; level: number; approverName: string | null } | null;
+  /** Designation's module access (null = role default). */
+  designationModules: string[] | null;
+  /** Designation's page-level access within modules (null = unrestricted). */
+  designationPages: PageAccess | null;
+  /** Plan activity types the designation may perform per module (null = unrestricted). */
+  designationActivities: ActivityAccess | null;
+  /** Per-module approval overrides (null = planRank applies everywhere). */
+  designationModuleRanks: ModuleRanks | null;
+  /** Admin-granted tool keys (null = role default). */
+  designationTools: string[] | null;
 }
 
 /**
@@ -47,16 +59,34 @@ function companyOfBranch(branchId: string | null): string | null {
 
 function toUser(staff: Record<string, unknown>): CurrentUser {
   const branchId = (staff.branchId as string) ?? null;
+  // Designation-driven identity: an active designation supplies the RBAC role
+  // template, approval rank and module/page access (administrators excepted).
+  const all = (store.designation ?? []) as unknown as DesignationNode[];
+  const designation = staff.designationId ? all.find((d) => d.id === staff.designationId) ?? null : null;
+  const identity = effectiveIdentity(
+    staff.role as RoleName,
+    (staff.planRank as PlanRank) ?? rankForRole(staff.role as RoleName),
+    designation,
+  );
+  const applied = designation && designation.active && (staff.role as RoleName) !== "administrator" ? designation : null;
   return {
     id: staff.id as string,
     name: staff.name as string,
     email: staff.email as string,
-    role: staff.role as RoleName,
+    role: identity.role,
     branchId,
     companyId: (staff.companyId as string) ?? companyOfBranch(branchId),
     activeBranchId: branchId,
     managedModules: (staff.managedModules as string[]) ?? [],
-    planRank: (staff.planRank as PlanRank) ?? rankForRole(staff.role as RoleName),
+    planRank: identity.planRank,
+    designation: applied
+      ? { id: applied.id, name: applied.name, level: applied.level, approverName: approverOf(all, applied.id)?.name ?? null }
+      : null,
+    designationModules: identity.moduleSlugs,
+    designationPages: identity.pageAccess,
+    designationActivities: identity.activityTypes,
+    designationModuleRanks: identity.moduleRanks,
+    designationTools: identity.tools,
   };
 }
 
@@ -64,7 +94,7 @@ function mockUserForRole(role: RoleName): CurrentUser {
   const staff = (store.staffUser ?? []).find((s) => s.role === role);
   if (staff) return toUser(staff);
   const title = role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  return { id: `mock-${role}`, name: title, email: `${role}@demo.test`, role, branchId: null, companyId: null, activeBranchId: null, managedModules: [], planRank: rankForRole(role) };
+  return { id: `mock-${role}`, name: title, email: `${role}@demo.test`, role, branchId: null, companyId: null, activeBranchId: null, managedModules: [], planRank: rankForRole(role), designation: null, designationModules: null, designationPages: null, designationActivities: null, designationModuleRanks: null, designationTools: null };
 }
 
 function mockUserById(id: string): CurrentUser | null {

@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { requireCan } from "@/lib/session";
+import { requireUser } from "@/lib/session";
+import { canUseTool } from "@/lib/tools";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui";
 import { DrillCount } from "@/components/drill/DrillCount";
@@ -35,7 +37,7 @@ function Table({ title, rows }: { title: string; rows: ReportRow[] }) {
 }
 
 export default async function Reports() {
-  await requireCan("reports", "view");
+  { const u = await requireUser(); if (!canUseTool(u, "reports", "reports")) redirect("/forbidden"); }
 
   const [byDoctor, byOutcome, byDisease, admissionByStatus, apptByStatus, leadBySource, doctors, diseases, sources] = await Promise.all([
     prisma.consultation.groupBy({ by: ["doctorId"], _count: { _all: true } }),

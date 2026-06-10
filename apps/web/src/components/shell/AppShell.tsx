@@ -9,9 +9,11 @@ import { DrillProvider } from "@/components/drill/DrillProvider";
 import { NavIcon, type IconName } from "./NavIcon";
 import { DepartmentRail, type RailModule, type UtilityItem } from "./DepartmentRail";
 import { CentreSwitcher, type CentreGroup } from "./CentreSwitcher";
+import { ModuleTabBar, type ModuleTabBarData } from "./ModuleTabBar";
 
 export type { RailModule, UtilityItem } from "./DepartmentRail";
 export type { CentreGroup } from "./CentreSwitcher";
+export type { ModuleTabBarData } from "./ModuleTabBar";
 
 const GROUP_ORDER = ["Overview", "Engagement", "Clinical", "Outreach", "Growth", "Workflow", "Admin"];
 
@@ -41,7 +43,10 @@ function SideLink({ href, label, icon, active, onNavigate }: { href: string; lab
   );
 }
 
-/** The secondary sidebar: a module's workspace, or (at home) the department list. */
+/**
+ * The secondary sidebar: ALWAYS the department list (module details only) —
+ * a module's own pages live in the ModuleTabBar at the top of its pages.
+ */
 function SecondaryNav({
   modules,
   utilities,
@@ -53,38 +58,7 @@ function SecondaryNav({
   pathname: string;
   onNavigate?: () => void;
 }) {
-  const slug = activeModuleSlug(pathname, modules);
-  const mod = slug ? modules.find((m) => m.slug === slug) ?? null : null;
-
-  if (mod) {
-    const items = [
-      { href: `/modules/${mod.slug}`, label: "Dashboard", icon: "dashboard" as IconName },
-      { href: `/modules/${mod.slug}/guide`, label: "Guide", icon: "queue" as IconName },
-      { href: `/modules/${mod.slug}/plan`, label: "Plan", icon: "target" as IconName },
-      ...mod.links.map((l) => ({ href: l.href, label: l.label, icon: undefined })),
-      { href: `/modules/${mod.slug}/masters`, label: "Masters", icon: "sliders" as IconName },
-      { href: `/modules/${mod.slug}/configure`, label: "Configure", icon: "shield" as IconName },
-      { href: `/modules/${mod.slug}/reports`, label: "Reports", icon: "report" as IconName },
-    ];
-    return (
-      <div className="flex h-full flex-col">
-        <div className="border-b border-white/10 px-4 py-4">
-          <Link href="/" onClick={onNavigate} className="mb-2 inline-flex items-center gap-1 text-xs text-rose-200/80 hover:text-gold-300">← All departments</Link>
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-gold-300"><NavIcon name={mod.icon} /></span>
-            <div className="text-sm font-bold leading-tight text-rose-50">{mod.name}</div>
-          </div>
-        </div>
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-          {items.map((i) => (
-            <SideLink key={i.href} href={i.href} label={i.label} icon={i.icon} active={i.href === `/modules/${mod.slug}` ? pathname === i.href : matchesPrefix(pathname, i.href)} onNavigate={onNavigate} />
-          ))}
-        </nav>
-      </div>
-    );
-  }
-
-  // Home / consolidation: list departments grouped by domain + utilities.
+  const activeSlug = activeModuleSlug(pathname, modules);
   const groups = GROUP_ORDER.filter((g) => modules.some((m) => m.group === g));
   return (
     <div className="flex h-full flex-col">
@@ -99,7 +73,7 @@ function SecondaryNav({
             <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-rose-200/60">{group}</div>
             <div className="space-y-0.5">
               {modules.filter((m) => m.group === group).map((m) => (
-                <SideLink key={m.slug} href={`/modules/${m.slug}`} label={m.name} icon={m.icon} active={false} onNavigate={onNavigate} />
+                <SideLink key={m.slug} href={`/modules/${m.slug}`} label={m.name} icon={m.icon} active={m.slug === activeSlug} onNavigate={onNavigate} />
               ))}
             </div>
           </div>
@@ -126,6 +100,7 @@ export function AppShell({
   todayLabel,
   centreGroups = [],
   activeBranchId = null,
+  moduleTab = null,
   children,
 }: {
   modules: RailModule[];
@@ -134,6 +109,7 @@ export function AppShell({
   todayLabel: string;
   centreGroups?: CentreGroup[];
   activeBranchId?: string | null;
+  moduleTab?: ModuleTabBarData | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -199,6 +175,7 @@ export function AppShell({
         </header>
 
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          {moduleTab && <ModuleTabBar data={moduleTab} />}
           <DrillProvider>{children}</DrillProvider>
         </main>
       </div>

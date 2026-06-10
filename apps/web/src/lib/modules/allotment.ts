@@ -16,17 +16,23 @@ export function effectiveBranchId(user: CurrentUser): string | null {
 }
 
 /**
- * Module slugs the user's effective centre runs, or null when no filter
- * applies: administrators (never self-locked out of admin UIs), users with no
- * effective centre ("All centres"), or a centre with an empty list (= all).
+ * Module slugs the user may see: the intersection of the effective centre's
+ * allotment and the user's designation module list. Null = no filter
+ * (administrators are always unfiltered; either list being absent defers to
+ * the other). An empty intersection is a visible misconfiguration on purpose.
  */
 export async function allowedModuleSlugsFor(user: CurrentUser): Promise<string[] | null> {
   if (user.role === "administrator") return null;
   const branchId = effectiveBranchId(user);
-  if (!branchId) return null;
-  const branch = await prisma.branch.findUnique({ where: { id: branchId } });
-  const list = (branch?.enabledModules as string[] | undefined) ?? [];
-  return list.length ? list : null;
+  let centreList: string[] | null = null;
+  if (branchId) {
+    const branch = await prisma.branch.findUnique({ where: { id: branchId } });
+    const list = (branch?.enabledModules as string[] | undefined) ?? [];
+    centreList = list.length ? list : null;
+  }
+  if (!centreList) return user.designationModules;
+  if (!user.designationModules) return centreList;
+  return centreList.filter((s) => user.designationModules!.includes(s));
 }
 
 /** Page guard: bounce home when the module isn't allotted at the user's centre (navigational, not a permission breach). */

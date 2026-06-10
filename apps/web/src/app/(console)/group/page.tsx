@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { formatINR, isBranchScoped, isCompanyScoped } from "@prm/core";
-import { requireCan } from "@/lib/session";
+import { requireUser } from "@/lib/session";
+import { canUseTool } from "@/lib/tools";
 import { PageHeader, Card, Badge } from "@/components/ui";
 import { DrillStat } from "@/components/drill/DrillStat";
 import { BarChartCard } from "@/components/charts/BarChartCard";
@@ -48,7 +49,8 @@ function CompanyMonitorRows({ name, counts, centres }: {
  * union of every company's centres, the same sets the company pages use.
  */
 export default async function GroupPage() {
-  const user = await requireCan("dashboards", "view");
+  const user = await requireUser();
+  if (!canUseTool(user, "group", "dashboards")) redirect("/forbidden");
   // Company managers consolidate at their company, not the group; centre-pinned
   // roles have no org-level view at all.
   if (isCompanyScoped(user.role) && user.companyId) redirect(`/company/${user.companyId}`);
