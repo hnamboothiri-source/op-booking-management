@@ -80,7 +80,7 @@ export async function ModuleDashboard({ def, user }: { def: ModuleDef; user: Cur
 
       <PlanBanner def={def} />
 
-      <FlowMap steps={flow} variant="compact" />
+      <FlowMap steps={flow.steps} readiness={flow.readiness} variant="compact" />
 
       {def.kpis.length > 0 && (
         <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">

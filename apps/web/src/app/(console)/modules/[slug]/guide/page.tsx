@@ -15,7 +15,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
   const def = getModuleBySlug(slug);
   if (!def) notFound();
   const user = await requireCan(def.resource, "view");
-  const resolved = await resolveFlow(def, await getModuleFlow(slug), user);
+  const { steps: resolved, readiness } = await resolveFlow(def, await getModuleFlow(slug), user);
 
   return (
     <div>
@@ -26,7 +26,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
       </div>
 
       {resolved.length > 0
-        ? <FlowMap steps={resolved} variant="full" />
+        ? <FlowMap steps={resolved} readiness={readiness} variant="full" />
         : <Card><p className="text-sm text-slate-500">No flow defined for this module yet.</p></Card>}
     </div>
   );

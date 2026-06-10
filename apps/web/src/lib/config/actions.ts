@@ -9,7 +9,7 @@ import { writeAudit } from "../audit";
 import type { FieldDef, FieldType } from "../masters/registry";
 import { MODULE_FLOWS, getModuleBySlug, moduleFlowHrefs, FLOW_ICONS, type FlowStep } from "../modules/registry";
 import type { IconName } from "@/components/shell/NavIcon";
-import type { Cadence } from "@prm/core";
+import { FLOW_PHASES, type Cadence, type FlowPhase } from "@prm/core";
 
 export interface PlanConfigShape {
   moduleSlug: string;
@@ -150,6 +150,8 @@ function buildFlowStep(slug: string, fd: FormData): FlowStep | null {
   if (kpiRaw && def?.kpis.some((k) => k.label === kpiRaw)) step.kpiLabel = kpiRaw;     // must be a real KPI
   if (hrefRaw && moduleFlowHrefs(slug).some((h) => h.href === hrefRaw)) step.href = hrefRaw; // must be an allowed href
   if (iconRaw && FLOW_ICONS.includes(iconRaw)) step.icon = iconRaw;
+  const phaseRaw = fd.get("phase")?.toString().trim();
+  if (phaseRaw && (FLOW_PHASES as readonly string[]).includes(phaseRaw)) step.phase = phaseRaw as FlowPhase;
   return step;
 }
 

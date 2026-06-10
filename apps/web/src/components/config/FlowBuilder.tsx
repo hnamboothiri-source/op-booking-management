@@ -5,6 +5,7 @@
  * sourced from the module's own KPIs + link hrefs so steps stay safe.
  */
 import { Card, SubmitButton, Badge } from "@/components/ui";
+import { FLOW_PHASES, FLOW_PHASE_LABELS, FLOW_PHASE_TONE } from "@prm/core";
 import { moduleFlowHrefs, FLOW_ICONS, type ModuleDef, type FlowStep } from "@/lib/modules/registry";
 
 const input = "mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm";
@@ -29,6 +30,12 @@ function StepFields({ def, step }: { def: ModuleDef; step?: FlowStep }) {
         </select>
       </label>
       <label className={lab}>Button label<input name="actionLabel" defaultValue={step?.actionLabel ?? ""} placeholder="Open →" className={input} /></label>
+      <label className={lab}>Phase
+        <select name="phase" defaultValue={step?.phase ?? ""} className={input}>
+          <option value="">— none (flat) —</option>
+          {FLOW_PHASES.map((p) => <option key={p} value={p}>{FLOW_PHASE_LABELS[p]}</option>)}
+        </select>
+      </label>
       <label className={lab}>Icon
         <select name="icon" defaultValue={step?.icon ?? ""} className={input}>
           <option value="">— none —</option>
@@ -80,6 +87,7 @@ export function FlowBuilder({
               <span className="text-sm">
                 <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-[11px] font-bold text-white">{i + 1}</span>
                 <span className="font-medium">{s.title}</span>
+                {s.phase && <span className="ml-2"><Badge tone={FLOW_PHASE_TONE[s.phase]}>{FLOW_PHASE_LABELS[s.phase]}</Badge></span>}
                 {s.kpiLabel && <span className="ml-2 text-xs text-rose-600">· {s.kpiLabel}</span>}
                 {s.href && <span className="ml-2 text-xs text-slate-400">→ {s.href}</span>}
               </span>

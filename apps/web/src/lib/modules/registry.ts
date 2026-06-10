@@ -5,7 +5,7 @@
  * workspace links are lifted from the existing dashboard overviews so there's a
  * single source of truth.
  */
-import type { DrillEntity, DrillFilters, Resource, Action } from "@prm/core";
+import type { DrillEntity, DrillFilters, Resource, Action, FlowPhase } from "@prm/core";
 import type { IconName } from "@/components/shell/NavIcon";
 
 export interface ModuleKpi {
@@ -31,6 +31,8 @@ export interface FlowStep {
   /** Button text (defaults to "Open →"). */
   actionLabel?: string;
   icon?: IconName;
+  /** Optional phase grouping — planning | implementation | result. When unset, the flow renders flat (back-compat). */
+  phase?: FlowPhase;
 }
 export interface ModuleDef {
   id: string; // "M1"
@@ -358,12 +360,18 @@ export function gatedActivityKey(slug: string): string | undefined {
  */
 export const MODULE_FLOWS: Record<string, FlowStep[]> = {
   leads: [
-    { title: "Start: capture a lead", description: "Log an enquiry with duplicate detection.", href: "/leads/new", actionLabel: "New lead", icon: "leads" },
-    { title: "Triage unassigned", description: "Assign incoming leads to an executive.", kpiLabel: "Unassigned", href: "/leads", actionLabel: "Open leads", icon: "queue" },
-    { title: "Prioritize hot leads", description: "Work the highest-propensity leads first.", kpiLabel: "Hot leads", href: "/prioritize", actionLabel: "Prioritize", icon: "target" },
-    { title: "Call the new leads", description: "Work the call queue by priority.", kpiLabel: "New leads", href: "/call-center", actionLabel: "Call centre", icon: "headset" },
-    { title: "Clear callbacks", description: "Pending callbacks & due follow-ups.", kpiLabel: "Pending callbacks", href: "/follow-ups", actionLabel: "Follow-ups", icon: "bell" },
-    { title: "Result: conversions", description: "Leads booked or converted to patients.", kpiLabel: "Converted", href: "/reports/leads", actionLabel: "Lead report", icon: "chart" },
+    // ── PLANNING ── nothing is captured until a lead-gen drive is planned & approved.
+    { phase: "planning", title: "Set lead-gen targets & budget", description: "Define the monthly lead target + budget on the module plan.", href: "/modules/leads/plan", actionLabel: "Open plan", icon: "report" },
+    { phase: "planning", title: "Plan outreach campaigns", description: "Area → audience → channels & reach → expected 24h leads.", href: "/campaigns", actionLabel: "Campaigns", icon: "megaphone" },
+    { phase: "planning", title: "Approve the drive", description: "Maker → checker → approver. Capture stays locked until approved.", href: "/modules/leads/plan", actionLabel: "Approve", icon: "shield" },
+    // ── IMPLEMENTATION ── gated on an approved drive (createLead enforces it).
+    { phase: "implementation", title: "Capture leads", description: "Log enquiries with duplicate detection.", kpiLabel: "New leads", href: "/leads/new", actionLabel: "New lead", icon: "leads" },
+    { phase: "implementation", title: "Triage & assign", description: "Assign incoming leads to an executive.", kpiLabel: "Unassigned", href: "/leads", actionLabel: "Open leads", icon: "queue" },
+    { phase: "implementation", title: "Prioritize hot leads", description: "Work the highest-propensity leads first.", kpiLabel: "Hot leads", href: "/prioritize", actionLabel: "Prioritize", icon: "target" },
+    { phase: "implementation", title: "Call the leads", description: "Work the call queue by priority.", kpiLabel: "Pending callbacks", href: "/call-center", actionLabel: "Call centre", icon: "headset" },
+    { phase: "implementation", title: "Clear follow-ups", description: "Due / overdue follow-ups & callbacks.", kpiLabel: "Due follow-ups", href: "/follow-ups", actionLabel: "Follow-ups", icon: "bell" },
+    // ── RESULT ──
+    { phase: "result", title: "Conversions & ROI", description: "Leads booked or converted to patients, funnel & source ROI.", kpiLabel: "Converted", href: "/reports/leads", actionLabel: "Lead report", icon: "chart" },
   ],
   "call-center": [
     { title: "Start: open the console", description: "Tabbed work console + executive funnel.", href: "/call-center", actionLabel: "Console", icon: "headset" },
@@ -457,7 +465,7 @@ export const MODULE_FLOWS: Record<string, FlowStep[]> = {
 export const FLOW_ICONS: IconName[] = [
   "leads", "headset", "phone", "target", "calendar", "hourglass", "queue", "stethoscope",
   "bed", "patients", "bell", "referral", "tent", "truck", "message", "building", "megaphone",
-  "heart", "tasks", "chart", "report",
+  "heart", "tasks", "chart", "report", "sliders", "shield",
 ];
 
 /** Resolve the ModuleKpi a flow step references (by label), if any. */
@@ -471,5 +479,8 @@ export function moduleFlowHrefs(slug: string): { href: string; label: string }[]
   if (!def) return [];
   const out = def.links.map((l) => ({ href: l.href, label: l.label }));
   for (const a of planActivityTypes(slug)) if (a.createHref && !out.some((o) => o.href === a.createHref)) out.push({ href: a.createHref, label: a.label });
+  // The module's own Plan page is always a valid flow target (used by planning-phase steps).
+  const planHref = `/modules/${slug}/plan`;
+  if (!out.some((o) => o.href === planHref)) out.push({ href: planHref, label: "Plan & approve" });
   return out;
 }
