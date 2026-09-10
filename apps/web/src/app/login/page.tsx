@@ -1,4 +1,5 @@
 import { loginWithPassword, loginAsStaff } from "@/lib/auth-actions";
+import { ensureCoreSync } from "@/lib/core-sync";
 import { store } from "@/lib/mock/dataset";
 import { getModuleBySlug } from "@/lib/modules/registry";
 import { DottedAccent } from "@/components/DottedAccent";
@@ -66,6 +67,7 @@ function orgLogins() {
 }
 
 export default async function LoginPage() {
+  await ensureCoreSync(); // hydrate central staff before building the login lists
   const managers = managerLogins();
   const orgUsers = orgLogins();
   const designationUsers = designationLogins();

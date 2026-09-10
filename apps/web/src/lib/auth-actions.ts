@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { store } from "./mock/dataset";
+import { ensureCoreSync } from "./core-sync";
 import { setSession, setSessionUser, setActiveBranchCookie, clearSession } from "./session";
 
 /**
@@ -11,6 +12,7 @@ import { setSession, setSessionUser, setActiveBranchCookie, clearSession } from 
  * cookie and enter the app.
  */
 export async function loginWithPassword(fd: FormData): Promise<void> {
+  await ensureCoreSync(); // central staff must be present before the email lookup
   let role = fd.get("role")?.toString().trim();
   if (!role) {
     const email = fd.get("email")?.toString().trim().toLowerCase();
@@ -24,6 +26,7 @@ export async function loginWithPassword(fd: FormData): Promise<void> {
 /** PROTOTYPE login as a specific staff member (used for department managers so
  * their owned-module scope demos correctly). */
 export async function loginAsStaff(fd: FormData): Promise<void> {
+  await ensureCoreSync();
   const staffId = fd.get("staffId")?.toString().trim();
   const staff = staffId ? (store.staffUser ?? []).find((s) => s.id === staffId) : null;
   if (!staff) {
